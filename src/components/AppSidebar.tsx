@@ -3,9 +3,9 @@ import {
   Settings,
   Plus,
   Calendar,
-  
   BookOpen,
   BarChart3,
+  Route,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { MakoFinMark } from "@/components/MakoFinMark";
@@ -25,6 +25,7 @@ import {
 const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: BarChart3 },
   { title: "Productions", url: "/containers", icon: LayoutGrid },
+  { title: "Routes", url: "/routes", icon: Route },
   { title: "Calendar", url: "/calendar", icon: Calendar },
   { title: "Wiki", url: "/wiki", icon: BookOpen },
 ];
