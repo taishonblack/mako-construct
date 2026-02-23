@@ -17,7 +17,7 @@ export function AssemblySection() {
       {/* Subtle grid background */}
       <div className="absolute inset-0 grid-lines opacity-30" />
 
-      <div className="relative max-w-6xl mx-auto px-6">
+      <div className="relative w-full px-8 md:px-16 lg:px-24">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
