@@ -64,7 +64,7 @@ export default function BinderDetail() {
       if (data.partner !== storeRecord.partner) changes.push(`Partner updated: ${storeRecord.partner} → ${data.partner}`);
       if (data.isoCount !== storeRecord.isoCount) changes.push(`ISO Count updated: ${storeRecord.isoCount} → ${data.isoCount} (signals regenerated)`);
       if (data.venue !== storeRecord.venue) changes.push(`Venue updated: ${storeRecord.venue} → ${data.venue}`);
-      if (data.league !== storeRecord.league) changes.push(`League updated: ${storeRecord.league} → ${data.league}`);
+      // League is always NHL in V1
       if (data.showType !== storeRecord.showType) changes.push(`Show Type updated: ${storeRecord.showType} → ${data.showType}`);
       if (data.status !== storeRecord.status) changes.push(`Status updated: ${storeRecord.status} → ${data.status}`);
       if (data.returnRequired !== storeRecord.returnRequired) changes.push(`Return Feed updated: ${storeRecord.returnRequired ? "Required" : "Not Required"} → ${data.returnRequired ? "Required" : "Not Required"}`);
@@ -72,7 +72,7 @@ export default function BinderDetail() {
 
     binderStore.update(binderId, {
       title: data.title,
-      league: data.league,
+      league: "NHL",
       venue: data.venue,
       showType: data.showType === "Other" ? data.customShowType || "Other" : data.showType,
       partner: data.partner,
@@ -104,7 +104,7 @@ export default function BinderDetail() {
       autoAllocate: data.autoAllocate,
     });
 
-    update("league", data.league);
+    update("league", "NHL");
     update("partner", data.partner);
     update("venue", data.venue);
     update("showType", data.showType === "Other" ? data.customShowType || "Other" : data.showType);
@@ -159,12 +159,12 @@ export default function BinderDetail() {
       />
 
       <div className="max-w-6xl mx-auto px-6 py-6 space-y-8">
-        <Link
+      <Link
           to="/containers"
           className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="w-3 h-3" />
-          Containers
+          Productions
         </Link>
 
         <CommandBrief
@@ -219,7 +219,7 @@ export default function BinderDetail() {
         oldIsoCount={state.isoCount}
         initial={{
           title: binder.title,
-          league: storeRecord?.league || state.league,
+          league: "NHL",
           containerId: storeRecord?.containerId || "",
           eventDate: state.eventDate,
           eventTime: state.eventTime || "19:00",

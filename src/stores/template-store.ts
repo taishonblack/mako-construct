@@ -25,6 +25,8 @@ export interface BinderTemplate {
     decoderCount?: number;
     autoAllocate?: boolean;
     timezone?: string;
+    gameType?: string;
+    season?: string;
     // Comms defaults
     commsDefaults?: boolean;
     // Checklist defaults

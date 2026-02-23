@@ -24,7 +24,7 @@ import {
 
 const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: BarChart3 },
-  { title: "Containers", url: "/containers", icon: LayoutGrid },
+  { title: "Productions", url: "/containers", icon: LayoutGrid },
   { title: "Calendar", url: "/calendar", icon: Calendar },
   { title: "Wiki", url: "/wiki", icon: BookOpen },
 ];
@@ -50,7 +50,7 @@ export function AppSidebar() {
             className="flex items-center gap-2 px-3 py-2.5 text-xs font-medium tracking-wide uppercase text-primary-foreground bg-primary rounded-md hover:glow-red transition-all duration-200"
           >
             <Plus className="w-3.5 h-3.5" />
-            New Binder
+            New Production
           </Link>
         </div>
 

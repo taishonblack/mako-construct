@@ -12,7 +12,7 @@ import type { SignalNamingMode } from "@/data/mock-signals";
 export default function CreateBinderPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const preselectedLeague = searchParams.get("league") || "";
+    const _searchParams = searchParams;
 
   const [open, setOpen] = useState(true);
 
@@ -20,7 +20,7 @@ export default function CreateBinderPage() {
     // Create binder record in store
     const record = binderStore.create({
       title: data.title,
-      league: data.league,
+      league: "NHL",
       containerId: data.containerId,
       eventDate: data.eventDate,
       venue: data.venue,
@@ -53,6 +53,8 @@ export default function CreateBinderPage() {
       decoderOutputsPerUnit: data.decoderOutputsPerUnit,
       decoderCount: data.decoderCount,
       autoAllocate: data.autoAllocate,
+      gameType: data.gameType || "Regular Season",
+      season: data.season || "2025–26",
     });
 
     // Generate signals based on naming mode
@@ -88,7 +90,7 @@ export default function CreateBinderPage() {
 
     // Initialize binder state in localStorage
     const binderState = {
-      league: data.league,
+      league: "NHL",
       partner: data.partner,
       venue: data.venue,
       showType: data.showType === "Other" ? data.customShowType || "Other" : data.showType,
@@ -169,10 +171,10 @@ export default function CreateBinderPage() {
           className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-4"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
-          Containers
+          Productions
         </Link>
-        <h1 className="text-xl font-medium text-foreground tracking-tight">New Binder</h1>
-        <p className="text-sm text-muted-foreground mt-1">Configure a new production binder</p>
+        <h1 className="text-xl font-medium text-foreground tracking-tight">New Production</h1>
+        <p className="text-sm text-muted-foreground mt-1">Configure a new NHL production binder</p>
       </motion.div>
 
       <BinderFormModal
@@ -180,7 +182,6 @@ export default function CreateBinderPage() {
         onClose={handleClose}
         onSubmit={handleCreate}
         mode="create"
-        initial={preselectedLeague ? { league: preselectedLeague } : undefined}
       />
     </div>
   );

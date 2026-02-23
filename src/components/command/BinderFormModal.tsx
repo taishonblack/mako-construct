@@ -9,7 +9,13 @@ import type { BinderStatus } from "@/stores/binder-store";
 import { templateStore, type BinderTemplate } from "@/stores/template-store";
 import { CANONICAL_SIGNAL_NAMES } from "@/data/mock-signals";
 
-const LEAGUES = ["NBA", "NFL", "NHL", "MLS", "NCAA", "Other"];
+const NHL_TEAMS = [
+  "ANA", "ARI", "BOS", "BUF", "CGY", "CAR", "CHI", "COL", "CBJ", "DAL",
+  "DET", "EDM", "FLA", "LAK", "MIN", "MTL", "NSH", "NJD", "NYI", "NYR",
+  "OTT", "PHI", "PIT", "SJS", "SEA", "STL", "TBL", "TOR", "VAN", "VGK",
+  "WPG", "WSH",
+];
+const GAME_TYPES = ["Regular Season", "Playoffs", "Stadium Series", "Winter Classic", "Preseason"];
 const SHOW_TYPES = ["Standard", "Alt Language", "Animated", "Remote Call", "Studio Alt", "Other"];
 const PARTNERS = ["ESPN", "WBD", "RSN", "SportsNet", "HBO Max", "Apple TV", "FOX Sports", "TNT Sports", "ABC", "Other"];
 const STATUSES: BinderStatus[] = ["draft", "active", "completed", "archived"];
@@ -26,6 +32,7 @@ const TIMEZONES = [
   { value: "Pacific/Honolulu", label: "HT (Hawaii)" },
   { value: "Europe/London", label: "GMT (London)" },
 ];
+const SEASONS = ["2025–26", "2026–27", "2024–25"];
 
 // --- Built-in templates ---
 interface BuiltInTemplate {
@@ -81,6 +88,8 @@ export interface BinderFormData {
   title: string;
   league: string;
   containerId: string;
+  gameType: string;
+  season: string;
   eventDate: string;
   eventTime: string;
   timezone: string;
@@ -167,7 +176,8 @@ const inputClass = "w-full text-sm bg-secondary border border-border rounded-sm 
 const selectClass = "w-full text-sm bg-secondary border border-border rounded-sm px-3 py-2 text-foreground focus:outline-none focus:border-crimson transition-colors appearance-none";
 
 const DEFAULT_FORM: BinderFormData = {
-  title: "", league: "NBA", containerId: "",
+  title: "", league: "NHL", containerId: "",
+  gameType: "Regular Season", season: "2025–26",
   eventDate: new Date().toISOString().split("T")[0],
   eventTime: "19:00", timezone: "America/New_York",
   venue: "", homeTeam: "", awayTeam: "",
@@ -259,8 +269,10 @@ export function BinderFormModal({ open, onClose, onSubmit, onDelete, initial, mo
     // Save as template if checked
     if (form.saveAsTemplate && form.templateName.trim()) {
       templateStore.create(form.templateName.trim(), {
-        league: form.league,
+        league: "NHL",
         showType: form.showType,
+        gameType: form.gameType,
+        season: form.season,
         customShowType: form.customShowType,
         siteType: form.siteType,
         partner: form.partner,
@@ -290,7 +302,7 @@ export function BinderFormModal({ open, onClose, onSubmit, onDelete, initial, mo
 
   // Auto-generate event title suggestion
   const suggestedTitle = form.awayTeam && form.homeTeam
-    ? `${form.awayTeam} @ ${form.homeTeam} — ${form.showType === "Other" ? form.customShowType || "Show" : form.showType}`
+    ? `${form.awayTeam} @ ${form.homeTeam} — ${form.showType === "Other" ? form.customShowType || "Production" : form.showType}`
     : "";
 
   return (
@@ -313,11 +325,11 @@ export function BinderFormModal({ open, onClose, onSubmit, onDelete, initial, mo
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <div>
-                <h2 className="text-sm font-medium text-foreground">
-                  {mode === "create" ? "Create Binder" : "Edit Binder"}
+              <h2 className="text-sm font-medium text-foreground">
+                  {mode === "create" ? "New Production Binder" : "Edit Production Binder"}
                 </h2>
                 <p className="text-[10px] text-muted-foreground mt-0.5">
-                  {mode === "create" ? "Configure a new production binder" : "Update binder configuration"}
+                  {mode === "create" ? "Configure a new NHL production binder" : "Update production configuration"}
                 </p>
               </div>
               <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
@@ -367,28 +379,37 @@ export function BinderFormModal({ open, onClose, onSubmit, onDelete, initial, mo
                 </div>
               )}
 
-              {/* ═══ REQUIRED ═══ */}
-              <SectionHeader label="Required" variant="required" />
+              {/* ═══ GAME CONTEXT (NHL) ═══ */}
+              <SectionHeader label="Game Context (NHL)" variant="required" />
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField label="Event Title" required>
-                  <input type="text" value={form.title} onChange={(e) => set("title", e.target.value)}
-                    placeholder="e.g. NBA Finals Game 3" className={inputClass} />
-                  {suggestedTitle && !form.title && (
-                    <button onClick={() => set("title", suggestedTitle)}
-                      className="text-[10px] text-crimson hover:text-foreground mt-1 transition-colors">
-                      Use: {suggestedTitle}
-                    </button>
-                  )}
-                </FormField>
-
-                <FormField label="League" required>
-                  <select value={form.league} onChange={(e) => set("league", e.target.value)} className={selectClass}>
-                    {LEAGUES.map((l) => <option key={l} value={l}>{l}</option>)}
+                <FormField label="Away Team" required>
+                  <select value={form.awayTeam} onChange={(e) => set("awayTeam", e.target.value)} className={selectClass}>
+                    <option value="">Select team…</option>
+                    {NHL_TEAMS.map((t) => <option key={t} value={t}>{t}</option>)}
                   </select>
                 </FormField>
 
-                <FormField label="Event Date" required>
+                <FormField label="Home Team" required>
+                  <select value={form.homeTeam} onChange={(e) => set("homeTeam", e.target.value)} className={selectClass}>
+                    <option value="">Select team…</option>
+                    {NHL_TEAMS.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </FormField>
+
+                <FormField label="Game Type" required>
+                  <select value={form.gameType} onChange={(e) => set("gameType", e.target.value)} className={selectClass}>
+                    {GAME_TYPES.map((g) => <option key={g} value={g}>{g}</option>)}
+                  </select>
+                </FormField>
+
+                <FormField label="Season">
+                  <select value={form.season} onChange={(e) => set("season", e.target.value)} className={selectClass}>
+                    {SEASONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </FormField>
+
+                <FormField label="Game Date" required>
                   <Popover open={dateOpen} onOpenChange={setDateOpen}>
                     <PopoverTrigger asChild>
                       <button className={cn(inputClass, "text-left")}>
@@ -405,7 +426,7 @@ export function BinderFormModal({ open, onClose, onSubmit, onDelete, initial, mo
                 </FormField>
 
                 <div className="grid grid-cols-2 gap-2">
-                  <FormField label="Event Time" required>
+                  <FormField label="Game Time" required>
                     <input type="time" value={form.eventTime} onChange={(e) => set("eventTime", e.target.value)} className={cn(inputClass, "font-mono")} />
                   </FormField>
                   <FormField label="Timezone" required>
@@ -417,7 +438,7 @@ export function BinderFormModal({ open, onClose, onSubmit, onDelete, initial, mo
 
                 <FormField label="Venue" required>
                   <input type="text" value={form.venue} onChange={(e) => set("venue", e.target.value)}
-                    placeholder="e.g. Chase Center, San Francisco" className={inputClass} />
+                    placeholder="e.g. Madison Square Garden" className={inputClass} />
                 </FormField>
 
                 <FormField label="Site Type">
@@ -433,14 +454,15 @@ export function BinderFormModal({ open, onClose, onSubmit, onDelete, initial, mo
                   </FormField>
                 )}
 
-                <FormField label="Home Team" required>
-                  <input type="text" value={form.homeTeam} onChange={(e) => set("homeTeam", e.target.value)}
-                    placeholder="e.g. Warriors" className={inputClass} />
-                </FormField>
-
-                <FormField label="Away Team" required>
-                  <input type="text" value={form.awayTeam} onChange={(e) => set("awayTeam", e.target.value)}
-                    placeholder="e.g. Celtics" className={inputClass} />
+                <FormField label="Production Title" required>
+                  <input type="text" value={form.title} onChange={(e) => set("title", e.target.value)}
+                    placeholder="e.g. NYR @ BOS — Standard" className={inputClass} />
+                  {suggestedTitle && !form.title && (
+                    <button onClick={() => set("title", suggestedTitle)}
+                      className="text-[10px] text-crimson hover:text-foreground mt-1 transition-colors">
+                      Use: {suggestedTitle}
+                    </button>
+                  )}
                 </FormField>
               </div>
 
@@ -793,7 +815,7 @@ export function BinderFormModal({ open, onClose, onSubmit, onDelete, initial, mo
               <button onClick={handleSubmit}
                 disabled={!form.title.trim() || !form.venue.trim()}
                 className="px-5 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-sm hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-                {mode === "create" ? "Create Binder" : "Save Changes"}
+                {mode === "create" ? "Create Production" : "Save Changes"}
               </button>
             </div>
           </motion.div>

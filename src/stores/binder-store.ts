@@ -10,7 +10,6 @@ export interface BinderRecord extends MockBinder {
   primaryTransport: string;
   backupTransport: string;
   notes: string;
-  // New fields
   eventTime: string;
   timezone: string;
   homeTeam: string;
@@ -29,6 +28,8 @@ export interface BinderRecord extends MockBinder {
   decoderOutputsPerUnit: number;
   decoderCount: number;
   autoAllocate: boolean;
+  gameType: string;
+  season: string;
 }
 
 export type { BinderStatus };
@@ -38,7 +39,7 @@ const STORE_KEY = "mako-binder-records";
 function seedFromMock(): BinderRecord[] {
   return mockBinders.map((b) => ({
     ...b,
-    league: inferLeague(b.title),
+    league: "NHL",
     containerId: "",
     showType: "Standard",
     returnRequired: false,
@@ -64,16 +65,14 @@ function seedFromMock(): BinderRecord[] {
     decoderOutputsPerUnit: 4,
     decoderCount: 6,
     autoAllocate: true,
+    gameType: "Regular Season",
+    season: "2025–26",
   }));
 }
 
-export function inferLeague(title: string): string {
-  if (title.includes("NBA") || title.includes("WNBA")) return "NBA";
-  if (title.includes("NFL")) return "NFL";
-  if (title.includes("MLS")) return "MLS";
-  if (title.includes("NHL")) return "NHL";
-  if (title.includes("College") || title.includes("NCAA")) return "NCAA";
-  return "Other";
+/** @deprecated NHL-only in V1 */
+export function inferLeague(_title: string): string {
+  return "NHL";
 }
 
 function load(): BinderRecord[] {
