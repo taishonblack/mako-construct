@@ -1,4 +1,5 @@
-import { Minus, Plus } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Minus, Plus, Pencil } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface ProductionDefinitionProps {
@@ -13,9 +14,66 @@ interface ProductionDefinitionProps {
   onReturnRequiredChange: (val: boolean) => void;
   commercials: string;
   onCommercialsChange: (val: string) => void;
+  onFieldChange: (field: string, value: string) => void;
 }
 
-function Field({ label, value }: { label: string; value: string }) {
+function EditableField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editing]);
+
+  const commit = () => {
+    const trimmed = draft.trim();
+    if (trimmed && trimmed !== value) {
+      onChange(trimmed);
+    } else {
+      setDraft(value);
+    }
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <div>
+        <span className="text-[10px] tracking-wider uppercase text-muted-foreground block mb-1">{label}</span>
+        <input
+          ref={inputRef}
+          type="text"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commit();
+            if (e.key === "Escape") { setDraft(value); setEditing(false); }
+          }}
+          className="w-full bg-transparent border-b border-crimson text-sm text-foreground focus:outline-none py-0.5"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <span className="text-[10px] tracking-wider uppercase text-muted-foreground block mb-1">{label}</span>
+      <button
+        onClick={() => { setDraft(value); setEditing(true); }}
+        className="flex items-center gap-1.5 group text-left"
+      >
+        <span className="text-sm text-foreground">{value}</span>
+        <Pencil className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+      </button>
+    </div>
+  );
+}
+
+function ReadonlyField({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <span className="text-[10px] tracking-wider uppercase text-muted-foreground block mb-1">{label}</span>
@@ -29,6 +87,7 @@ export function ProductionDefinition({
   isoCount, onIsoCountChange,
   returnRequired, onReturnRequiredChange,
   commercials, onCommercialsChange,
+  onFieldChange,
 }: ProductionDefinitionProps) {
   return (
     <motion.section
@@ -39,11 +98,11 @@ export function ProductionDefinition({
       <h2 className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-3">Production Definition</h2>
       <div className="steel-panel p-5">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
-          <Field label="League" value={league} />
-          <Field label="Partner" value={partner} />
-          <Field label="Venue" value={venue} />
-          <Field label="Show Type" value={showType} />
-          <Field label="Event Date" value={new Date(eventDate).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })} />
+          <EditableField label="League" value={league} onChange={(v) => onFieldChange("league", v)} />
+          <EditableField label="Partner" value={partner} onChange={(v) => onFieldChange("partner", v)} />
+          <EditableField label="Venue" value={venue} onChange={(v) => onFieldChange("venue", v)} />
+          <EditableField label="Show Type" value={showType} onChange={(v) => onFieldChange("showType", v)} />
+          <ReadonlyField label="Event Date" value={new Date(eventDate).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })} />
 
           {/* ISO Count — editable */}
           <div>

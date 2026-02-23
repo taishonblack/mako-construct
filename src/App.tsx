@@ -8,6 +8,7 @@ import NotFound from "./pages/NotFound";
 import { AppLayout } from "./components/AppLayout";
 import ContainersPage from "./pages/ContainersPage";
 import CalendarPage from "./pages/CalendarPage";
+import DashboardPage from "./pages/DashboardPage";
 import BinderDetail from "./pages/BinderDetail";
 
 const queryClient = new QueryClient();
@@ -21,7 +22,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route element={<AppLayout />}>
-            <Route path="/dashboard" element={<ContainersPage />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/containers" element={<ContainersPage />} />
             <Route path="/binders" element={<Navigate to="/containers" replace />} />
             <Route path="/binders/:id" element={<BinderDetail />} />
