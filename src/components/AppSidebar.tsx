@@ -1,6 +1,5 @@
 import {
   LayoutGrid,
-  Radio,
   Settings,
   Plus,
 } from "lucide-react";
@@ -19,7 +18,6 @@ import {
 
 const navItems = [
   { title: "Binder Library", url: "/binders", icon: LayoutGrid },
-  { title: "Live Monitor", url: "/monitor", icon: Radio },
 ];
 
 export function AppSidebar() {
