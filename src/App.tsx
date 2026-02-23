@@ -12,6 +12,7 @@ import DashboardPage from "./pages/DashboardPage";
 import CommandPage from "./pages/CommandPage";
 import WikiPage from "./pages/WikiPage";
 import BinderDetail from "./pages/BinderDetail";
+import SettingsPage from "./pages/SettingsPage";
 
 const queryClient = new QueryClient();
 
@@ -31,7 +32,7 @@ const App = () => (
             <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/command" element={<CommandPage />} />
             <Route path="/wiki" element={<WikiPage />} />
-            <Route path="/settings" element={<ContainersPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
