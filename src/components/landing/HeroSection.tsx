@@ -29,9 +29,7 @@ export function HeroSection() {
       <div className="relative z-10 max-w-[1200px] mx-auto w-full px-8 md:px-16">
         {/* Brand label */}
         <motion.div {...fadeUp(0.2)} className="mb-6">
-          <span className="text-sm font-medium tracking-[0.35em] uppercase text-crimson">MAKO</span>
-          <br />
-          <span className="text-sm font-medium tracking-[0.35em] uppercase text-crimson">LIVE</span>
+          <span className="text-xs font-semibold tracking-[0.35em] uppercase text-crimson">MAKO LIVE</span>
         </motion.div>
 
         {/* Headline */}
