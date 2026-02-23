@@ -15,6 +15,7 @@ import WikiPage from "./pages/WikiPage";
 import BinderDetail from "./pages/BinderDetail";
 import CreateBinderPage from "./pages/CreateBinderPage";
 import SettingsPage from "./pages/SettingsPage";
+import RoutesPage from "./pages/RoutesPage";
 
 const queryClient = new QueryClient();
 
@@ -34,7 +35,7 @@ const App = () => (
             <Route path="/binders/new" element={<CreateBinderPage />} />
             <Route path="/binders/:id" element={<BinderDetail />} />
             <Route path="/calendar" element={<CalendarPage />} />
-            
+            <Route path="/routes" element={<RoutesPage />} />
             <Route path="/wiki" element={<WikiPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
