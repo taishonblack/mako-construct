@@ -1,178 +1,89 @@
+import { useState, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, Radio, Cpu, Wifi, RotateCcw, AlertCircle, Clock, CheckCircle } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { ArrowLeft } from "lucide-react";
 import { mockBinderDetail } from "@/data/mock-binder-detail";
-import { mockTransport, mockComms, mockChanges, mockIssues, mockDocs } from "@/data/mock-phase5";
-import { ScheduleTab } from "@/components/binder/ScheduleTab";
-import { ContactsTab } from "@/components/binder/ContactsTab";
-import { SignalsTab } from "@/components/binder/SignalsTab";
-import { TransportTab } from "@/components/binder/TransportTab";
-import { CommsTab } from "@/components/binder/CommsTab";
-import { ChangesIssuesTab } from "@/components/binder/ChangesIssuesTab";
-import { DocsTab } from "@/components/binder/DocsTab";
+import { mockTransport, mockChanges, mockIssues, mockDocs } from "@/data/mock-phase5";
+import { generateSignals } from "@/data/mock-signals";
+import { computeReadiness } from "@/lib/readiness-engine";
 
-const statusStyles: Record<string, string> = {
-  draft: "bg-muted text-muted-foreground",
-  active: "bg-crimson/20 text-crimson",
-  completed: "bg-emerald-900/30 text-emerald-400",
-  archived: "bg-muted text-muted-foreground",
-};
-
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-function timeAgo(ts: string) {
-  const diff = Date.now() - new Date(ts).getTime();
-  const hrs = Math.floor(diff / 3600000);
-  if (hrs < 1) return "Just now";
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
+import { CommandHeader } from "@/components/command/CommandHeader";
+import { ProductionDefinition } from "@/components/command/ProductionDefinition";
+import { SignalMatrix } from "@/components/command/SignalMatrix";
+import { TransportProfile } from "@/components/command/TransportProfile";
+import { ExecutionTimeline } from "@/components/command/ExecutionTimeline";
+import { IssuesChanges } from "@/components/command/IssuesChanges";
+import { DocumentArchive } from "@/components/command/DocumentArchive";
 
 export default function BinderDetail() {
   const { id } = useParams();
   const binder = mockBinderDetail;
 
-  const infoTiles = [
-    { label: "Signals", value: binder.isoCount, icon: Radio },
-    { label: "Encoders", value: `${binder.encodersAssigned}/${binder.encodersRequired}`, icon: Cpu, warn: binder.encodersAssigned < binder.encodersRequired },
-    { label: "Transport", value: `${binder.transport} / ${binder.backupTransport}`, icon: Wifi },
-    { label: "Return Feed", value: binder.returnFeed ? "Active" : "Off", icon: RotateCcw },
-    { label: "Open Issues", value: binder.openIssues, icon: AlertCircle, warn: binder.openIssues > 0 },
-  ];
+  // Editable state
+  const [isoCount, setIsoCount] = useState(binder.isoCount);
+  const [returnRequired, setReturnRequired] = useState(binder.returnFeed);
+  const [commercials, setCommercials] = useState<string>("local-insert");
+
+  // Computed
+  const signals = useMemo(() => generateSignals(isoCount), [isoCount]);
+  const report = useMemo(
+    () => computeReadiness(signals, binder.encodersAssigned, mockTransport, mockIssues, returnRequired),
+    [signals, binder.encodersAssigned, returnRequired]
+  );
+
+  // Map status
+  const eventStatus = binder.status === "active" ? "configured" as const : "planning" as const;
 
   return (
-    <div className="max-w-6xl">
-      {/* Back link */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+    <div className="relative">
+      {/* Persistent command header */}
+      <CommandHeader
+        eventName={binder.title}
+        status={eventStatus}
+        readiness={report.level}
+        reasons={report.reasons}
+      />
+
+      {/* Command Surface */}
+      <div className="max-w-6xl mx-auto px-6 py-6 space-y-8">
+        {/* Back link */}
         <Link
           to="/binders"
-          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-6"
+          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="w-3 h-3" />
           Binder Library
         </Link>
-      </motion.div>
 
-      {/* Event header */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.05 }}
-        className="flex items-start justify-between mb-6"
-      >
-        <div>
-          <div className="flex items-center gap-3 mb-1">
-            <h1 className="text-xl font-medium text-foreground tracking-tight">{binder.title}</h1>
-            <span className={`text-[10px] font-medium tracking-wider uppercase px-2 py-0.5 rounded ${statusStyles[binder.status]}`}>
-              {binder.status}
-            </span>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {binder.partner} · {binder.venue} · {formatDate(binder.eventDate)}
-          </p>
-        </div>
-        {binder.pendingConfirmations > 0 && (
-          <div className="flex items-center gap-1.5 text-xs text-crimson">
-            <Clock className="w-3.5 h-3.5" />
-            {binder.pendingConfirmations} pending
-          </div>
-        )}
-      </motion.div>
+        {/* Section 1: Production Definition */}
+        <ProductionDefinition
+          league="NBA"
+          venue={binder.venue}
+          partner={binder.partner}
+          showType="Live Game"
+          eventDate={binder.eventDate}
+          isoCount={isoCount}
+          onIsoCountChange={setIsoCount}
+          returnRequired={returnRequired}
+          onReturnRequiredChange={setReturnRequired}
+          commercials={commercials}
+          onCommercialsChange={setCommercials}
+        />
 
-      {/* Info tiles */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
-        {infoTiles.map((tile, i) => (
-          <motion.div
-            key={tile.label}
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.35, delay: 0.1 + i * 0.05 }}
-            className="steel-panel p-4"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <tile.icon className={`w-3.5 h-3.5 ${tile.warn ? "text-crimson" : "text-muted-foreground"}`} />
-              <span className="text-[10px] tracking-wider uppercase text-muted-foreground">{tile.label}</span>
-            </div>
-            <p className={`text-lg font-medium ${tile.warn ? "text-crimson" : "text-foreground"}`}>
-              {tile.value}
-            </p>
-          </motion.div>
-        ))}
+        {/* Section 2: Signal Configuration Matrix */}
+        <SignalMatrix signals={signals} report={report} />
+
+        {/* Section 3: Transport Profile */}
+        <TransportProfile config={mockTransport} returnRequired={returnRequired} />
+
+        {/* Section 4: Execution Timeline */}
+        <ExecutionTimeline />
+
+        {/* Section 5: Issues & Pivots */}
+        <IssuesChanges changes={mockChanges} issues={mockIssues} />
+
+        {/* Section 6: Document Archive */}
+        <DocumentArchive docs={mockDocs} />
       </div>
-
-      {/* Schedule milestones + recent changes */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.35 }}
-        className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8"
-      >
-        <div className="steel-panel p-5">
-          <h2 className="text-[10px] tracking-wider uppercase text-muted-foreground mb-4">Next Milestones</h2>
-          <div className="space-y-3">
-            {binder.schedule
-              .filter((s) => s.type === "milestone")
-              .slice(0, 3)
-              .map((item) => (
-                <div key={item.id} className="flex items-center gap-3">
-                  <span className="text-xs font-mono text-crimson w-12 shrink-0">{item.time}</span>
-                  <div className="w-1.5 h-1.5 rounded-full bg-crimson shrink-0" />
-                  <span className="text-sm text-foreground">{item.label}</span>
-                </div>
-              ))}
-          </div>
-        </div>
-
-        <div className="steel-panel p-5">
-          <h2 className="text-[10px] tracking-wider uppercase text-muted-foreground mb-4">Recent Changes</h2>
-          <div className="space-y-3">
-            {binder.recentChanges.map((change, i) => (
-              <div key={i} className="flex items-start gap-3">
-                <CheckCircle className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-sm text-foreground truncate">{change.label}</p>
-                  <p className="text-[10px] text-muted-foreground">{timeAgo(change.timestamp)}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Tabs */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.45 }}
-      >
-        <Tabs defaultValue="schedule" className="w-full">
-          <TabsList className="bg-secondary border border-border rounded-md flex-wrap">
-            <TabsTrigger value="schedule" className="text-xs tracking-wide uppercase data-[state=active]:bg-card data-[state=active]:text-foreground">Schedule</TabsTrigger>
-            <TabsTrigger value="signals" className="text-xs tracking-wide uppercase data-[state=active]:bg-card data-[state=active]:text-foreground">Signals</TabsTrigger>
-            <TabsTrigger value="contacts" className="text-xs tracking-wide uppercase data-[state=active]:bg-card data-[state=active]:text-foreground">Contacts</TabsTrigger>
-            <TabsTrigger value="transport" className="text-xs tracking-wide uppercase data-[state=active]:bg-card data-[state=active]:text-foreground">Transport</TabsTrigger>
-            <TabsTrigger value="comms" className="text-xs tracking-wide uppercase data-[state=active]:bg-card data-[state=active]:text-foreground">Comms</TabsTrigger>
-            <TabsTrigger value="changes" className="text-xs tracking-wide uppercase data-[state=active]:bg-card data-[state=active]:text-foreground">Changes & Issues</TabsTrigger>
-            <TabsTrigger value="docs" className="text-xs tracking-wide uppercase data-[state=active]:bg-card data-[state=active]:text-foreground">Docs</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="schedule"><ScheduleTab schedule={binder.schedule} /></TabsContent>
-          <TabsContent value="signals"><SignalsTab initialIsoCount={binder.isoCount} encodersAssigned={binder.encodersAssigned} /></TabsContent>
-          <TabsContent value="contacts"><ContactsTab contacts={binder.contacts} /></TabsContent>
-          <TabsContent value="transport"><TransportTab config={mockTransport} /></TabsContent>
-          <TabsContent value="comms"><CommsTab comms={mockComms} /></TabsContent>
-          <TabsContent value="changes"><ChangesIssuesTab changes={mockChanges} issues={mockIssues} /></TabsContent>
-          <TabsContent value="docs"><DocsTab docs={mockDocs} /></TabsContent>
-        </Tabs>
-      </motion.div>
     </div>
   );
 }
