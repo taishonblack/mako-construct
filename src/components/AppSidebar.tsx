@@ -2,6 +2,10 @@ import {
   LayoutGrid,
   Settings,
   Plus,
+  Calendar,
+  Monitor,
+  FileText,
+  BarChart3,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
@@ -17,7 +21,11 @@ import {
 } from "@/components/ui/sidebar";
 
 const navItems = [
-  { title: "Binder Library", url: "/binders", icon: LayoutGrid },
+  { title: "Dashboard", url: "/dashboard", icon: BarChart3 },
+  { title: "Containers", url: "/containers", icon: LayoutGrid },
+  { title: "Calendar", url: "/calendar", icon: Calendar },
+  { title: "Command Center", url: "/command", icon: Monitor },
+  { title: "Documents", url: "/documents", icon: FileText },
 ];
 
 export function AppSidebar() {
@@ -37,7 +45,7 @@ export function AppSidebar() {
         {/* New Binder action */}
         <div className="px-3 pt-4 pb-2">
           <a
-            href="/binders/new"
+            href="/containers/new"
             className="flex items-center gap-2 px-3 py-2.5 text-xs font-medium tracking-wide uppercase text-primary-foreground bg-primary rounded-md hover:glow-red transition-all duration-200"
           >
             <Plus className="w-3.5 h-3.5" />
