@@ -34,7 +34,7 @@ export interface BinderRecord extends MockBinder {
 
 export type { BinderStatus };
 
-const STORE_KEY = "mako-binder-records";
+const STORE_KEY = "mako-binder-records-v2";
 
 function seedFromMock(): BinderRecord[] {
   return mockBinders.map((b) => ({

@@ -20,6 +20,22 @@ export interface TopologyConfig {
   decoderPatchpoints: string[];
 }
 
+// --- Lock / Snapshot ---
+export interface LockSnapshot {
+  id: string;
+  lockedAt: string;
+  lockedBy: string;
+  state: Omit<BinderState, "lockHistory" | "currentLock">;
+}
+
+export interface LockState {
+  locked: boolean;
+  lockedAt: string | null;
+  lockedBy: string;
+  version: number;
+  unlockReason?: string;
+}
+
 const defaultChecklist: ChecklistItem[] = [
   { id: "ck1", label: "Fax Completed", checked: false },
   { id: "ck2", label: "Validation Complete", checked: false },
@@ -61,6 +77,9 @@ export interface BinderState {
   checklist: ChecklistItem[];
   // Topology
   topology: TopologyConfig;
+  // Lock
+  currentLock: LockState;
+  lockHistory: LockSnapshot[];
 }
 
 const STORAGE_KEY = "mako-binder-";
@@ -80,7 +99,9 @@ function buildDefaultTopology(): TopologyConfig {
   };
 }
 
-function buildInitialState(id: string): BinderState {
+const DEFAULT_LOCK: LockState = { locked: false, lockedAt: null, lockedBy: "You", version: 0 };
+
+function buildInitialState(_id: string): BinderState {
   const binder = mockBinderDetail;
   return {
     league: "NHL",
@@ -104,6 +125,8 @@ function buildInitialState(id: string): BinderState {
     docs: [...mockDocs],
     checklist: [...defaultChecklist],
     topology: buildDefaultTopology(),
+    currentLock: { ...DEFAULT_LOCK },
+    lockHistory: [],
   };
 }
 
@@ -113,27 +136,24 @@ export function useBinderState(binderId: string) {
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
-        // Migration: ensure topology exists
-        if (!parsed.topology) {
-          parsed.topology = buildDefaultTopology();
-        }
+        if (!parsed.topology) parsed.topology = buildDefaultTopology();
         if (!parsed.eventTime) parsed.eventTime = "19:00";
         if (!parsed.timezone) parsed.timezone = "America/New_York";
         if (!parsed.homeTeam) parsed.homeTeam = "";
         if (!parsed.awayTeam) parsed.awayTeam = "";
         if (!parsed.siteType) parsed.siteType = "Arena";
+        if (!parsed.currentLock) parsed.currentLock = { ...DEFAULT_LOCK };
+        if (!parsed.lockHistory) parsed.lockHistory = [];
         return parsed;
       } catch { /* ignore */ }
     }
     return buildInitialState(binderId);
   });
 
-  // Persist on change
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY + binderId, JSON.stringify(state));
   }, [state, binderId]);
 
-  // Migration: ensure docs exist for older persisted states
   useEffect(() => {
     if (!state.docs) {
       setState((prev) => ({ ...prev, docs: [...mockDocs] }));
@@ -204,5 +224,56 @@ export function useBinderState(binderId: string) {
     }));
   }, []);
 
-  return { state, update, setIsoCount, updateSignal, updateSignals, updateTopology, toggleChecklist, addDoc, removeDoc, updateDoc };
+  // --- Lock operations ---
+  const lockBinder = useCallback(() => {
+    setState((prev) => {
+      const newVersion = prev.currentLock.version + 1;
+      const now = new Date().toISOString();
+      // Create snapshot of current state (exclude lock metadata)
+      const { currentLock, lockHistory, ...snapshotState } = prev;
+      const snapshot: LockSnapshot = {
+        id: `lock-v${newVersion}`,
+        lockedAt: now,
+        lockedBy: "You",
+        state: snapshotState,
+      };
+      const lockChange: ChangeEntry = {
+        id: `ch-lock-${Date.now()}`,
+        label: `Production locked — Lock v${newVersion}`,
+        timestamp: now,
+        status: "confirmed",
+        author: "System",
+      };
+      return {
+        ...prev,
+        currentLock: { locked: true, lockedAt: now, lockedBy: "You", version: newVersion },
+        lockHistory: [snapshot, ...prev.lockHistory],
+        changes: [lockChange, ...prev.changes],
+      };
+    });
+  }, []);
+
+  const unlockBinder = useCallback((reason: string) => {
+    setState((prev) => {
+      const now = new Date().toISOString();
+      const unlockChange: ChangeEntry = {
+        id: `ch-unlock-${Date.now()}`,
+        label: `Production unlocked — Reason: ${reason}`,
+        timestamp: now,
+        status: "confirmed",
+        author: "System",
+      };
+      return {
+        ...prev,
+        currentLock: { ...prev.currentLock, locked: false, unlockReason: reason },
+        changes: [unlockChange, ...prev.changes],
+      };
+    });
+  }, []);
+
+  return {
+    state, update, setIsoCount, updateSignal, updateSignals, updateTopology,
+    toggleChecklist, addDoc, removeDoc, updateDoc,
+    lockBinder, unlockBinder,
+  };
 }
