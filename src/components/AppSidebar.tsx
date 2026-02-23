@@ -35,11 +35,8 @@ export function AppSidebar() {
       <SidebarContent>
         {/* Brand */}
         <div className="px-4 py-6 border-b border-border">
-          <Link to="/" className="flex items-center gap-2 group">
-            <MakoFinMark size={18} className="text-crimson group-hover:text-[hsl(var(--crimson)/0.8)] transition-colors" />
-            <span className="text-xs font-semibold tracking-[0.35em] uppercase text-crimson">
-              MAKO LIVE
-            </span>
+          <Link to="/" className="inline-flex group">
+            <MakoFinMark size={22} className="text-crimson transition-all duration-300 group-hover:drop-shadow-[0_0_8px_hsl(var(--crimson)/0.6)]" />
           </Link>
         </div>
 
