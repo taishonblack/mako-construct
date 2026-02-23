@@ -10,7 +10,7 @@ const fadeUp = (delay: number) => ({
 
 export function HeroSection() {
   return (
-    <section className="relative min-h-screen flex items-end pb-24 overflow-hidden">
+    <section className="relative min-h-screen flex flex-col justify-center overflow-hidden">
       {/* Background image */}
       <div
         className="absolute inset-0 bg-cover bg-center"
@@ -26,34 +26,34 @@ export function HeroSection() {
       }} />
 
       {/* Content */}
-      <div className="relative z-10 max-w-[1200px] mx-auto w-full px-8 md:px-16">
+      <div className="relative z-10 w-full px-8 md:px-16 lg:px-24">
         {/* Brand label */}
         <motion.div {...fadeUp(0.2)} className="mb-6">
-          <span className="text-xs font-semibold tracking-[0.35em] uppercase text-crimson">MAKO LIVE</span>
+          <span className="text-xs font-semibold tracking-[0.35em] uppercase text-crimson">MAKO</span>
         </motion.div>
 
-        {/* Headline */}
+        {/* Tagline */}
         <motion.h1
           {...fadeUp(0.4)}
-          className="text-4xl md:text-5xl lg:text-6xl font-light tracking-tight text-foreground leading-[1.15] mb-8 max-w-xl"
+          className="text-2xl md:text-4xl font-light tracking-tight text-foreground leading-[1.15] mb-8 max-w-xl"
         >
           Live Production Binder
           <br />
           Built for Broadcast Execution
         </motion.h1>
 
-        {/* Subhead lines */}
+        {/* Manifesto lines */}
         <motion.div {...fadeUp(0.6)} className="mb-10 space-y-1">
-          <p className="text-base md:text-lg text-muted-foreground font-light">Build once.</p>
-          <p className="text-base md:text-lg text-muted-foreground font-light">Align everyone.</p>
-          <p className="text-base md:text-lg text-muted-foreground font-light">Go live with confidence.</p>
+          <p className="text-sm md:text-base text-muted-foreground font-light">Pull once.</p>
+          <p className="text-sm md:text-base text-muted-foreground font-light">Align everyone.</p>
+          <p className="text-sm md:text-base text-muted-foreground font-light">Go live with confidence.</p>
         </motion.div>
 
         {/* CTA */}
         <motion.div {...fadeUp(0.8)}>
           <a
             href="/binders"
-            className="inline-flex items-center gap-2.5 px-7 py-3.5 bg-primary hover:glow-red text-primary-foreground text-sm font-medium rounded-md transition-all duration-300"
+            className="inline-flex items-center gap-2.5 px-7 py-3.5 bg-primary hover:glow-red text-primary-foreground text-base font-medium rounded-md transition-all duration-300"
           >
             Open a Binder
             <ArrowRight className="w-4 h-4" />
@@ -74,10 +74,10 @@ export function HeroSection() {
               viewport={{ once: true, margin: "-50px" }}
               transition={{ duration: 0.6, delay: i * 0.15, ease: [0.22, 1, 0.36, 1] }}
             >
-              <h3 className="text-xs font-medium tracking-[0.25em] uppercase text-crimson mb-3">
+              <h3 className="text-[10px] font-medium tracking-[0.25em] uppercase text-crimson mb-3">
                 {block.label}
               </h3>
-              <p className="text-sm text-muted-foreground leading-relaxed font-light whitespace-pre-line">
+              <p className="text-xs text-muted-foreground leading-relaxed font-light whitespace-pre-line">
                 {block.text}
               </p>
             </motion.div>
