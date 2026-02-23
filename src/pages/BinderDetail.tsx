@@ -45,6 +45,7 @@ export default function BinderDetail() {
   const {
     state, update, setIsoCount, updateSignal, updateSignals, updateTopology,
     toggleChecklist, addDoc, removeDoc, updateDoc,
+    updateComm, addComm, removeComm,
     lockBinder, unlockBinder,
   } = useBinderState(binderId);
 
@@ -60,8 +61,9 @@ export default function BinderDetail() {
       state.issues,
       state.returnRequired,
       state.checklist,
+      state.comms,
     ),
-    [state.signals, binder.encodersAssigned, state.transport, state.issues, state.returnRequired, state.checklist]
+    [state.signals, binder.encodersAssigned, state.transport, state.issues, state.returnRequired, state.checklist, state.comms]
   );
 
   const eventStatus = isLocked ? "validated" as const : binder.status === "active" ? "configured" as const : "planning" as const;
@@ -238,7 +240,13 @@ export default function BinderDetail() {
           topology={state.topology}
         />
         <TransportProfile config={state.transport} returnRequired={state.returnRequired} />
-        <CommsStructure comms={state.comms} />
+        <CommsStructure
+          comms={state.comms}
+          onUpdateComm={isLocked ? undefined : updateComm}
+          onAddComm={isLocked ? undefined : addComm}
+          onRemoveComm={isLocked ? undefined : removeComm}
+          readOnly={isLocked}
+        />
         <ExecutionTimeline />
         <IssuesChanges changes={state.changes} issues={state.issues} />
         <DocumentArchive docs={state.docs} onAddDoc={isLocked ? () => {} : addDoc} onRemoveDoc={isLocked ? () => {} : removeDoc} onUpdateDoc={isLocked ? () => {} : updateDoc} />

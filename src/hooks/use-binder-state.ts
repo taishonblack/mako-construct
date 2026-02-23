@@ -215,6 +215,33 @@ export function useBinderState(binderId: string) {
     setState((prev) => ({ ...prev, docs: prev.docs.filter((d) => d.id !== id) }));
   }, []);
 
+  const updateComm = useCallback((id: string, field: keyof CommEntry, value: string) => {
+    setState((prev) => ({
+      ...prev,
+      comms: prev.comms.map((c) =>
+        c.id === id ? { ...c, [field]: value } : c
+      ),
+    }));
+  }, []);
+
+  const addComm = useCallback((type: CommEntry["type"]) => {
+    const prefix = type === "Clear-Com" ? "PL" : type === "LQ" ? "LQ" : "HM";
+    const existing = state.comms.filter(c => c.type === type);
+    const nextNum = existing.length + 1;
+    const newComm: CommEntry = {
+      id: `cm-${Date.now()}`,
+      type,
+      channel: `${prefix}-${nextNum}`,
+      assignment: "",
+      location: type === "Hot Mic" ? "Arena" : type === "LQ" ? "Transmission" : "Truck",
+    };
+    setState((prev) => ({ ...prev, comms: [...prev.comms, newComm] }));
+  }, [state.comms]);
+
+  const removeComm = useCallback((id: string) => {
+    setState((prev) => ({ ...prev, comms: prev.comms.filter((c) => c.id !== id) }));
+  }, []);
+
   const updateDoc = useCallback((id: string, field: keyof DocEntry, value: string) => {
     setState((prev) => ({
       ...prev,
@@ -274,6 +301,7 @@ export function useBinderState(binderId: string) {
   return {
     state, update, setIsoCount, updateSignal, updateSignals, updateTopology,
     toggleChecklist, addDoc, removeDoc, updateDoc,
+    updateComm, addComm, removeComm,
     lockBinder, unlockBinder,
   };
 }
