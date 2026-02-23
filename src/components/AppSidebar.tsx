@@ -4,7 +4,7 @@ import {
   Plus,
   Calendar,
   Monitor,
-  FileText,
+  BookOpen,
   BarChart3,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
@@ -24,8 +24,8 @@ const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: BarChart3 },
   { title: "Containers", url: "/containers", icon: LayoutGrid },
   { title: "Calendar", url: "/calendar", icon: Calendar },
-  { title: "Command Center", url: "/command", icon: Monitor },
-  { title: "Documents", url: "/documents", icon: FileText },
+  { title: "Command", url: "/command", icon: Monitor },
+  { title: "Wiki", url: "/wiki", icon: BookOpen },
 ];
 
 export function AppSidebar() {
