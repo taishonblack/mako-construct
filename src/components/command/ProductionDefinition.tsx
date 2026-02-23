@@ -103,7 +103,10 @@ export function ProductionDefinition({
       <h2 className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-3">Production Definition</h2>
       <div className="steel-panel p-5">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
-          <EditableField label="League" value={league} onChange={(v) => onFieldChange("league", v)} />
+          <div>
+            <span className="text-[10px] tracking-wider uppercase text-muted-foreground block mb-1">League</span>
+            <span className="text-sm text-crimson font-mono">NHL</span>
+          </div>
           <EditableField label="Partner" value={partner} onChange={(v) => onFieldChange("partner", v)} />
           <EditableField label="Venue" value={venue} onChange={(v) => onFieldChange("venue", v)} />
           <EditableField label="Show Type" value={showType} onChange={(v) => onFieldChange("showType", v)} />

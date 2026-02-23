@@ -8,13 +8,8 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip,
 } from "recharts";
 
-function inferLeague(title: string): string {
-  if (title.includes("NBA") || title.includes("WNBA")) return "NBA";
-  if (title.includes("NFL")) return "NFL";
-  if (title.includes("MLS")) return "MLS";
-  if (title.includes("NHL")) return "NHL";
-  if (title.includes("College")) return "NCAA";
-  return "Other";
+function inferLeague(_title: string): string {
+  return "NHL";
 }
 
 function inferReadiness(binder: typeof mockBinders[0]): "ready" | "risk" | "blocked" {
@@ -115,7 +110,7 @@ export default function DashboardPage() {
         className="mb-8"
       >
         <h1 className="text-xl font-medium text-foreground tracking-tight">Dashboard</h1>
-        <p className="text-sm text-muted-foreground mt-1">Operational overview across all production containers</p>
+        <p className="text-sm text-muted-foreground mt-1">NHL production operations overview</p>
       </motion.div>
 
       {/* Top stats */}
@@ -176,7 +171,7 @@ export default function DashboardPage() {
           transition={{ duration: 0.4, delay: 0.25 }}
           className="steel-panel p-5 lg:col-span-2"
         >
-          <h2 className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-4">Issues by League</h2>
+          <h2 className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-4">Issues by Production</h2>
           <div className="h-40">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={leagueData} barSize={24}>
@@ -200,7 +195,7 @@ export default function DashboardPage() {
           transition={{ duration: 0.4, delay: 0.3 }}
           className="steel-panel p-5"
         >
-          <h2 className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-4">Upcoming Events</h2>
+          <h2 className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-4">Upcoming Games</h2>
           <div className="space-y-2">
             {upcoming
               .sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime())
@@ -256,7 +251,7 @@ export default function DashboardPage() {
                     <AlertTriangle className={`w-3.5 h-3.5 shrink-0 ${readinessLabel[readiness]}`} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-foreground truncate">{binder.title}</p>
-                      <p className="text-[10px] text-muted-foreground">{binder.partner} · {inferLeague(binder.title)}</p>
+                      <p className="text-[10px] text-muted-foreground">{binder.partner} · NHL</p>
                     </div>
                     <span className="text-xs text-crimson font-mono shrink-0">{binder.openIssues} issues</span>
                     <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />

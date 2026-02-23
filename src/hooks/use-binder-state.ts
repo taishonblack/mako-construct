@@ -83,7 +83,7 @@ function buildDefaultTopology(): TopologyConfig {
 function buildInitialState(id: string): BinderState {
   const binder = mockBinderDetail;
   return {
-    league: "NBA",
+    league: "NHL",
     partner: binder.partner,
     venue: binder.venue,
     showType: "Live Game",
