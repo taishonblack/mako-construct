@@ -3,7 +3,7 @@ import {
   Settings,
   Plus,
   Calendar,
-  Monitor,
+  
   BookOpen,
   BarChart3,
 } from "lucide-react";
@@ -25,7 +25,6 @@ const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: BarChart3 },
   { title: "Containers", url: "/containers", icon: LayoutGrid },
   { title: "Calendar", url: "/calendar", icon: Calendar },
-  { title: "Command", url: "/command", icon: Monitor },
   { title: "Wiki", url: "/wiki", icon: BookOpen },
 ];
 

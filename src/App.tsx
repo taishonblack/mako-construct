@@ -10,7 +10,7 @@ import ContainersPage from "./pages/ContainersPage";
 import ContainerDetailPage from "./pages/ContainerDetailPage";
 import CalendarPage from "./pages/CalendarPage";
 import DashboardPage from "./pages/DashboardPage";
-import CommandPage from "./pages/CommandPage";
+
 import WikiPage from "./pages/WikiPage";
 import BinderDetail from "./pages/BinderDetail";
 import CreateBinderPage from "./pages/CreateBinderPage";
@@ -34,7 +34,7 @@ const App = () => (
             <Route path="/binders/new" element={<CreateBinderPage />} />
             <Route path="/binders/:id" element={<BinderDetail />} />
             <Route path="/calendar" element={<CalendarPage />} />
-            <Route path="/command" element={<CommandPage />} />
+            
             <Route path="/wiki" element={<WikiPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
