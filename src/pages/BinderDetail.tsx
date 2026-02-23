@@ -2,9 +2,14 @@ import { useParams, Link } from "react-router-dom";
 import { ArrowLeft, Radio, Cpu, Wifi, RotateCcw, AlertCircle, Clock, CheckCircle, ChevronRight } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { mockBinderDetail } from "@/data/mock-binder-detail";
+import { mockTransport, mockComms, mockChanges, mockIssues, mockDocs } from "@/data/mock-phase5";
 import { ScheduleTab } from "@/components/binder/ScheduleTab";
 import { ContactsTab } from "@/components/binder/ContactsTab";
 import { SignalsTab } from "@/components/binder/SignalsTab";
+import { TransportTab } from "@/components/binder/TransportTab";
+import { CommsTab } from "@/components/binder/CommsTab";
+import { ChangesIssuesTab } from "@/components/binder/ChangesIssuesTab";
+import { DocsTab } from "@/components/binder/DocsTab";
 
 const statusStyles: Record<string, string> = {
   draft: "bg-muted text-muted-foreground",
@@ -127,29 +132,23 @@ export default function BinderDetail() {
 
       {/* Tabs */}
       <Tabs defaultValue="schedule" className="w-full">
-        <TabsList className="bg-secondary border border-border rounded-md">
-          <TabsTrigger value="schedule" className="text-xs tracking-wide uppercase data-[state=active]:bg-card data-[state=active]:text-foreground">
-            Schedule
-          </TabsTrigger>
-          <TabsTrigger value="signals" className="text-xs tracking-wide uppercase data-[state=active]:bg-card data-[state=active]:text-foreground">
-            Signals
-          </TabsTrigger>
-          <TabsTrigger value="contacts" className="text-xs tracking-wide uppercase data-[state=active]:bg-card data-[state=active]:text-foreground">
-            Contacts
-          </TabsTrigger>
+        <TabsList className="bg-secondary border border-border rounded-md flex-wrap">
+          <TabsTrigger value="schedule" className="text-xs tracking-wide uppercase data-[state=active]:bg-card data-[state=active]:text-foreground">Schedule</TabsTrigger>
+          <TabsTrigger value="signals" className="text-xs tracking-wide uppercase data-[state=active]:bg-card data-[state=active]:text-foreground">Signals</TabsTrigger>
+          <TabsTrigger value="contacts" className="text-xs tracking-wide uppercase data-[state=active]:bg-card data-[state=active]:text-foreground">Contacts</TabsTrigger>
+          <TabsTrigger value="transport" className="text-xs tracking-wide uppercase data-[state=active]:bg-card data-[state=active]:text-foreground">Transport</TabsTrigger>
+          <TabsTrigger value="comms" className="text-xs tracking-wide uppercase data-[state=active]:bg-card data-[state=active]:text-foreground">Comms</TabsTrigger>
+          <TabsTrigger value="changes" className="text-xs tracking-wide uppercase data-[state=active]:bg-card data-[state=active]:text-foreground">Changes & Issues</TabsTrigger>
+          <TabsTrigger value="docs" className="text-xs tracking-wide uppercase data-[state=active]:bg-card data-[state=active]:text-foreground">Docs</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="schedule">
-          <ScheduleTab schedule={binder.schedule} />
-        </TabsContent>
-
-        <TabsContent value="signals">
-          <SignalsTab initialIsoCount={binder.isoCount} encodersAssigned={binder.encodersAssigned} />
-        </TabsContent>
-
-        <TabsContent value="contacts">
-          <ContactsTab contacts={binder.contacts} />
-        </TabsContent>
+        <TabsContent value="schedule"><ScheduleTab schedule={binder.schedule} /></TabsContent>
+        <TabsContent value="signals"><SignalsTab initialIsoCount={binder.isoCount} encodersAssigned={binder.encodersAssigned} /></TabsContent>
+        <TabsContent value="contacts"><ContactsTab contacts={binder.contacts} /></TabsContent>
+        <TabsContent value="transport"><TransportTab config={mockTransport} /></TabsContent>
+        <TabsContent value="comms"><CommsTab comms={mockComms} /></TabsContent>
+        <TabsContent value="changes"><ChangesIssuesTab changes={mockChanges} issues={mockIssues} /></TabsContent>
+        <TabsContent value="docs"><DocsTab docs={mockDocs} /></TabsContent>
       </Tabs>
     </div>
   );
