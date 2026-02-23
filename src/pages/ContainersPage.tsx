@@ -106,8 +106,10 @@ export default function ContainersPage() {
               transition={{ duration: 0.35, delay: 0.15 + ci * 0.05 }}
               className="steel-panel overflow-hidden"
             >
-              {/* Container header */}
-              <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+              <Link
+                to={`/containers/${ci}`}
+                className="px-5 py-4 border-b border-border flex items-center justify-between hover:bg-secondary/30 transition-colors"
+              >
                 <div>
                   <h2 className="text-sm font-medium text-foreground">{container.name}</h2>
                   <p className="text-[10px] text-muted-foreground mt-0.5">
@@ -117,10 +119,13 @@ export default function ContainersPage() {
                     )}
                   </p>
                 </div>
-                <span className="text-[10px] tracking-[0.15em] uppercase font-mono text-muted-foreground">
-                  {container.league}
-                </span>
-              </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] tracking-[0.15em] uppercase font-mono text-muted-foreground">
+                    {container.league}
+                  </span>
+                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+                </div>
+              </Link>
 
               {/* Binder rows */}
               <div className="divide-y divide-border">

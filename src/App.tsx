@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { AppLayout } from "./components/AppLayout";
 import ContainersPage from "./pages/ContainersPage";
+import ContainerDetailPage from "./pages/ContainerDetailPage";
 import CalendarPage from "./pages/CalendarPage";
 import DashboardPage from "./pages/DashboardPage";
 import CommandPage from "./pages/CommandPage";
@@ -27,6 +28,7 @@ const App = () => (
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/containers" element={<ContainersPage />} />
+            <Route path="/containers/:containerId" element={<ContainerDetailPage />} />
             <Route path="/binders" element={<Navigate to="/containers" replace />} />
             <Route path="/binders/:id" element={<BinderDetail />} />
             <Route path="/calendar" element={<CalendarPage />} />
