@@ -19,16 +19,7 @@ import {
   FileText,
   Folder,
 } from "lucide-react";
-import { mockBinders } from "@/data/mock-binders";
-
-function inferLeague(title: string): string {
-  if (title.includes("NBA") || title.includes("WNBA")) return "NBA";
-  if (title.includes("NFL")) return "NFL";
-  if (title.includes("MLS")) return "MLS";
-  if (title.includes("NHL")) return "NHL";
-  if (title.includes("College")) return "NCAA";
-  return "Other";
-}
+import { binderStore, inferLeague } from "@/stores/binder-store";
 
 const pages = [
   { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
@@ -47,14 +38,16 @@ interface Props {
 export function CommandPalette({ open, onOpenChange }: Props) {
   const navigate = useNavigate();
 
+  const allBinders = useMemo(() => binderStore.getAll(), []);
+
   const containers = useMemo(() => {
-    const leagues = new Set(mockBinders.map((b) => inferLeague(b.title)));
+    const leagues = new Set(allBinders.map((b) => b.league || inferLeague(b.title)));
     return Array.from(leagues).map((league, i) => ({
       label: `${league} 2026 Season`,
       league,
       path: `/containers/${i}`,
     }));
-  }, []);
+  }, [allBinders]);
 
   const go = (path: string) => {
     navigate(path);
@@ -91,7 +84,7 @@ export function CommandPalette({ open, onOpenChange }: Props) {
         <CommandSeparator />
 
         <CommandGroup heading="Binders">
-          {mockBinders.map((b) => (
+          {allBinders.map((b) => (
             <CommandItem key={b.id} onSelect={() => go(`/binders/${b.id}`)} className="gap-2">
               <FileText className="w-4 h-4 text-muted-foreground" />
               <div className="flex-1 min-w-0">

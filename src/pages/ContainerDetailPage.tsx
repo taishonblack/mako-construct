@@ -1,20 +1,11 @@
 import { useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ChevronRight, AlertTriangle, CheckCircle, ArrowLeft } from "lucide-react";
+import { ChevronRight, AlertTriangle, CheckCircle, ArrowLeft, Plus } from "lucide-react";
 import { format } from "date-fns";
-import { mockBinders } from "@/data/mock-binders";
+import { binderStore, inferLeague } from "@/stores/binder-store";
 
-function inferLeague(title: string): string {
-  if (title.includes("NBA") || title.includes("WNBA")) return "NBA";
-  if (title.includes("NFL")) return "NFL";
-  if (title.includes("MLS")) return "MLS";
-  if (title.includes("NHL")) return "NHL";
-  if (title.includes("College")) return "NCAA";
-  return "Other";
-}
-
-function inferReadiness(binder: (typeof mockBinders)[0]): "ready" | "risk" | "blocked" {
+function inferReadiness(binder: ReturnType<typeof binderStore.getAll>[0]): "ready" | "risk" | "blocked" {
   if (binder.openIssues >= 5) return "blocked";
   if (binder.openIssues >= 1) return "risk";
   return "ready";
@@ -33,12 +24,13 @@ const readinessLabel: Record<string, string> = {
 };
 
 function getContainerData(containerId: string) {
-  const leagues = Array.from(new Set(mockBinders.map((b) => inferLeague(b.title))));
+  const allBinders = binderStore.getAll();
+  const leagues = Array.from(new Set(allBinders.map((b) => b.league || inferLeague(b.title))));
   const sorted = leagues.sort();
   const index = parseInt(containerId, 10);
   if (isNaN(index) || index < 0 || index >= sorted.length) return null;
   const league = sorted[index];
-  const binders = mockBinders.filter((b) => inferLeague(b.title) === league);
+  const binders = allBinders.filter((b) => (b.league || inferLeague(b.title)) === league);
   return { id: containerId, name: `${league} 2026 Season`, league, binders };
 }
 
@@ -75,7 +67,6 @@ export default function ContainerDetailPage() {
 
   return (
     <div>
-      {/* Back link + header */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
@@ -86,10 +77,21 @@ export default function ContainerDetailPage() {
           <ArrowLeft className="w-3.5 h-3.5" />
           All Containers
         </Link>
-        <h1 className="text-xl font-medium text-foreground tracking-tight">{container.name}</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          {container.binders.length} binder{container.binders.length !== 1 ? "s" : ""} · {container.league}
-        </p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-xl font-medium text-foreground tracking-tight">{container.name}</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              {container.binders.length} binder{container.binders.length !== 1 ? "s" : ""} · {container.league}
+            </p>
+          </div>
+          <Link
+            to={`/binders/new?league=${container.league}`}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs tracking-wider uppercase rounded-sm border border-crimson/40 bg-crimson/10 text-crimson hover:bg-crimson/20 transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            New Binder
+          </Link>
+        </div>
       </motion.div>
 
       {/* Aggregate stats */}
@@ -115,15 +117,9 @@ export default function ContainerDetailPage() {
       >
         <h2 className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-4">Readiness Distribution</h2>
         <div className="flex gap-1 h-3 rounded-sm overflow-hidden mb-3">
-          {readiness.ready > 0 && (
-            <div className="bg-emerald-400 rounded-sm" style={{ flex: readiness.ready }} />
-          )}
-          {readiness.risk > 0 && (
-            <div className="bg-amber-400 rounded-sm" style={{ flex: readiness.risk }} />
-          )}
-          {readiness.blocked > 0 && (
-            <div className="bg-crimson rounded-sm" style={{ flex: readiness.blocked }} />
-          )}
+          {readiness.ready > 0 && <div className="bg-emerald-400 rounded-sm" style={{ flex: readiness.ready }} />}
+          {readiness.risk > 0 && <div className="bg-amber-400 rounded-sm" style={{ flex: readiness.risk }} />}
+          {readiness.blocked > 0 && <div className="bg-crimson rounded-sm" style={{ flex: readiness.blocked }} />}
         </div>
         <div className="flex gap-6">
           <span className="flex items-center gap-1.5 text-xs text-foreground">
@@ -168,18 +164,14 @@ export default function ContainerDetailPage() {
                   <span className="text-xs font-mono text-muted-foreground shrink-0">
                     {format(new Date(binder.eventDate), "MMM d")}
                   </span>
-                  <span className={`text-[10px] tracking-wider uppercase shrink-0 ${readinessLabel[r]}`}>
-                    {r}
-                  </span>
+                  <span className={`text-[10px] tracking-wider uppercase shrink-0 ${readinessLabel[r]}`}>{r}</span>
                   {binder.openIssues > 0 && (
                     <span className="flex items-center gap-1 text-[10px] text-crimson shrink-0">
                       <AlertTriangle className="w-3 h-3" />
                       {binder.openIssues}
                     </span>
                   )}
-                  {binder.openIssues === 0 && (
-                    <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  )}
+                  {binder.openIssues === 0 && <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
                   <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                 </Link>
               );

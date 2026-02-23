@@ -8,6 +8,7 @@ import {
   BarChart3,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
+import { Link } from "react-router-dom";
 import {
   Sidebar,
   SidebarContent,
@@ -44,13 +45,13 @@ export function AppSidebar() {
 
         {/* New Binder action */}
         <div className="px-3 pt-4 pb-2">
-          <a
-            href="/containers/new"
+          <Link
+            to="/binders/new"
             className="flex items-center gap-2 px-3 py-2.5 text-xs font-medium tracking-wide uppercase text-primary-foreground bg-primary rounded-md hover:glow-red transition-all duration-200"
           >
             <Plus className="w-3.5 h-3.5" />
             New Binder
-          </a>
+          </Link>
         </div>
 
         {/* Nav */}

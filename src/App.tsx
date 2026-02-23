@@ -13,6 +13,7 @@ import DashboardPage from "./pages/DashboardPage";
 import CommandPage from "./pages/CommandPage";
 import WikiPage from "./pages/WikiPage";
 import BinderDetail from "./pages/BinderDetail";
+import CreateBinderPage from "./pages/CreateBinderPage";
 import SettingsPage from "./pages/SettingsPage";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/containers" element={<ContainersPage />} />
             <Route path="/containers/:containerId" element={<ContainerDetailPage />} />
             <Route path="/binders" element={<Navigate to="/containers" replace />} />
+            <Route path="/binders/new" element={<CreateBinderPage />} />
             <Route path="/binders/:id" element={<BinderDetail />} />
             <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/command" element={<CommandPage />} />
