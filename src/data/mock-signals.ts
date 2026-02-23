@@ -8,6 +8,8 @@ export interface Signal {
   transport: string;
   encoderInput: string;
   decoderOutput: string;
+  txName: string;
+  rxName: string;
 }
 
 export const CANONICAL_SIGNAL_NAMES = [
@@ -59,6 +61,8 @@ export function generateSignals(count: number, namingMode?: SignalNamingMode, cu
       transport: n % 5 === 0 ? "MPEG-TS" : "SRT",
       encoderInput: `ENC-${String(Math.ceil(n / 2)).padStart(2, "0")}:${n % 2 === 0 ? "B" : "A"}`,
       decoderOutput: `DEC-${padded}`,
+      txName: "",
+      rxName: "",
     };
   });
 }

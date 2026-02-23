@@ -7,6 +7,7 @@ import { computeReadiness } from "@/lib/readiness-engine";
 import { useBinderState } from "@/hooks/use-binder-state";
 
 import { CommandHeader } from "@/components/command/CommandHeader";
+import { EventCommandHeader } from "@/components/command/EventCommandHeader";
 import { CommandBrief } from "@/components/command/CommandBrief";
 import { ProductionDefinition } from "@/components/command/ProductionDefinition";
 import { SignalMatrix } from "@/components/command/SignalMatrix";
@@ -47,6 +48,7 @@ export default function BinderDetail() {
     toggleChecklist, addDoc, removeDoc, updateDoc,
     updateComm, addComm, removeComm,
     lockBinder, unlockBinder,
+    updateEventHeader, generateTxRx,
   } = useBinderState(binderId);
 
   const [editOpen, setEditOpen] = useState(false);
@@ -62,8 +64,9 @@ export default function BinderDetail() {
       state.returnRequired,
       state.checklist,
       state.comms,
+      state.eventHeader,
     ),
-    [state.signals, binder.encodersAssigned, state.transport, state.issues, state.returnRequired, state.checklist, state.comms]
+    [state.signals, binder.encodersAssigned, state.transport, state.issues, state.returnRequired, state.checklist, state.comms, state.eventHeader]
   );
 
   const eventStatus = isLocked ? "validated" as const : binder.status === "active" ? "configured" as const : "planning" as const;
@@ -80,36 +83,21 @@ export default function BinderDetail() {
     }
 
     binderStore.update(binderId, {
-      title: data.title,
-      league: "NHL",
-      venue: data.venue,
+      title: data.title, league: "NHL", venue: data.venue,
       showType: data.showType === "Other" ? data.customShowType || "Other" : data.showType,
-      partner: data.partner,
-      status: data.status,
-      isoCount: data.isoCount,
-      returnRequired: data.returnRequired,
-      commercials: data.commercials,
+      partner: data.partner, status: data.status, isoCount: data.isoCount,
+      returnRequired: data.returnRequired, commercials: data.commercials,
       primaryTransport: data.primaryTransport === "Other" ? data.customPrimaryTransport || "Other" : data.primaryTransport,
       backupTransport: data.backupTransport === "Other" ? data.customBackupTransport || "Other" : data.backupTransport,
       transport: data.primaryTransport === "Other" ? data.customPrimaryTransport || "Other" : data.primaryTransport,
-      notes: data.notes,
-      eventTime: data.eventTime,
-      timezone: data.timezone,
-      homeTeam: data.homeTeam,
-      awayTeam: data.awayTeam,
-      siteType: data.siteType,
-      studioLocation: data.studioLocation,
-      customShowType: data.customShowType,
-      customPrimaryTransport: data.customPrimaryTransport,
-      customBackupTransport: data.customBackupTransport,
-      customCommercials: data.customCommercials,
-      signalNamingMode: data.signalNamingMode,
-      canonicalSignals: data.canonicalSignals,
-      customSignalNames: data.customSignalNames,
-      encoderInputsPerUnit: data.encoderInputsPerUnit,
-      encoderCount: data.encoderCount,
-      decoderOutputsPerUnit: data.decoderOutputsPerUnit,
-      decoderCount: data.decoderCount,
+      notes: data.notes, eventTime: data.eventTime, timezone: data.timezone,
+      homeTeam: data.homeTeam, awayTeam: data.awayTeam, siteType: data.siteType,
+      studioLocation: data.studioLocation, customShowType: data.customShowType,
+      customPrimaryTransport: data.customPrimaryTransport, customBackupTransport: data.customBackupTransport,
+      customCommercials: data.customCommercials, signalNamingMode: data.signalNamingMode,
+      canonicalSignals: data.canonicalSignals, customSignalNames: data.customSignalNames,
+      encoderInputsPerUnit: data.encoderInputsPerUnit, encoderCount: data.encoderCount,
+      decoderOutputsPerUnit: data.decoderOutputsPerUnit, decoderCount: data.decoderCount,
       autoAllocate: data.autoAllocate,
     });
 
@@ -132,11 +120,8 @@ export default function BinderDetail() {
 
     if (changes.length > 0) {
       const newChanges = changes.map((label, i) => ({
-        id: `ch-${Date.now()}-${i}`,
-        label,
-        timestamp: new Date().toISOString(),
-        status: "confirmed" as const,
-        author: "System",
+        id: `ch-${Date.now()}-${i}`, label, timestamp: new Date().toISOString(),
+        status: "confirmed" as const, author: "System",
       }));
       update("changes", [...newChanges, ...state.changes]);
     }
@@ -158,22 +143,14 @@ export default function BinderDetail() {
     }
   }, [binderId, state.transport, update, isLocked]);
 
-  // Locked wrappers — prevent edits when locked
-  const lockedSetIsoCount = useCallback((count: number) => {
-    if (!isLocked) setIsoCount(count);
-  }, [isLocked, setIsoCount]);
-
+  const lockedSetIsoCount = useCallback((count: number) => { if (!isLocked) setIsoCount(count); }, [isLocked, setIsoCount]);
   const lockedUpdateSignal = useCallback((iso: number, field: keyof import("@/data/mock-signals").Signal, value: string) => {
     if (!isLocked) updateSignal(iso, field, value);
   }, [isLocked, updateSignal]);
-
   const lockedUpdateSignals = useCallback((updater: (signals: import("@/data/mock-signals").Signal[]) => import("@/data/mock-signals").Signal[]) => {
     if (!isLocked) updateSignals(updater);
   }, [isLocked, updateSignals]);
-
-  const lockedToggleChecklist = useCallback((id: string) => {
-    if (!isLocked) toggleChecklist(id);
-  }, [isLocked, toggleChecklist]);
+  const lockedToggleChecklist = useCallback((id: string) => { if (!isLocked) toggleChecklist(id); }, [isLocked, toggleChecklist]);
 
   return (
     <div className="relative">
@@ -188,22 +165,21 @@ export default function BinderDetail() {
       />
 
       <div className="max-w-6xl mx-auto px-6 py-6 space-y-8">
-        <Link
-          to="/containers"
-          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ArrowLeft className="w-3 h-3" />
-          Productions
+        <Link to="/containers"
+          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="w-3 h-3" /> Productions
         </Link>
 
+        <EventCommandHeader
+          data={state.eventHeader}
+          onChange={isLocked ? () => {} : updateEventHeader}
+          readOnly={isLocked}
+          onGenerateTxRx={isLocked ? undefined : generateTxRx}
+        />
+
         <CommandBrief
-          venue={state.venue}
-          partner={state.partner}
-          isoCount={state.isoCount}
-          report={report}
-          issues={state.issues}
-          changes={state.changes}
-          checklist={state.checklist}
+          venue={state.venue} partner={state.partner} isoCount={state.isoCount}
+          report={report} issues={state.issues} changes={state.changes} checklist={state.checklist}
         />
 
         <PreAirLock
@@ -215,12 +191,8 @@ export default function BinderDetail() {
         />
 
         <ProductionDefinition
-          league={state.league}
-          venue={state.venue}
-          partner={state.partner}
-          showType={state.showType}
-          eventDate={state.eventDate}
-          isoCount={state.isoCount}
+          league={state.league} venue={state.venue} partner={state.partner}
+          showType={state.showType} eventDate={state.eventDate} isoCount={state.isoCount}
           onIsoCountChange={lockedSetIsoCount}
           returnRequired={state.returnRequired}
           onReturnRequiredChange={(v) => !isLocked && update("returnRequired", v)}
@@ -233,8 +205,7 @@ export default function BinderDetail() {
         />
 
         <SignalMatrix
-          signals={state.signals}
-          report={report}
+          signals={state.signals} report={report}
           onUpdateSignal={lockedUpdateSignal}
           onUpdateSignals={lockedUpdateSignals}
           topology={state.topology}
@@ -252,10 +223,7 @@ export default function BinderDetail() {
         <DocumentArchive docs={state.docs} onAddDoc={isLocked ? () => {} : addDoc} onRemoveDoc={isLocked ? () => {} : removeDoc} onUpdateDoc={isLocked ? () => {} : updateDoc} />
         <Checklist items={state.checklist} onToggle={lockedToggleChecklist} />
 
-        <DiffView
-          currentState={state}
-          lockHistory={state.lockHistory || []}
-        />
+        <DiffView currentState={state} lockHistory={state.lockHistory || []} />
       </div>
 
       <BinderFormModal
@@ -266,13 +234,11 @@ export default function BinderDetail() {
         mode="edit"
         oldIsoCount={state.isoCount}
         initial={{
-          title: binder.title,
-          league: "NHL",
+          title: binder.title, league: "NHL",
           containerId: storeRecord?.containerId || "",
           gameType: storeRecord?.gameType || "Regular Season",
           season: storeRecord?.season || "2025–26",
-          eventDate: state.eventDate,
-          eventTime: state.eventTime || "19:00",
+          eventDate: state.eventDate, eventTime: state.eventTime || "19:00",
           timezone: state.timezone || "America/New_York",
           venue: state.venue,
           homeTeam: state.homeTeam || storeRecord?.homeTeam || "",
@@ -281,11 +247,8 @@ export default function BinderDetail() {
           studioLocation: storeRecord?.studioLocation || "",
           showType: state.showType,
           customShowType: storeRecord?.customShowType || "",
-          partner: state.partner,
-          status: binder.status,
-          isoCount: state.isoCount,
-          returnRequired: state.returnRequired,
-          commercials: state.commercials,
+          partner: state.partner, status: binder.status, isoCount: state.isoCount,
+          returnRequired: state.returnRequired, commercials: state.commercials,
           customCommercials: storeRecord?.customCommercials || "",
           primaryTransport: storeRecord?.primaryTransport || binder.transport,
           customPrimaryTransport: storeRecord?.customPrimaryTransport || "",

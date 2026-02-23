@@ -21,6 +21,9 @@ export interface ReadinessReport {
   checklistTotal: number;
   commsTotal: number;
   commsUnassigned: number;
+  txRxMissing: number;
+  staffAssigned: number;
+  eventHeaderComplete: boolean;
 }
 
 export function computeReadiness(
@@ -31,6 +34,7 @@ export function computeReadiness(
   returnRequired: boolean,
   checklist: ChecklistItem[] = [],
   comms: CommEntry[] = [],
+  eventHeader?: { projectTitle?: string; showDate?: string; staff?: { name: string }[]; controlRoom?: string },
 ): ReadinessReport {
   const encoderRequired = Math.ceil(signals.length / 2);
   const encoderShortfall = Math.max(0, encoderRequired - encodersAvailable);
@@ -95,6 +99,21 @@ export function computeReadiness(
     }
   }
 
+  // TX/RX completeness
+  const txRxMissing = signals.filter(s => !s.txName || !s.rxName).length;
+  if (level !== "blocked" && txRxMissing > 0) {
+    reasons.push(`${txRxMissing} signal${txRxMissing > 1 ? "s" : ""} missing TX/RX names`);
+    if (level !== "risk") level = "risk";
+  }
+
+  // Event header completeness
+  const staffAssigned = eventHeader?.staff?.filter(s => s.name?.trim()).length ?? 0;
+  const eventHeaderComplete = !!(eventHeader?.projectTitle?.trim() && eventHeader?.showDate);
+  if (level !== "blocked" && !eventHeaderComplete) {
+    reasons.push("Event header incomplete (title/date)");
+    if (level !== "risk") level = "risk";
+  }
+
   if (reasons.length === 0) {
     reasons.push("All systems configured");
   }
@@ -116,5 +135,8 @@ export function computeReadiness(
     checklistTotal,
     commsTotal,
     commsUnassigned,
+    txRxMissing,
+    staffAssigned,
+    eventHeaderComplete,
   };
 }
