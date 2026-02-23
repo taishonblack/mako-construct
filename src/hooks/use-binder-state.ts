@@ -4,6 +4,8 @@ import { generateSignals, generatePatchpoints } from "@/data/mock-signals";
 import type { TransportConfig, CommEntry, ChangeEntry, Issue, DocEntry } from "@/data/mock-phase5";
 import { mockTransport, mockComms, mockChanges, mockIssues, mockDocs } from "@/data/mock-phase5";
 import { mockBinderDetail } from "@/data/mock-binder-detail";
+import type { EventCommandHeaderData, StaffEntry, InternalLQEntry } from "@/components/command/EventCommandHeader";
+import { DEFAULT_EVENT_HEADER } from "@/components/command/EventCommandHeader";
 
 export interface ChecklistItem {
   id: string;
@@ -80,6 +82,8 @@ export interface BinderState {
   // Lock
   currentLock: LockState;
   lockHistory: LockSnapshot[];
+  // Event Command Header
+  eventHeader: EventCommandHeaderData;
 }
 
 const STORAGE_KEY = "mako-binder-";
@@ -127,6 +131,7 @@ function buildInitialState(_id: string): BinderState {
     topology: buildDefaultTopology(),
     currentLock: { ...DEFAULT_LOCK },
     lockHistory: [],
+    eventHeader: { ...DEFAULT_EVENT_HEADER },
   };
 }
 
@@ -144,6 +149,15 @@ export function useBinderState(binderId: string) {
         if (!parsed.siteType) parsed.siteType = "Arena";
         if (!parsed.currentLock) parsed.currentLock = { ...DEFAULT_LOCK };
         if (!parsed.lockHistory) parsed.lockHistory = [];
+        if (!parsed.eventHeader) parsed.eventHeader = { ...DEFAULT_EVENT_HEADER };
+        // Ensure signals have txName/rxName
+        if (parsed.signals) {
+          parsed.signals = parsed.signals.map((s: Signal) => ({
+            ...s,
+            txName: s.txName || "",
+            rxName: s.rxName || "",
+          }));
+        }
         return parsed;
       } catch { /* ignore */ }
     }
@@ -251,12 +265,75 @@ export function useBinderState(binderId: string) {
     }));
   }, []);
 
+  // Event Header
+  const updateEventHeader = useCallback((header: EventCommandHeaderData) => {
+    setState((prev) => {
+      const changes: ChangeEntry[] = [];
+      const old = prev.eventHeader;
+      const now = new Date().toISOString();
+      const fields: { key: keyof EventCommandHeaderData; label: string }[] = [
+        { key: "projectTitle", label: "Project Title" },
+        { key: "showDate", label: "Show Date" },
+        { key: "showTime", label: "Show Time" },
+        { key: "rehearsalDate", label: "Rehearsal Date" },
+        { key: "nhlGame", label: "NHL Game" },
+        { key: "arena", label: "Arena" },
+        { key: "broadcastFeed", label: "Broadcast Feed" },
+        { key: "controlRoom", label: "Control Room" },
+        { key: "onsiteTechManager", label: "Onsite Tech Manager" },
+        { key: "notes", label: "Event Notes" },
+        { key: "txFormat", label: "TX Format" },
+        { key: "rxFormat", label: "RX Format" },
+      ];
+      for (const f of fields) {
+        const oldVal = String(old[f.key] ?? "");
+        const newVal = String(header[f.key] ?? "");
+        if (oldVal !== newVal && (oldVal || newVal)) {
+          changes.push({
+            id: `ch-eh-${Date.now()}-${f.key}`,
+            label: `${f.label}: ${oldVal || "(empty)"} → ${newVal || "(empty)"}`,
+            timestamp: now,
+            status: "confirmed",
+            author: "System",
+          });
+        }
+      }
+      return {
+        ...prev,
+        eventHeader: header,
+        changes: changes.length > 0 ? [...changes, ...prev.changes] : prev.changes,
+      };
+    });
+  }, []);
+
+  // Generate TX/RX names for signals with empty values
+  const generateTxRx = useCallback(() => {
+    setState((prev) => {
+      const cr = prev.eventHeader.controlRoom;
+      const newSignals = prev.signals.map((s) => {
+        const encNum = s.encoderInput ? s.encoderInput.split("-")[1]?.split(":")[0]?.replace(/^0+/, "") || String(s.iso) : String(s.iso);
+        const inNum = s.encoderInput ? s.encoderInput.split(":")[1] || String(s.iso % 2 === 0 ? 2 : 1) : String(s.iso % 2 === 0 ? 2 : 1);
+        const decNum = s.decoderOutput ? s.decoderOutput.replace(/[^0-9]/g, "") : String(s.iso).padStart(2, "0");
+        const txName = s.txName || `TX-ENC${encNum.padStart(2, "0")}-IN${String(inNum).replace(/[^0-9]/g, "").padStart(2, "0")}`;
+        const rxName = s.rxName || `RX-CR${cr}-DEC${decNum.padStart(2, "0")}-OUT${String(s.iso).padStart(2, "0")}`;
+        return { ...s, txName, rxName };
+      });
+      const changeEntry: ChangeEntry = {
+        id: `ch-txrx-${Date.now()}`,
+        label: `TX/RX names auto-generated for ${newSignals.filter((s, i) => s.txName !== prev.signals[i]?.txName || s.rxName !== prev.signals[i]?.rxName).length} signals`,
+        timestamp: new Date().toISOString(),
+        status: "confirmed",
+        author: "System",
+      };
+      return { ...prev, signals: newSignals, changes: [changeEntry, ...prev.changes] };
+    });
+  }, []);
+
   // --- Lock operations ---
   const lockBinder = useCallback(() => {
     setState((prev) => {
       const newVersion = prev.currentLock.version + 1;
       const now = new Date().toISOString();
-      // Create snapshot of current state (exclude lock metadata)
       const { currentLock, lockHistory, ...snapshotState } = prev;
       const snapshot: LockSnapshot = {
         id: `lock-v${newVersion}`,
@@ -303,5 +380,6 @@ export function useBinderState(binderId: string) {
     toggleChecklist, addDoc, removeDoc, updateDoc,
     updateComm, addComm, removeComm,
     lockBinder, unlockBinder,
+    updateEventHeader, generateTxRx,
   };
 }

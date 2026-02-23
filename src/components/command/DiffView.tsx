@@ -32,6 +32,38 @@ function compareStates(before: Partial<BinderState>, after: Partial<BinderState>
     { key: "commercials", label: "Commercials" },
   ];
 
+  // Event Command Header fields
+  const beforeHeader = (before as BinderState).eventHeader;
+  const afterHeader = (after as BinderState).eventHeader;
+  if (beforeHeader && afterHeader) {
+    const headerFields: { key: string; label: string }[] = [
+      { key: "projectTitle", label: "Project Title" },
+      { key: "showDate", label: "Show Date" },
+      { key: "showTime", label: "Show Time" },
+      { key: "rehearsalDate", label: "Rehearsal Date" },
+      { key: "nhlGame", label: "NHL Game" },
+      { key: "arena", label: "Arena" },
+      { key: "broadcastFeed", label: "Broadcast Feed" },
+      { key: "controlRoom", label: "Control Room" },
+      { key: "onsiteTechManager", label: "Onsite Tech Manager" },
+      { key: "txFormat", label: "TX Format" },
+      { key: "rxFormat", label: "RX Format" },
+    ];
+    for (const f of headerFields) {
+      const b = String((beforeHeader as any)[f.key] ?? "");
+      const a = String((afterHeader as any)[f.key] ?? "");
+      if (b !== a) {
+        diffs.push({ field: f.label, section: "Event Header", before: b || "(empty)", after: a || "(empty)", type: b ? "modified" : "added" });
+      }
+    }
+    // Staff count
+    const bStaff = (beforeHeader.staff || []).filter((s: any) => s.name?.trim()).length;
+    const aStaff = (afterHeader.staff || []).filter((s: any) => s.name?.trim()).length;
+    if (bStaff !== aStaff) {
+      diffs.push({ field: "Staff Assigned", section: "Event Header", before: String(bStaff), after: String(aStaff), type: "modified" });
+    }
+  }
+
   for (const f of prodFields) {
     const b = String(before[f.key] ?? "");
     const a = String(after[f.key] ?? "");
@@ -65,6 +97,19 @@ function compareStates(before: Partial<BinderState>, after: Partial<BinderState>
       if (bs.productionAlias !== as.productionAlias) aliasChanges++;
       if (bs.onsitePatch !== as.onsitePatch || bs.hqPatch !== as.hqPatch) patchChanges++;
     }
+  }
+  // TX/RX changes
+  let txRxChanges = 0;
+  for (let i = 0; i < maxLen; i++) {
+    const bs = beforeSignals[i];
+    const as = afterSignals[i];
+    if (bs && as) {
+      if ((bs.txName || "") !== (as.txName || "")) txRxChanges++;
+      if ((bs.rxName || "") !== (as.rxName || "")) txRxChanges++;
+    }
+  }
+  if (txRxChanges > 0) {
+    diffs.push({ field: `TX/RX Names (${txRxChanges} changed)`, section: "Signals", before: "—", after: "—", type: "modified" });
   }
   if (aliasChanges > 0) {
     diffs.push({ field: `Signal Aliases (${aliasChanges} changed)`, section: "Signals", before: `${beforeSignals.length} signals`, after: `${afterSignals.length} signals`, type: "modified" });

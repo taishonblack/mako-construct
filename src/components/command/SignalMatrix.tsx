@@ -319,6 +319,8 @@ export function SignalMatrix({ signals, report, onUpdateSignal, onUpdateSignals,
               <TableHead className="text-[10px] tracking-wider uppercase">Production Alias</TableHead>
               <TableHead className="text-[10px] tracking-wider uppercase">Onsite Encoder</TableHead>
               <TableHead className="text-[10px] tracking-wider uppercase">HQ Decoder</TableHead>
+              <TableHead className="text-[10px] tracking-wider uppercase w-28">TX Name</TableHead>
+              <TableHead className="text-[10px] tracking-wider uppercase w-28">RX Name</TableHead>
               <TableHead className="text-[10px] tracking-wider uppercase w-24">Transport</TableHead>
               <TableHead className="text-[10px] tracking-wider uppercase w-28">Destination</TableHead>
               <TableHead className="w-20 text-[10px] tracking-wider uppercase">Status</TableHead>
@@ -359,7 +361,13 @@ export function SignalMatrix({ signals, report, onUpdateSignal, onUpdateSignals,
                     <div className="text-[9px] text-muted-foreground/60 mt-0.5">
                       HQ: {signal.hqPatchCustomLabel || signal.decoderOutput}
                     </div>
-                  )}
+                   )}
+                </TableCell>
+                <TableCell>
+                  <InlineInput value={signal.txName} onChange={(v) => onUpdateSignal(signal.iso, "txName", v)} mono placeholder="TX-…" />
+                </TableCell>
+                <TableCell>
+                  <InlineInput value={signal.rxName} onChange={(v) => onUpdateSignal(signal.iso, "rxName", v)} mono placeholder="RX-…" />
                 </TableCell>
                 <TableCell>
                   <InlineSelect value={signal.transport} options={TRANSPORT_OPTIONS}
