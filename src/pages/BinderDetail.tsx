@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { mockBinderDetail } from "@/data/mock-binder-detail";
-import { mockDocs } from "@/data/mock-phase5";
 import { computeReadiness } from "@/lib/readiness-engine";
 import { useBinderState } from "@/hooks/use-binder-state";
 
@@ -22,7 +21,7 @@ export default function BinderDetail() {
   const binderId = id || "1";
   const binder = mockBinderDetail;
 
-  const { state, update, setIsoCount, updateSignal, toggleChecklist } = useBinderState(binderId);
+  const { state, update, setIsoCount, updateSignal, toggleChecklist, addDoc, removeDoc, updateDoc } = useBinderState(binderId);
 
   const report = useMemo(
     () => computeReadiness(
@@ -99,8 +98,13 @@ export default function BinderDetail() {
         {/* Section 7: Issues & Pivots */}
         <IssuesChanges changes={state.changes} issues={state.issues} />
 
-        {/* Section 8: Document Archive */}
-        <DocumentArchive docs={mockDocs} />
+        {/* Section 8: Assets */}
+        <DocumentArchive
+          docs={state.docs}
+          onAddDoc={addDoc}
+          onRemoveDoc={removeDoc}
+          onUpdateDoc={updateDoc}
+        />
 
         {/* Section 9: Checklist */}
         <Checklist items={state.checklist} onToggle={toggleChecklist} />
