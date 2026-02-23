@@ -81,6 +81,7 @@ export default function BinderDetail() {
           onReturnRequiredChange={(v) => update("returnRequired", v)}
           commercials={state.commercials}
           onCommercialsChange={(v) => update("commercials", v)}
+          onFieldChange={(field, value) => update(field as keyof typeof state, value)}
         />
 
         {/* Section 3: Signal Configuration Matrix */}
