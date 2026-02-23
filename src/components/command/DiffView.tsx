@@ -133,6 +133,24 @@ function compareStates(before: Partial<BinderState>, after: Partial<BinderState>
     diffs.push({ field: "Checklist Progress", section: "Checklist", before: `${beforeChecked}/${(before.checklist || []).length}`, after: `${afterChecked}/${(after.checklist || []).length}`, type: "modified" });
   }
 
+  // Audio Philosophy
+  const beforeAudio = (before as BinderState).audioPhilosophy;
+  const afterAudio = (after as BinderState).audioPhilosophy;
+  if (beforeAudio && afterAudio) {
+    const audioFields: { key: string; label: string }[] = [
+      { key: "outputMode", label: "Audio Output Mode" },
+      { key: "natsSource", label: "Nats Source" },
+      { key: "announcerRouting", label: "Announcer Routing" },
+    ];
+    for (const f of audioFields) {
+      const b = String((beforeAudio as any)[f.key] ?? "");
+      const a = String((afterAudio as any)[f.key] ?? "");
+      if (b !== a) {
+        diffs.push({ field: f.label, section: "Audio", before: b || "(empty)", after: a || "(empty)", type: b ? "modified" : "added" });
+      }
+    }
+  }
+
   // Docs count
   if ((before.docs || []).length !== (after.docs || []).length) {
     diffs.push({ field: "Assets", section: "Assets", before: `${(before.docs || []).length} docs`, after: `${(after.docs || []).length} docs`, type: (after.docs || []).length > (before.docs || []).length ? "added" : "removed" });

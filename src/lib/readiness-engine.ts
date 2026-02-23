@@ -24,6 +24,7 @@ export interface ReadinessReport {
   txRxMissing: number;
   staffAssigned: number;
   eventHeaderComplete: boolean;
+  audioConfigured: boolean;
 }
 
 export function computeReadiness(
@@ -35,6 +36,7 @@ export function computeReadiness(
   checklist: ChecklistItem[] = [],
   comms: CommEntry[] = [],
   eventHeader?: { projectTitle?: string; showDate?: string; staff?: { name: string }[]; controlRoom?: string },
+  audioPhilosophy?: { outputMode?: string; natsSource?: string; announcerRouting?: string },
 ): ReadinessReport {
   const encoderRequired = Math.ceil(signals.length / 2);
   const encoderShortfall = Math.max(0, encoderRequired - encodersAvailable);
@@ -114,6 +116,13 @@ export function computeReadiness(
     if (level !== "risk") level = "risk";
   }
 
+  // Audio Philosophy completeness
+  const audioConfigured = !!(audioPhilosophy?.outputMode && audioPhilosophy?.natsSource && audioPhilosophy?.announcerRouting);
+  if (level !== "blocked" && !audioConfigured) {
+    reasons.push("Audio philosophy incomplete (output mode / nats / routing)");
+    if (level !== "risk") level = "risk";
+  }
+
   if (reasons.length === 0) {
     reasons.push("All systems configured");
   }
@@ -138,5 +147,6 @@ export function computeReadiness(
     txRxMissing,
     staffAssigned,
     eventHeaderComplete,
+    audioConfigured,
   };
 }

@@ -6,6 +6,8 @@ import { mockTransport, mockComms, mockChanges, mockIssues, mockDocs } from "@/d
 import { mockBinderDetail } from "@/data/mock-binder-detail";
 import type { EventCommandHeaderData, StaffEntry, InternalLQEntry } from "@/components/command/EventCommandHeader";
 import { DEFAULT_EVENT_HEADER } from "@/components/command/EventCommandHeader";
+import type { AudioPhilosophyData } from "@/components/command/AudioPhilosophy";
+import { DEFAULT_AUDIO_PHILOSOPHY } from "@/components/command/AudioPhilosophy";
 
 export interface ChecklistItem {
   id: string;
@@ -84,6 +86,8 @@ export interface BinderState {
   lockHistory: LockSnapshot[];
   // Event Command Header
   eventHeader: EventCommandHeaderData;
+  // Audio Philosophy
+  audioPhilosophy: AudioPhilosophyData;
 }
 
 const STORAGE_KEY = "mako-binder-";
@@ -132,6 +136,7 @@ function buildInitialState(_id: string): BinderState {
     currentLock: { ...DEFAULT_LOCK },
     lockHistory: [],
     eventHeader: { ...DEFAULT_EVENT_HEADER },
+    audioPhilosophy: { ...DEFAULT_AUDIO_PHILOSOPHY },
   };
 }
 
@@ -150,6 +155,7 @@ export function useBinderState(binderId: string) {
         if (!parsed.currentLock) parsed.currentLock = { ...DEFAULT_LOCK };
         if (!parsed.lockHistory) parsed.lockHistory = [];
         if (!parsed.eventHeader) parsed.eventHeader = { ...DEFAULT_EVENT_HEADER };
+        if (!parsed.audioPhilosophy) parsed.audioPhilosophy = { ...DEFAULT_AUDIO_PHILOSOPHY };
         // Ensure signals have txName/rxName
         if (parsed.signals) {
           parsed.signals = parsed.signals.map((s: Signal) => ({
@@ -263,6 +269,39 @@ export function useBinderState(binderId: string) {
         d.id === id ? { ...d, [field]: value } : d
       ),
     }));
+  }, []);
+
+  // Audio Philosophy
+  const updateAudioPhilosophy = useCallback((audio: AudioPhilosophyData) => {
+    setState((prev) => {
+      const changes: ChangeEntry[] = [];
+      const old = prev.audioPhilosophy;
+      const now = new Date().toISOString();
+      const fields: { key: keyof AudioPhilosophyData; label: string }[] = [
+        { key: "outputMode", label: "Audio Output Mode" },
+        { key: "natsSource", label: "Nats Source" },
+        { key: "announcerRouting", label: "Announcer Routing" },
+        { key: "notes", label: "Audio Notes" },
+      ];
+      for (const f of fields) {
+        const oldVal = String(old[f.key] ?? "");
+        const newVal = String(audio[f.key] ?? "");
+        if (oldVal !== newVal && (oldVal || newVal)) {
+          changes.push({
+            id: `ch-ap-${Date.now()}-${f.key}`,
+            label: `${f.label}: ${oldVal || "(empty)"} → ${newVal || "(empty)"}`,
+            timestamp: now,
+            status: "confirmed",
+            author: "System",
+          });
+        }
+      }
+      return {
+        ...prev,
+        audioPhilosophy: audio,
+        changes: changes.length > 0 ? [...changes, ...prev.changes] : prev.changes,
+      };
+    });
   }, []);
 
   // Event Header
@@ -381,5 +420,6 @@ export function useBinderState(binderId: string) {
     updateComm, addComm, removeComm,
     lockBinder, unlockBinder,
     updateEventHeader, generateTxRx,
+    updateAudioPhilosophy,
   };
 }

@@ -167,6 +167,18 @@ function answerQuery(query: string, state: BinderState, report: ReadinessReport)
     return result;
   }
 
+  // Audio
+  if (q.includes("audio") || q.includes("nats") || q.includes("announcer") || q.includes("output mode") || q.includes("5.1") || q.includes("stereo")) {
+    const ap = state.audioPhilosophy;
+    if (!ap) return "⚠️ Audio Philosophy not configured yet.";
+    const configured = !!(ap.outputMode && ap.natsSource && ap.announcerRouting);
+    return `${configured ? "✅" : "🟡"} **Audio Philosophy**\n\n` +
+      `- **Output Mode:** ${ap.outputMode || "Not set"}\n` +
+      `- **Nats Source:** ${ap.natsSource || "Not set"}\n` +
+      `- **Announcer Routing:** ${ap.announcerRouting || "Not set"}\n` +
+      (ap.notes ? `\n**Notes:** ${ap.notes}` : "");
+  }
+
   // Control room
   if (q.includes("control room") || q.includes("cr-") || q.includes("facility")) {
     return `**Control Room:** CR-${state.eventHeader.controlRoom}\n**Arena:** ${state.eventHeader.arena || "Not set"}\n**Broadcast Feed:** ${state.eventHeader.broadcastFeed}`;
@@ -185,7 +197,8 @@ function answerQuery(query: string, state: BinderState, report: ReadinessReport)
       `- **Checklist:** ${report.checklistComplete}/${report.checklistTotal}\n` +
       `- **Comms:** ${report.commsTotal} channels (${report.commsUnassigned} unassigned)\n` +
       `- **TX/RX:** ${report.txRxMissing} missing\n` +
-      `- **Lock:** ${state.currentLock.locked ? `v${state.currentLock.version}` : "Unlocked"}`;
+      `- **Lock:** ${state.currentLock.locked ? `v${state.currentLock.version}` : "Unlocked"}\n` +
+      `- **Audio:** ${report.audioConfigured ? "✅ Configured" : "⚠️ Incomplete"}`;
   }
 
   // Fallback

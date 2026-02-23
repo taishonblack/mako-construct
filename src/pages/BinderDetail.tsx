@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Wand2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { binderStore } from "@/stores/binder-store";
 import { mockBinderDetail } from "@/data/mock-binder-detail";
 import { computeReadiness } from "@/lib/readiness-engine";
@@ -21,6 +22,8 @@ import { PreAirLock } from "@/components/command/PreAirLock";
 import { DiffView } from "@/components/command/DiffView";
 import { BinderFormModal, type BinderFormData } from "@/components/command/BinderFormModal";
 import { BinderCopilot } from "@/components/command/BinderCopilot";
+import { DocToBinderAssist, type DetectedField } from "@/components/command/DocToBinderAssist";
+import { AudioPhilosophy } from "@/components/command/AudioPhilosophy";
 
 export default function BinderDetail() {
   const { id } = useParams();
@@ -50,9 +53,11 @@ export default function BinderDetail() {
     updateComm, addComm, removeComm,
     lockBinder, unlockBinder,
     updateEventHeader, generateTxRx,
+    updateAudioPhilosophy,
   } = useBinderState(binderId);
 
   const [editOpen, setEditOpen] = useState(false);
+  const [docAssistOpen, setDocAssistOpen] = useState(false);
 
   const isLocked = state.currentLock?.locked ?? false;
 
@@ -66,8 +71,9 @@ export default function BinderDetail() {
       state.checklist,
       state.comms,
       state.eventHeader,
+      state.audioPhilosophy,
     ),
-    [state.signals, binder.encodersAssigned, state.transport, state.issues, state.returnRequired, state.checklist, state.comms, state.eventHeader]
+    [state.signals, binder.encodersAssigned, state.transport, state.issues, state.returnRequired, state.checklist, state.comms, state.eventHeader, state.audioPhilosophy]
   );
 
   const eventStatus = isLocked ? "validated" as const : binder.status === "active" ? "configured" as const : "planning" as const;
@@ -153,6 +159,51 @@ export default function BinderDetail() {
   }, [isLocked, updateSignals]);
   const lockedToggleChecklist = useCallback((id: string) => { if (!isLocked) toggleChecklist(id); }, [isLocked, toggleChecklist]);
 
+  // Doc-to-Binder Assist apply handler
+  const handleDocAssistApply = useCallback((fields: DetectedField[]) => {
+    const changes: string[] = [];
+    for (const f of fields) {
+      if (f.target === "isoCount") {
+        const newCount = parseInt(f.value);
+        if (!isNaN(newCount) && newCount !== state.isoCount) {
+          setIsoCount(newCount);
+          changes.push(`ISO Count → ${newCount}`);
+        }
+      } else if (f.target.startsWith("eventHeader.")) {
+        const key = f.target.replace("eventHeader.", "") as keyof typeof state.eventHeader;
+        if (state.eventHeader[key] !== undefined) {
+          updateEventHeader({ ...state.eventHeader, [key]: f.value });
+          changes.push(`${f.label} → ${f.value}`);
+        }
+      } else if (f.target.startsWith("staff.")) {
+        const role = f.target.replace("staff.", "");
+        const newStaff = state.eventHeader.staff.map(s =>
+          s.role === role ? { ...s, name: f.value } : s
+        );
+        updateEventHeader({ ...state.eventHeader, staff: newStaff });
+        changes.push(`Staff ${role} → ${f.value}`);
+      } else if (f.target.startsWith("signal.")) {
+        const parts = f.target.split(".");
+        const iso = parseInt(parts[1]);
+        if (!isNaN(iso)) {
+          updateSignal(iso, "productionAlias", f.value);
+          changes.push(`ISO ${iso} alias → ${f.value}`);
+        }
+      } else if (f.target.startsWith("audioPhilosophy.")) {
+        const key = f.target.replace("audioPhilosophy.", "") as keyof typeof state.audioPhilosophy;
+        updateAudioPhilosophy({ ...state.audioPhilosophy, [key]: f.value });
+        changes.push(`${f.label} → ${f.value}`);
+      }
+    }
+    if (changes.length > 0) {
+      const newChanges = changes.map((label, i) => ({
+        id: `ch-doc-${Date.now()}-${i}`, label: `Doc Assist: ${label}`,
+        timestamp: new Date().toISOString(), status: "confirmed" as const, author: "Doc Assist",
+      }));
+      update("changes", [...newChanges, ...state.changes]);
+    }
+  }, [state, setIsoCount, updateEventHeader, updateSignal, updateAudioPhilosophy, update]);
+
   return (
     <div className="relative">
       <BinderCopilot state={state} report={report} />
@@ -177,6 +228,21 @@ export default function BinderDetail() {
           onChange={isLocked ? () => {} : updateEventHeader}
           readOnly={isLocked}
           onGenerateTxRx={isLocked ? undefined : generateTxRx}
+        />
+
+        {!isLocked && (
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" onClick={() => setDocAssistOpen(true)}
+              className="text-[10px] tracking-wider uppercase">
+              <Wand2 className="w-3 h-3 mr-1" /> Doc-to-Binder Assist
+            </Button>
+          </div>
+        )}
+
+        <AudioPhilosophy
+          data={state.audioPhilosophy}
+          onChange={isLocked ? () => {} : updateAudioPhilosophy}
+          readOnly={isLocked}
         />
 
         <CommandBrief
@@ -271,6 +337,13 @@ export default function BinderDetail() {
           mpegBackupMulticast: "", mpegBackupPort: "",
           saveAsTemplate: false, templateName: "",
         }}
+      />
+
+      <DocToBinderAssist
+        open={docAssistOpen}
+        onClose={() => setDocAssistOpen(false)}
+        state={state}
+        onApply={handleDocAssistApply}
       />
     </div>
   );
