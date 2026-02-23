@@ -1,6 +1,7 @@
 import { ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 import heroBg from "@/assets/hero-bg.jpg";
+import { MakoFinMark } from "@/components/MakoFinMark";
 
 const fadeUp = (delay: number) => ({
   initial: { opacity: 0, y: 20 } as const,
@@ -28,7 +29,8 @@ export function HeroSection() {
       {/* Content */}
       <div className="relative z-10 w-full px-8 md:px-16 lg:px-24">
         {/* Brand label */}
-        <motion.div {...fadeUp(0.2)} className="mb-6">
+        <motion.div {...fadeUp(0.2)} className="mb-6 flex items-center gap-2">
+          <MakoFinMark size={22} className="text-crimson" />
           <span className="text-xs font-semibold tracking-[0.35em] uppercase text-crimson">MAKO</span>
         </motion.div>
 
