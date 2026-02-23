@@ -24,7 +24,7 @@ export function BlueprintSection() {
 
   return (
     <section id="blueprint" className="relative py-32 overflow-hidden" ref={ref}>
-      <div className="max-w-6xl mx-auto px-6">
+      <div className="w-full px-8 md:px-16 lg:px-24">
         <div className="grid md:grid-cols-2 gap-16 items-center">
           {/* Left: Blueprint wireframe visual */}
           <motion.div
