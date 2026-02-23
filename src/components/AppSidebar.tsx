@@ -8,6 +8,7 @@ import {
   BarChart3,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
+import { MakoFinMark } from "@/components/MakoFinMark";
 import { Link } from "react-router-dom";
 import {
   Sidebar,
@@ -34,12 +35,12 @@ export function AppSidebar() {
       <SidebarContent>
         {/* Brand */}
         <div className="px-4 py-6 border-b border-border">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-crimson" />
+          <Link to="/" className="flex items-center gap-2 group">
+            <MakoFinMark size={18} className="text-crimson group-hover:text-[hsl(var(--crimson)/0.8)] transition-colors" />
             <span className="text-xs font-semibold tracking-[0.35em] uppercase text-crimson">
               MAKO LIVE
             </span>
-          </div>
+          </Link>
         </div>
 
         {/* New Binder action */}
