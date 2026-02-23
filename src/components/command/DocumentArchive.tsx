@@ -32,7 +32,7 @@ interface Props {
   onUpdateDoc: (id: string, field: keyof DocEntry, value: string) => void;
 }
 
-export function DocumentArchive({ docs, onAddDoc, onRemoveDoc, onUpdateDoc }: Props) {
+export function DocumentArchive({ docs = [], onAddDoc, onRemoveDoc, onUpdateDoc }: Props) {
   const [open, setOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [mode, setMode] = useState<"upload" | "link">("upload");
