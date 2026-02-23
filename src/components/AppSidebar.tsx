@@ -36,8 +36,8 @@ export function AppSidebar() {
         <div className="px-4 py-6 border-b border-border">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-crimson" />
-            <span className="text-xs font-medium tracking-[0.3em] uppercase text-crimson">
-              MAKO Live
+            <span className="text-xs font-semibold tracking-[0.35em] uppercase text-crimson">
+              MAKO LIVE
             </span>
           </div>
         </div>
