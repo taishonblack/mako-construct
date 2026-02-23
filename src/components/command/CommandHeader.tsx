@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { Pencil } from "lucide-react";
 import type { ReadinessLevel } from "@/lib/readiness-engine";
 
 type EventStatus = "planning" | "configured" | "validated" | "live";
@@ -21,9 +22,10 @@ interface CommandHeaderProps {
   status: EventStatus;
   readiness: ReadinessLevel;
   reasons: string[];
+  onEdit?: () => void;
 }
 
-export function CommandHeader({ eventName, status, readiness, reasons }: CommandHeaderProps) {
+export function CommandHeader({ eventName, status, readiness, reasons, onEdit }: CommandHeaderProps) {
   const r = readinessConfig[readiness];
 
   return (
@@ -46,6 +48,15 @@ export function CommandHeader({ eventName, status, readiness, reasons }: Command
         </div>
 
         <div className="flex items-center gap-3">
+          {onEdit && (
+            <button
+              onClick={onEdit}
+              className="flex items-center gap-1.5 px-2.5 py-1 text-[10px] tracking-wider uppercase border border-border rounded-sm text-muted-foreground hover:text-foreground hover:border-crimson transition-colors"
+            >
+              <Pencil className="w-3 h-3" />
+              Edit
+            </button>
+          )}
           <div className="flex items-center gap-2">
             <div className={`w-2 h-2 rounded-full ${r.dot} ${readiness === "blocked" ? "animate-pulse" : ""}`} />
             <span className={`text-xs font-medium tracking-wider uppercase ${r.text}`}>{r.label}</span>
