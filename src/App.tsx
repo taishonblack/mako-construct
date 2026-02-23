@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { AppLayout } from "./components/AppLayout";
 import BinderLibrary from "./pages/BinderLibrary";
+import BinderDetail from "./pages/BinderDetail";
 
 const queryClient = new QueryClient();
 
@@ -20,6 +21,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route element={<AppLayout />}>
             <Route path="/binders" element={<BinderLibrary />} />
+            <Route path="/binders/:id" element={<BinderDetail />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
