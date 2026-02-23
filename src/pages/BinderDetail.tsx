@@ -23,7 +23,6 @@ export default function BinderDetail() {
   const navigate = useNavigate();
   const binderId = id || "1";
 
-  // Try store first, fall back to mock
   const storeRecord = binderStore.getById(binderId);
   const binder = storeRecord
     ? {
@@ -41,7 +40,7 @@ export default function BinderDetail() {
       }
     : mockBinderDetail;
 
-  const { state, update, setIsoCount, updateSignal, toggleChecklist, addDoc, removeDoc, updateDoc } = useBinderState(binderId);
+  const { state, update, setIsoCount, updateSignal, updateSignals, updateTopology, toggleChecklist, addDoc, removeDoc, updateDoc } = useBinderState(binderId);
 
   const [editOpen, setEditOpen] = useState(false);
 
@@ -75,23 +74,46 @@ export default function BinderDetail() {
       title: data.title,
       league: data.league,
       venue: data.venue,
-      showType: data.showType,
+      showType: data.showType === "Other" ? data.customShowType || "Other" : data.showType,
       partner: data.partner,
       status: data.status,
       isoCount: data.isoCount,
       returnRequired: data.returnRequired,
       commercials: data.commercials,
-      primaryTransport: data.primaryTransport,
-      backupTransport: data.backupTransport,
-      transport: data.primaryTransport,
+      primaryTransport: data.primaryTransport === "Other" ? data.customPrimaryTransport || "Other" : data.primaryTransport,
+      backupTransport: data.backupTransport === "Other" ? data.customBackupTransport || "Other" : data.backupTransport,
+      transport: data.primaryTransport === "Other" ? data.customPrimaryTransport || "Other" : data.primaryTransport,
       notes: data.notes,
+      eventTime: data.eventTime,
+      timezone: data.timezone,
+      homeTeam: data.homeTeam,
+      awayTeam: data.awayTeam,
+      siteType: data.siteType,
+      studioLocation: data.studioLocation,
+      customShowType: data.customShowType,
+      customPrimaryTransport: data.customPrimaryTransport,
+      customBackupTransport: data.customBackupTransport,
+      customCommercials: data.customCommercials,
+      signalNamingMode: data.signalNamingMode,
+      canonicalSignals: data.canonicalSignals,
+      customSignalNames: data.customSignalNames,
+      encoderInputsPerUnit: data.encoderInputsPerUnit,
+      encoderCount: data.encoderCount,
+      decoderOutputsPerUnit: data.decoderOutputsPerUnit,
+      decoderCount: data.decoderCount,
+      autoAllocate: data.autoAllocate,
     });
 
     update("league", data.league);
     update("partner", data.partner);
     update("venue", data.venue);
-    update("showType", data.showType);
+    update("showType", data.showType === "Other" ? data.customShowType || "Other" : data.showType);
     update("eventDate", data.eventDate);
+    update("eventTime", data.eventTime);
+    update("timezone", data.timezone);
+    update("homeTeam", data.homeTeam);
+    update("awayTeam", data.awayTeam);
+    update("siteType", data.siteType);
     update("returnRequired", data.returnRequired);
     update("commercials", data.commercials);
 
@@ -112,16 +134,13 @@ export default function BinderDetail() {
   }, [binderId, storeRecord, state, update, setIsoCount]);
 
   const handleDelete = useCallback(() => {
-    // Remove from store
     binderStore.delete(binderId);
-    // Clean up localStorage binder state
     localStorage.removeItem(`mako-binder-${binderId}`);
     navigate("/containers");
   }, [binderId, navigate]);
 
   const handleTransportChange = useCallback((field: "primaryTransport" | "backupTransport", value: string) => {
     binderStore.update(binderId, { [field]: value, ...(field === "primaryTransport" ? { transport: value } : {}) });
-    // Update transport in local state
     if (field === "primaryTransport") {
       update("transport", { ...state.transport, primary: { ...state.transport.primary, protocol: value } });
     } else {
@@ -176,7 +195,13 @@ export default function BinderDetail() {
           onTransportChange={handleTransportChange}
         />
 
-        <SignalMatrix signals={state.signals} report={report} onUpdateSignal={updateSignal} />
+        <SignalMatrix
+          signals={state.signals}
+          report={report}
+          onUpdateSignal={updateSignal}
+          onUpdateSignals={updateSignals}
+          topology={state.topology}
+        />
         <TransportProfile config={state.transport} returnRequired={state.returnRequired} />
         <CommsStructure comms={state.comms} />
         <ExecutionTimeline />
@@ -197,16 +222,39 @@ export default function BinderDetail() {
           league: storeRecord?.league || state.league,
           containerId: storeRecord?.containerId || "",
           eventDate: state.eventDate,
+          eventTime: state.eventTime || "19:00",
+          timezone: state.timezone || "America/New_York",
           venue: state.venue,
+          homeTeam: state.homeTeam || storeRecord?.homeTeam || "",
+          awayTeam: state.awayTeam || storeRecord?.awayTeam || "",
+          siteType: state.siteType || storeRecord?.siteType || "Arena",
+          studioLocation: storeRecord?.studioLocation || "",
           showType: state.showType,
+          customShowType: storeRecord?.customShowType || "",
           partner: state.partner,
           status: binder.status,
           isoCount: state.isoCount,
           returnRequired: state.returnRequired,
           commercials: state.commercials,
+          customCommercials: storeRecord?.customCommercials || "",
           primaryTransport: storeRecord?.primaryTransport || binder.transport,
+          customPrimaryTransport: storeRecord?.customPrimaryTransport || "",
           backupTransport: storeRecord?.backupTransport || binder.backupTransport,
+          customBackupTransport: storeRecord?.customBackupTransport || "",
           notes: storeRecord?.notes || "",
+          signalNamingMode: storeRecord?.signalNamingMode || "iso",
+          canonicalSignals: storeRecord?.canonicalSignals || [],
+          customSignalNames: storeRecord?.customSignalNames || "",
+          encoderInputsPerUnit: state.topology?.encoderInputsPerUnit || storeRecord?.encoderInputsPerUnit || 2,
+          encoderCount: state.topology?.encoderCount || storeRecord?.encoderCount || 6,
+          decoderOutputsPerUnit: state.topology?.decoderOutputsPerUnit || storeRecord?.decoderOutputsPerUnit || 4,
+          decoderCount: state.topology?.decoderCount || storeRecord?.decoderCount || 6,
+          autoAllocate: storeRecord?.autoAllocate ?? true,
+          srtPrimaryHost: "", srtPrimaryPort: "", srtPrimaryMode: "caller", srtPrimaryPassphrase: "",
+          mpegPrimaryMulticast: "", mpegPrimaryPort: "",
+          srtBackupHost: "", srtBackupPort: "", srtBackupMode: "caller", srtBackupPassphrase: "",
+          mpegBackupMulticast: "", mpegBackupPort: "",
+          saveAsTemplate: false, templateName: "",
         }}
       />
     </div>
