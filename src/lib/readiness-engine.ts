@@ -1,5 +1,5 @@
 import type { Signal } from "@/data/mock-signals";
-import type { TransportConfig, Issue } from "@/data/mock-phase5";
+import type { TransportConfig, Issue, CommEntry } from "@/data/mock-phase5";
 import type { ChecklistItem } from "@/hooks/use-binder-state";
 
 export type ReadinessLevel = "ready" | "risk" | "blocked";
@@ -19,6 +19,8 @@ export interface ReadinessReport {
   blockingIssues: number;
   checklistComplete: number;
   checklistTotal: number;
+  commsTotal: number;
+  commsUnassigned: number;
 }
 
 export function computeReadiness(
@@ -28,6 +30,7 @@ export function computeReadiness(
   issues: Issue[],
   returnRequired: boolean,
   checklist: ChecklistItem[] = [],
+  comms: CommEntry[] = [],
 ): ReadinessReport {
   const encoderRequired = Math.ceil(signals.length / 2);
   const encoderShortfall = Math.max(0, encoderRequired - encodersAvailable);
@@ -67,6 +70,9 @@ export function computeReadiness(
     level = "blocked";
   }
 
+  const commsTotal = comms.length;
+  const commsUnassigned = comms.filter(c => !c.assignment.trim()).length;
+
   if (level !== "blocked") {
     if (!backupDefined) {
       reasons.push("No backup transport defined");
@@ -78,6 +84,13 @@ export function computeReadiness(
     }
     if (checklistTotal > 0 && checklistComplete < checklistTotal) {
       reasons.push(`Checklist: ${checklistComplete}/${checklistTotal} complete`);
+      if (level !== "risk") level = "risk";
+    }
+    if (commsTotal === 0) {
+      reasons.push("No comms channels configured");
+      if (level !== "risk") level = "risk";
+    } else if (commsUnassigned > 0) {
+      reasons.push(`${commsUnassigned} comms channel${commsUnassigned > 1 ? "s" : ""} unassigned`);
       if (level !== "risk") level = "risk";
     }
   }
@@ -101,5 +114,7 @@ export function computeReadiness(
     blockingIssues,
     checklistComplete,
     checklistTotal,
+    commsTotal,
+    commsUnassigned,
   };
 }
