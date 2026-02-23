@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import type { Signal } from "@/data/mock-signals";
-import { generateSignals } from "@/data/mock-signals";
+import { generateSignals, generatePatchpoints } from "@/data/mock-signals";
 import type { TransportConfig, CommEntry, ChangeEntry, Issue, DocEntry } from "@/data/mock-phase5";
 import { mockTransport, mockComms, mockChanges, mockIssues, mockDocs } from "@/data/mock-phase5";
 import { mockBinderDetail } from "@/data/mock-binder-detail";
@@ -9,6 +9,15 @@ export interface ChecklistItem {
   id: string;
   label: string;
   checked: boolean;
+}
+
+export interface TopologyConfig {
+  encoderInputsPerUnit: number;
+  encoderCount: number;
+  decoderOutputsPerUnit: number;
+  decoderCount: number;
+  encoderPatchpoints: string[];
+  decoderPatchpoints: string[];
 }
 
 const defaultChecklist: ChecklistItem[] = [
@@ -29,6 +38,11 @@ export interface BinderState {
   venue: string;
   showType: string;
   eventDate: string;
+  eventTime: string;
+  timezone: string;
+  homeTeam: string;
+  awayTeam: string;
+  siteType: string;
   isoCount: number;
   returnRequired: boolean;
   commercials: string;
@@ -45,9 +59,26 @@ export interface BinderState {
   docs: DocEntry[];
   // Checklist
   checklist: ChecklistItem[];
+  // Topology
+  topology: TopologyConfig;
 }
 
 const STORAGE_KEY = "mako-binder-";
+
+function buildDefaultTopology(): TopologyConfig {
+  const encCount = 6;
+  const encPorts = 2;
+  const decCount = 6;
+  const decPorts = 4;
+  return {
+    encoderInputsPerUnit: encPorts,
+    encoderCount: encCount,
+    decoderOutputsPerUnit: decPorts,
+    decoderCount: decCount,
+    encoderPatchpoints: generatePatchpoints("encoder", encCount, encPorts),
+    decoderPatchpoints: generatePatchpoints("decoder", decCount, decPorts),
+  };
+}
 
 function buildInitialState(id: string): BinderState {
   const binder = mockBinderDetail;
@@ -57,6 +88,11 @@ function buildInitialState(id: string): BinderState {
     venue: binder.venue,
     showType: "Live Game",
     eventDate: binder.eventDate,
+    eventTime: "19:00",
+    timezone: "America/New_York",
+    homeTeam: "",
+    awayTeam: "",
+    siteType: "Arena",
     isoCount: binder.isoCount,
     returnRequired: binder.returnFeed,
     commercials: "local-insert",
@@ -67,6 +103,7 @@ function buildInitialState(id: string): BinderState {
     changes: [...mockChanges],
     docs: [...mockDocs],
     checklist: [...defaultChecklist],
+    topology: buildDefaultTopology(),
   };
 }
 
@@ -74,7 +111,19 @@ export function useBinderState(binderId: string) {
   const [state, setState] = useState<BinderState>(() => {
     const stored = localStorage.getItem(STORAGE_KEY + binderId);
     if (stored) {
-      try { return JSON.parse(stored); } catch { /* ignore */ }
+      try {
+        const parsed = JSON.parse(stored);
+        // Migration: ensure topology exists
+        if (!parsed.topology) {
+          parsed.topology = buildDefaultTopology();
+        }
+        if (!parsed.eventTime) parsed.eventTime = "19:00";
+        if (!parsed.timezone) parsed.timezone = "America/New_York";
+        if (!parsed.homeTeam) parsed.homeTeam = "";
+        if (!parsed.awayTeam) parsed.awayTeam = "";
+        if (!parsed.siteType) parsed.siteType = "Arena";
+        return parsed;
+      } catch { /* ignore */ }
     }
     return buildInitialState(binderId);
   });
@@ -91,12 +140,10 @@ export function useBinderState(binderId: string) {
     }
   }, []);
 
-  // Update a top-level field
   const update = useCallback(<K extends keyof BinderState>(key: K, value: BinderState[K]) => {
     setState((prev) => ({ ...prev, [key]: value }));
   }, []);
 
-  // Change ISO count, preserving edited rows
   const setIsoCount = useCallback((count: number) => {
     setState((prev) => {
       const clamped = Math.max(1, Math.min(28, count));
@@ -114,7 +161,6 @@ export function useBinderState(binderId: string) {
     });
   }, []);
 
-  // Update a single signal field
   const updateSignal = useCallback((iso: number, field: keyof Signal, value: string) => {
     setState((prev) => ({
       ...prev,
@@ -124,7 +170,14 @@ export function useBinderState(binderId: string) {
     }));
   }, []);
 
-  // Toggle checklist
+  const updateSignals = useCallback((updater: (signals: Signal[]) => Signal[]) => {
+    setState((prev) => ({ ...prev, signals: updater(prev.signals) }));
+  }, []);
+
+  const updateTopology = useCallback((topology: TopologyConfig) => {
+    setState((prev) => ({ ...prev, topology }));
+  }, []);
+
   const toggleChecklist = useCallback((id: string) => {
     setState((prev) => ({
       ...prev,
@@ -134,17 +187,14 @@ export function useBinderState(binderId: string) {
     }));
   }, []);
 
-  // Add a doc/asset
   const addDoc = useCallback((doc: DocEntry) => {
     setState((prev) => ({ ...prev, docs: [...prev.docs, doc] }));
   }, []);
 
-  // Remove a doc/asset
   const removeDoc = useCallback((id: string) => {
     setState((prev) => ({ ...prev, docs: prev.docs.filter((d) => d.id !== id) }));
   }, []);
 
-  // Update a doc/asset field
   const updateDoc = useCallback((id: string, field: keyof DocEntry, value: string) => {
     setState((prev) => ({
       ...prev,
@@ -154,5 +204,5 @@ export function useBinderState(binderId: string) {
     }));
   }, []);
 
-  return { state, update, setIsoCount, updateSignal, toggleChecklist, addDoc, removeDoc, updateDoc };
+  return { state, update, setIsoCount, updateSignal, updateSignals, updateTopology, toggleChecklist, addDoc, removeDoc, updateDoc };
 }

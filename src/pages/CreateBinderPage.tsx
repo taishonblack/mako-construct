@@ -5,8 +5,9 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { BinderFormModal, type BinderFormData } from "@/components/command/BinderFormModal";
 import { binderStore } from "@/stores/binder-store";
-import { generateSignals } from "@/data/mock-signals";
-import { mockTransport, mockComms, mockDocs } from "@/data/mock-phase5";
+import { generateSignals, generatePatchpoints } from "@/data/mock-signals";
+import { mockTransport, mockComms } from "@/data/mock-phase5";
+import type { SignalNamingMode } from "@/data/mock-signals";
 
 export default function CreateBinderPage() {
   const navigate = useNavigate();
@@ -23,36 +24,100 @@ export default function CreateBinderPage() {
       containerId: data.containerId,
       eventDate: data.eventDate,
       venue: data.venue,
-      showType: data.showType,
+      showType: data.showType === "Other" ? data.customShowType || "Other" : data.showType,
       partner: data.partner,
       status: data.status,
       isoCount: data.isoCount,
       returnRequired: data.returnRequired,
-      commercials: data.commercials,
-      primaryTransport: data.primaryTransport,
-      backupTransport: data.backupTransport,
+      commercials: data.commercials === "Other" ? data.customCommercials || "Other" : data.commercials,
+      primaryTransport: data.primaryTransport === "Other" ? data.customPrimaryTransport || "Other" : data.primaryTransport,
+      backupTransport: data.backupTransport === "Other" ? data.customBackupTransport || "Other" : data.backupTransport,
       notes: data.notes,
-      transport: data.primaryTransport,
+      transport: data.primaryTransport === "Other" ? data.customPrimaryTransport || "Other" : data.primaryTransport,
       openIssues: 0,
+      eventTime: data.eventTime,
+      timezone: data.timezone,
+      homeTeam: data.homeTeam,
+      awayTeam: data.awayTeam,
+      siteType: data.siteType,
+      studioLocation: data.studioLocation,
+      customShowType: data.customShowType,
+      customPrimaryTransport: data.customPrimaryTransport,
+      customBackupTransport: data.customBackupTransport,
+      customCommercials: data.customCommercials,
+      signalNamingMode: data.signalNamingMode,
+      canonicalSignals: data.canonicalSignals,
+      customSignalNames: data.customSignalNames,
+      encoderInputsPerUnit: data.encoderInputsPerUnit,
+      encoderCount: data.encoderCount,
+      decoderOutputsPerUnit: data.decoderOutputsPerUnit,
+      decoderCount: data.decoderCount,
+      autoAllocate: data.autoAllocate,
     });
 
-    // Initialize binder state in localStorage (signals, docs, checklist, etc.)
+    // Generate signals based on naming mode
+    const customNames = data.signalNamingMode === "custom"
+      ? data.customSignalNames.split("\n").map((n) => n.trim()).filter(Boolean)
+      : undefined;
+    const canonicalNames = data.signalNamingMode === "canonical"
+      ? data.canonicalSignals
+      : undefined;
+
+    const signals = generateSignals(
+      data.isoCount,
+      data.signalNamingMode as SignalNamingMode,
+      customNames,
+      canonicalNames
+    );
+
+    // Generate patchpoints from topology
+    const encoderPatchpoints = generatePatchpoints("encoder", data.encoderCount, data.encoderInputsPerUnit);
+    const decoderPatchpoints = generatePatchpoints("decoder", data.decoderCount, data.decoderOutputsPerUnit);
+
+    // Auto-allocate patchpoints if enabled
+    const finalSignals = data.autoAllocate
+      ? signals.map((s, i) => ({
+          ...s,
+          encoderInput: i < encoderPatchpoints.length ? encoderPatchpoints[i] : s.encoderInput,
+          decoderOutput: i < decoderPatchpoints.length ? decoderPatchpoints[i] : s.decoderOutput,
+        }))
+      : signals;
+
+    const resolvedPrimaryTransport = data.primaryTransport === "Other" ? data.customPrimaryTransport || "Other" : data.primaryTransport;
+    const resolvedBackupTransport = data.backupTransport === "Other" ? data.customBackupTransport || "Other" : data.backupTransport;
+
+    // Initialize binder state in localStorage
     const binderState = {
       league: data.league,
       partner: data.partner,
       venue: data.venue,
-      showType: data.showType,
+      showType: data.showType === "Other" ? data.customShowType || "Other" : data.showType,
       eventDate: data.eventDate,
+      eventTime: data.eventTime,
+      timezone: data.timezone,
+      homeTeam: data.homeTeam,
+      awayTeam: data.awayTeam,
+      siteType: data.siteType,
       isoCount: data.isoCount,
       returnRequired: data.returnRequired,
-      commercials: data.commercials,
-      signals: generateSignals(data.isoCount),
+      commercials: data.commercials === "Other" ? data.customCommercials || "Other" : data.commercials,
+      signals: finalSignals,
       transport: {
         ...mockTransport,
-        primary: { ...mockTransport.primary, protocol: data.primaryTransport },
-        backup: { ...mockTransport.backup, protocol: data.backupTransport },
+        primary: {
+          ...mockTransport.primary,
+          protocol: resolvedPrimaryTransport,
+          destination: data.srtPrimaryHost || mockTransport.primary.destination,
+          port: data.srtPrimaryPort ? parseInt(data.srtPrimaryPort) : mockTransport.primary.port,
+        },
+        backup: {
+          ...mockTransport.backup,
+          protocol: resolvedBackupTransport,
+          destination: data.srtBackupHost || mockTransport.backup.destination,
+          port: data.srtBackupPort ? parseInt(data.srtBackupPort) : mockTransport.backup.port,
+        },
         returnFeed: data.returnRequired,
-        commercials: data.commercials as "local-insert" | "pass-through" | "none",
+        commercials: (data.commercials === "Other" ? "none" : data.commercials) as "local-insert" | "pass-through" | "none",
       },
       comms: [...mockComms],
       issues: [],
@@ -72,6 +137,14 @@ export default function CreateBinderPage() {
         { id: "ck7", label: "Commercial Handling Confirmed", checked: false },
         { id: "ck8", label: "Release Confirmed", checked: false },
       ],
+      topology: {
+        encoderInputsPerUnit: data.encoderInputsPerUnit,
+        encoderCount: data.encoderCount,
+        decoderOutputsPerUnit: data.decoderOutputsPerUnit,
+        decoderCount: data.decoderCount,
+        encoderPatchpoints,
+        decoderPatchpoints,
+      },
     };
     localStorage.setItem(`mako-binder-${record.id}`, JSON.stringify(binderState));
 

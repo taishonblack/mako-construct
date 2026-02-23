@@ -10,6 +10,25 @@ export interface BinderRecord extends MockBinder {
   primaryTransport: string;
   backupTransport: string;
   notes: string;
+  // New fields
+  eventTime: string;
+  timezone: string;
+  homeTeam: string;
+  awayTeam: string;
+  siteType: string;
+  studioLocation: string;
+  customShowType: string;
+  customPrimaryTransport: string;
+  customBackupTransport: string;
+  customCommercials: string;
+  signalNamingMode: string;
+  canonicalSignals: string[];
+  customSignalNames: string;
+  encoderInputsPerUnit: number;
+  encoderCount: number;
+  decoderOutputsPerUnit: number;
+  decoderCount: number;
+  autoAllocate: boolean;
 }
 
 export type { BinderStatus };
@@ -27,6 +46,24 @@ function seedFromMock(): BinderRecord[] {
     primaryTransport: b.transport || "SRT",
     backupTransport: "MPEG-TS",
     notes: "",
+    eventTime: "19:00",
+    timezone: "America/New_York",
+    homeTeam: "",
+    awayTeam: "",
+    siteType: "Arena",
+    studioLocation: "",
+    customShowType: "",
+    customPrimaryTransport: "",
+    customBackupTransport: "",
+    customCommercials: "",
+    signalNamingMode: "iso",
+    canonicalSignals: [],
+    customSignalNames: "",
+    encoderInputsPerUnit: 2,
+    encoderCount: 6,
+    decoderOutputsPerUnit: 4,
+    decoderCount: 6,
+    autoAllocate: true,
   }));
 }
 
@@ -52,8 +89,6 @@ function load(): BinderRecord[] {
 function save(records: BinderRecord[]) {
   localStorage.setItem(STORE_KEY, JSON.stringify(records));
 }
-
-// --- Public API (synchronous, localStorage-backed) ---
 
 let _cache: BinderRecord[] | null = null;
 
