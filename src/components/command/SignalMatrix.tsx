@@ -1,10 +1,11 @@
 import { useState, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
-import { Zap, Wand2, ChevronDown, Copy, Eraser, Layers } from "lucide-react";
+import { Zap, Wand2, ChevronDown, Copy, Eraser, Layers, Link2, Unlink } from "lucide-react";
 import type { Signal } from "@/data/mock-signals";
 import { TRANSPORT_OPTIONS, DESTINATION_OPTIONS, applyAliasScheme } from "@/data/mock-signals";
 import type { ReadinessReport } from "@/lib/readiness-engine";
 import type { TopologyConfig } from "@/hooks/use-binder-state";
+import type { SignalRoute } from "@/stores/route-store";
 import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from "@/components/ui/table";
@@ -15,6 +16,7 @@ interface SignalMatrixProps {
   onUpdateSignal: (iso: number, field: keyof Signal, value: string) => void;
   onUpdateSignals?: (updater: (signals: Signal[]) => Signal[]) => void;
   topology?: TopologyConfig;
+  routes?: SignalRoute[];
 }
 
 function InlineInput({ value, onChange, mono, placeholder }: { value: string; onChange: (v: string) => void; mono?: boolean; placeholder?: string }) {
@@ -117,7 +119,7 @@ const ALIAS_SCHEMES = [
   { value: "custom", label: "Custom Prefix" },
 ];
 
-export function SignalMatrix({ signals, report, onUpdateSignal, onUpdateSignals, topology }: SignalMatrixProps) {
+export function SignalMatrix({ signals, report, onUpdateSignal, onUpdateSignals, topology, routes = [] }: SignalMatrixProps) {
   const [showNamingContext, setShowNamingContext] = useState(false);
   const [aliasScheme, setAliasScheme] = useState("iso");
   const [customPrefix, setCustomPrefix] = useState("");
@@ -240,7 +242,19 @@ export function SignalMatrix({ signals, report, onUpdateSignal, onUpdateSignals,
               {configuredCount}
             </span>
             <span className="text-xs text-muted-foreground">/ {signals.length} configured</span>
+        </div>
+
+        {/* Route validation summary */}
+        {routes.length > 0 && (report.orphanDecoders > 0 || report.duplicateSrtPorts > 0 || report.unmappedRoutes > 0) && (
+          <div className="steel-panel p-3 mb-4 border-crimson/30">
+            <span className="text-[10px] tracking-wider uppercase text-crimson flex items-center gap-1.5 mb-2">
+              <Zap className="w-3 h-3" /> Route Validation Issues
+            </span>
+            {report.routeValidationErrors.map((err, i) => (
+              <p key={i} className="text-[11px] text-muted-foreground pl-4">• {err}</p>
+            ))}
           </div>
+        )}
         </div>
       </div>
 
@@ -324,6 +338,7 @@ export function SignalMatrix({ signals, report, onUpdateSignal, onUpdateSignals,
               <TableHead className="text-[10px] tracking-wider uppercase w-24">Transport</TableHead>
               <TableHead className="text-[10px] tracking-wider uppercase w-28">Destination</TableHead>
               <TableHead className="w-20 text-[10px] tracking-wider uppercase">Status</TableHead>
+              {routes.length > 0 && <TableHead className="w-32 text-[10px] tracking-wider uppercase">Linked Route</TableHead>}
               {onUpdateSignals && <TableHead className="w-16 text-[10px] tracking-wider uppercase">Actions</TableHead>}
             </TableRow>
           </TableHeader>
@@ -394,6 +409,41 @@ export function SignalMatrix({ signals, report, onUpdateSignal, onUpdateSignals,
                 <TableCell>
                   <SignalStatus signal={signal} />
                 </TableCell>
+                {routes.length > 0 && (
+                  <TableCell>
+                    {signal.linkedRouteId ? (
+                      <div className="flex items-center gap-1">
+                        <Link2 className="w-3 h-3 text-emerald-400 shrink-0" />
+                        <span className="text-[10px] font-mono text-foreground truncate">
+                          {routes.find(r => r.id === signal.linkedRouteId)?.routeName || signal.linkedRouteId}
+                        </span>
+                        {onUpdateSignals && (
+                          <button onClick={() => onUpdateSignal(signal.iso, "linkedRouteId", "")}
+                            className="text-muted-foreground hover:text-crimson shrink-0" title="Unlink">
+                            <Unlink className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      onUpdateSignals ? (
+                        <select
+                          value=""
+                          onChange={(e) => onUpdateSignal(signal.iso, "linkedRouteId", e.target.value)}
+                          className="bg-transparent text-[10px] font-mono px-0.5 py-0.5 rounded border border-transparent hover:border-border focus:border-crimson focus:outline-none text-muted-foreground transition-colors cursor-pointer w-full"
+                        >
+                          <option value="" className="bg-card text-foreground">— Link Route —</option>
+                          {routes.map(r => (
+                            <option key={r.id} value={r.id} className="bg-card text-foreground">
+                              {r.routeName} ({r.alias.productionName || r.alias.engineeringName || "unnamed"})
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground/40">—</span>
+                      )
+                    )}
+                  </TableCell>
+                )}
                 {onUpdateSignals && (
                   <TableCell>
                     <div className="flex items-center gap-1">

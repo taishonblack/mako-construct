@@ -1,6 +1,7 @@
 import type { Signal } from "@/data/mock-signals";
 import type { TransportConfig, Issue, CommEntry } from "@/data/mock-phase5";
 import type { ChecklistItem } from "@/hooks/use-binder-state";
+import type { SignalRoute } from "@/stores/route-store";
 
 export type ReadinessLevel = "ready" | "risk" | "blocked";
 
@@ -25,6 +26,11 @@ export interface ReadinessReport {
   staffAssigned: number;
   eventHeaderComplete: boolean;
   audioConfigured: boolean;
+  // Route validation
+  orphanDecoders: number;
+  duplicateSrtPorts: number;
+  unmappedRoutes: number;
+  routeValidationErrors: string[];
 }
 
 export function computeReadiness(
@@ -37,6 +43,7 @@ export function computeReadiness(
   comms: CommEntry[] = [],
   eventHeader?: { projectTitle?: string; showDate?: string; staff?: { name: string }[]; controlRoom?: string },
   audioPhilosophy?: { outputMode?: string; natsSource?: string; announcerRouting?: string },
+  routes?: SignalRoute[],
 ): ReadinessReport {
   const encoderRequired = Math.ceil(signals.length / 2);
   const encoderShortfall = Math.max(0, encoderRequired - encodersAvailable);
@@ -123,6 +130,62 @@ export function computeReadiness(
     if (level !== "risk") level = "risk";
   }
 
+  // --- Route validation ---
+  const routeValidationErrors: string[] = [];
+  let orphanDecoders = 0;
+  let duplicateSrtPorts = 0;
+  let unmappedRoutes = 0;
+
+  if (routes && routes.length > 0) {
+    // Orphan decoders: decoder defined but no router mapping
+    orphanDecoders = routes.filter(r =>
+      r.decoder.deviceName && (!r.routerMapping.router || !r.routerMapping.inputCrosspoint)
+    ).length;
+    if (orphanDecoders > 0) {
+      routeValidationErrors.push(`${orphanDecoders} orphan decoder${orphanDecoders > 1 ? "s" : ""} (no router patch)`);
+    }
+
+    // Duplicate SRT ports
+    const srtPorts = routes
+      .filter(r => r.transport.type.startsWith("SRT") && r.transport.port)
+      .map(r => `${r.transport.srtAddress}:${r.transport.port}`);
+    const portSet = new Set<string>();
+    const dupes = new Set<string>();
+    for (const p of srtPorts) {
+      if (portSet.has(p)) dupes.add(p);
+      portSet.add(p);
+    }
+    duplicateSrtPorts = dupes.size;
+    if (duplicateSrtPorts > 0) {
+      routeValidationErrors.push(`${duplicateSrtPorts} duplicate SRT port${duplicateSrtPorts > 1 ? "s" : ""}`);
+    }
+
+    // Unmapped routes: missing TX→RX→Router→Alias chain
+    unmappedRoutes = routes.filter(r =>
+      !r.signalSource.signalName ||
+      !r.encoder.deviceName ||
+      !r.transport.type ||
+      !r.decoder.deviceName ||
+      !r.routerMapping.router ||
+      !r.alias.productionName
+    ).length;
+    if (unmappedRoutes > 0) {
+      routeValidationErrors.push(`${unmappedRoutes} route${unmappedRoutes > 1 ? "s" : ""} incomplete (TX→RX→Router→Alias)`);
+    }
+
+    // Add to main reasons
+    if (routeValidationErrors.length > 0) {
+      for (const err of routeValidationErrors) {
+        reasons.push(err);
+      }
+      if (orphanDecoders > 0 || duplicateSrtPorts > 0) {
+        level = "blocked";
+      } else if (level !== "blocked") {
+        level = "risk";
+      }
+    }
+  }
+
   if (reasons.length === 0) {
     reasons.push("All systems configured");
   }
@@ -148,5 +211,9 @@ export function computeReadiness(
     staffAssigned,
     eventHeaderComplete,
     audioConfigured,
+    orphanDecoders,
+    duplicateSrtPorts,
+    unmappedRoutes,
+    routeValidationErrors,
   };
 }

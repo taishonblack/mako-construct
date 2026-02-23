@@ -6,6 +6,7 @@ import { binderStore } from "@/stores/binder-store";
 import { mockBinderDetail } from "@/data/mock-binder-detail";
 import { computeReadiness } from "@/lib/readiness-engine";
 import { useBinderState } from "@/hooks/use-binder-state";
+import { useRoutesStore } from "@/stores/route-store";
 
 import { CommandHeader } from "@/components/command/CommandHeader";
 import { EventCommandHeader } from "@/components/command/EventCommandHeader";
@@ -56,6 +57,8 @@ export default function BinderDetail() {
     updateAudioPhilosophy,
   } = useBinderState(binderId);
 
+  const { state: routesState } = useRoutesStore();
+
   const [editOpen, setEditOpen] = useState(false);
   const [docAssistOpen, setDocAssistOpen] = useState(false);
 
@@ -72,8 +75,9 @@ export default function BinderDetail() {
       state.comms,
       state.eventHeader,
       state.audioPhilosophy,
+      routesState.routes,
     ),
-    [state.signals, binder.encodersAssigned, state.transport, state.issues, state.returnRequired, state.checklist, state.comms, state.eventHeader, state.audioPhilosophy]
+    [state.signals, binder.encodersAssigned, state.transport, state.issues, state.returnRequired, state.checklist, state.comms, state.eventHeader, state.audioPhilosophy, routesState.routes]
   );
 
   const eventStatus = isLocked ? "validated" as const : binder.status === "active" ? "configured" as const : "planning" as const;
@@ -277,6 +281,7 @@ export default function BinderDetail() {
           onUpdateSignal={lockedUpdateSignal}
           onUpdateSignals={lockedUpdateSignals}
           topology={state.topology}
+          routes={routesState.routes}
         />
         <TransportProfile config={state.transport} returnRequired={state.returnRequired} />
         <CommsStructure

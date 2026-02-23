@@ -18,9 +18,12 @@ function canLock(report: ReadinessReport): { allowed: boolean; blockers: string[
   if (!report.transportComplete) blockers.push("Primary transport not configured");
   if (!report.returnConfigured) blockers.push("Return feed required but not configured");
   if (report.blockingIssues > 0) blockers.push(`${report.blockingIssues} blocking issue(s) open`);
-  // Checklist: require at least the critical items
   const requiredChecklist = report.checklistTotal > 0 && report.checklistComplete < Math.ceil(report.checklistTotal * 0.5);
   if (requiredChecklist) blockers.push(`Checklist: only ${report.checklistComplete}/${report.checklistTotal} complete (need ≥50%)`);
+  // Route validation
+  if (report.orphanDecoders > 0) blockers.push(`${report.orphanDecoders} orphan decoder(s) — no router patch`);
+  if (report.duplicateSrtPorts > 0) blockers.push(`${report.duplicateSrtPorts} duplicate SRT port(s)`);
+  if (report.unmappedRoutes > 0) blockers.push(`${report.unmappedRoutes} route(s) with incomplete TX→RX→Router→Alias chain`);
   return { allowed: blockers.length === 0, blockers };
 }
 

@@ -156,12 +156,13 @@ export function useBinderState(binderId: string) {
         if (!parsed.lockHistory) parsed.lockHistory = [];
         if (!parsed.eventHeader) parsed.eventHeader = { ...DEFAULT_EVENT_HEADER };
         if (!parsed.audioPhilosophy) parsed.audioPhilosophy = { ...DEFAULT_AUDIO_PHILOSOPHY };
-        // Ensure signals have txName/rxName
+        // Ensure signals have txName/rxName/linkedRouteId
         if (parsed.signals) {
           parsed.signals = parsed.signals.map((s: Signal) => ({
             ...s,
             txName: s.txName || "",
             rxName: s.rxName || "",
+            linkedRouteId: (s as any).linkedRouteId || "",
           }));
         }
         return parsed;
