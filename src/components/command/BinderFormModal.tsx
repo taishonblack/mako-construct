@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, AlertTriangle } from "lucide-react";
+import { X, AlertTriangle, Trash2, ChevronDown } from "lucide-react";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import type { BinderRecord, BinderStatus } from "@/stores/binder-store";
+import type { BinderStatus } from "@/stores/binder-store";
 
 const LEAGUES = ["NBA", "NFL", "NHL", "MLS", "NCAA", "Other"];
 const SHOW_TYPES = ["Standard", "Alt Language", "Animated", "Remote Call", "Studio Alt", "Other"];
@@ -14,6 +14,64 @@ const STATUSES: BinderStatus[] = ["draft", "active", "completed", "archived"];
 const ISO_PRESETS = [8, 12, 16, 18, 24];
 const TRANSPORTS = ["SRT", "MPEG-TS", "Fiber", "RIST", "Other"];
 const COMMERCIALS = ["local-insert", "pass-through", "none"];
+
+// --- Templates ---
+interface Template {
+  name: string;
+  description: string;
+  defaults: Partial<BinderFormData>;
+}
+
+const TEMPLATES: Template[] = [
+  {
+    name: "Standard Game",
+    description: "Full live game production — 18 ISOs, SRT primary, return feed",
+    defaults: {
+      showType: "Standard",
+      isoCount: 18,
+      returnRequired: true,
+      commercials: "local-insert",
+      primaryTransport: "SRT",
+      backupTransport: "MPEG-TS",
+    },
+  },
+  {
+    name: "Alt Language Studio",
+    description: "Studio-based alt language feed — 8 ISOs, no return, pass-through",
+    defaults: {
+      showType: "Alt Language",
+      isoCount: 8,
+      returnRequired: false,
+      commercials: "pass-through",
+      primaryTransport: "SRT",
+      backupTransport: "MPEG-TS",
+    },
+  },
+  {
+    name: "Remote Call (Bitfire)",
+    description: "Remote call show — 12 ISOs, RIST transport, return required",
+    defaults: {
+      showType: "Remote Call",
+      isoCount: 12,
+      returnRequired: true,
+      commercials: "none",
+      primaryTransport: "RIST",
+      backupTransport: "SRT",
+    },
+  },
+  {
+    name: "Animated (Beyond Sports)",
+    description: "Animated/virtual production — 6 ISOs, fiber transport, no return",
+    defaults: {
+      showType: "Animated",
+      isoCount: 6,
+      returnRequired: false,
+      commercials: "none",
+      primaryTransport: "Fiber",
+      backupTransport: "SRT",
+    },
+  },
+];
 
 export interface BinderFormData {
   title: string;
@@ -36,6 +94,7 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onSubmit: (data: BinderFormData) => void;
+  onDelete?: () => void;
   initial?: Partial<BinderFormData>;
   mode: "create" | "edit";
   oldIsoCount?: number;
@@ -55,8 +114,8 @@ function FormField({ label, children, required }: { label: string; children: Rea
 const inputClass = "w-full text-sm bg-secondary border border-border rounded-sm px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-crimson transition-colors";
 const selectClass = "w-full text-sm bg-secondary border border-border rounded-sm px-3 py-2 text-foreground focus:outline-none focus:border-crimson transition-colors appearance-none";
 
-export function BinderFormModal({ open, onClose, onSubmit, initial, mode, oldIsoCount }: Props) {
-  const [form, setForm] = useState<BinderFormData>({
+export function BinderFormModal({ open, onClose, onSubmit, onDelete, initial, mode, oldIsoCount }: Props) {
+  const defaultForm: BinderFormData = {
     title: "",
     league: "NBA",
     containerId: "",
@@ -71,26 +130,43 @@ export function BinderFormModal({ open, onClose, onSubmit, initial, mode, oldIso
     primaryTransport: "SRT",
     backupTransport: "MPEG-TS",
     notes: "",
-  });
+  };
 
+  const [form, setForm] = useState<BinderFormData>(defaultForm);
   const [customIso, setCustomIso] = useState(false);
   const [otherPartner, setOtherPartner] = useState("");
   const [showIsoWarning, setShowIsoWarning] = useState(false);
   const [dateOpen, setDateOpen] = useState(false);
+  const [templateOpen, setTemplateOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
 
   useEffect(() => {
-    if (open && initial) {
-      const merged = { ...form, ...initial };
+    if (open) {
+      const merged = { ...defaultForm, ...initial };
       setForm(merged);
-      if (!ISO_PRESETS.includes(merged.isoCount)) setCustomIso(true);
+      setCustomIso(!ISO_PRESETS.includes(merged.isoCount));
+      setShowIsoWarning(false);
+      setDeleteConfirm(false);
       if (!PARTNERS.includes(merged.partner) || merged.partner === "Other") {
         setOtherPartner(merged.partner === "Other" ? "" : merged.partner);
+      } else {
+        setOtherPartner("");
       }
     }
   }, [open]);
 
   const set = <K extends keyof BinderFormData>(key: K, value: BinderFormData[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const applyTemplate = (template: Template) => {
+    setForm((prev) => ({ ...prev, ...template.defaults }));
+    if (template.defaults.isoCount && !ISO_PRESETS.includes(template.defaults.isoCount)) {
+      setCustomIso(true);
+    } else {
+      setCustomIso(false);
+    }
+    setTemplateOpen(false);
   };
 
   const handleIsoChange = (val: number) => {
@@ -143,6 +219,37 @@ export function BinderFormModal({ open, onClose, onSubmit, initial, mode, oldIso
 
             {/* Form body */}
             <div className="px-6 py-5 space-y-5 max-h-[70vh] overflow-y-auto">
+
+              {/* Template selector — create mode only */}
+              {mode === "create" && (
+                <div className="relative">
+                  <label className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground block mb-1.5">
+                    Template
+                  </label>
+                  <button
+                    onClick={() => setTemplateOpen(!templateOpen)}
+                    className={cn(inputClass, "text-left flex items-center justify-between")}
+                  >
+                    <span className="text-muted-foreground">Select a template to pre-fill…</span>
+                    <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform", templateOpen && "rotate-180")} />
+                  </button>
+                  {templateOpen && (
+                    <div className="absolute left-0 right-0 mt-1 z-[60] bg-card border border-border rounded-sm shadow-lg overflow-hidden">
+                      {TEMPLATES.map((t) => (
+                        <button
+                          key={t.name}
+                          onClick={() => applyTemplate(t)}
+                          className="w-full text-left px-4 py-3 hover:bg-secondary/70 transition-colors border-b border-border last:border-0"
+                        >
+                          <span className="text-sm text-foreground font-medium block">{t.name}</span>
+                          <span className="text-[10px] text-muted-foreground">{t.description}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Required fields */}
               <div className="space-y-1">
                 <span className="text-[9px] tracking-[0.2em] uppercase text-crimson font-medium">Required</span>
@@ -175,7 +282,7 @@ export function BinderFormModal({ open, onClose, onSubmit, initial, mode, oldIso
                           : "Pick a date"}
                       </button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
+                    <PopoverContent className="w-auto p-0 z-[70]" align="start">
                       <Calendar
                         mode="single"
                         selected={form.eventDate ? new Date(form.eventDate + "T12:00:00") : undefined}
@@ -341,6 +448,48 @@ export function BinderFormModal({ open, onClose, onSubmit, initial, mode, oldIso
                   className={cn(inputClass, "resize-none")}
                 />
               </FormField>
+
+              {/* Delete section — edit mode only */}
+              {mode === "edit" && onDelete && (
+                <div className="pt-4 border-t border-border">
+                  {!deleteConfirm ? (
+                    <button
+                      onClick={() => setDeleteConfirm(true)}
+                      className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Delete this binder
+                    </button>
+                  ) : (
+                    <div className="steel-panel p-4 border-destructive/30">
+                      <div className="flex items-center gap-2 mb-3">
+                        <AlertTriangle className="w-4 h-4 text-destructive" />
+                        <span className="text-sm font-medium text-destructive">Confirm Deletion</span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mb-4">
+                        This will permanently delete this binder, all signal configurations, assets, and checklist data. This action cannot be undone.
+                      </p>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => {
+                            onDelete();
+                            onClose();
+                          }}
+                          className="px-4 py-2 text-sm font-medium bg-destructive text-destructive-foreground rounded-sm hover:bg-destructive/90 transition-colors"
+                        >
+                          Delete Permanently
+                        </button>
+                        <button
+                          onClick={() => setDeleteConfirm(false)}
+                          className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Footer */}
@@ -354,7 +503,7 @@ export function BinderFormModal({ open, onClose, onSubmit, initial, mode, oldIso
               <button
                 onClick={handleSubmit}
                 disabled={!form.title.trim() || !form.venue.trim()}
-                className="px-5 py-2 text-sm font-medium bg-crimson text-primary-foreground rounded-sm hover:bg-crimson/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="px-5 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-sm hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {mode === "create" ? "Create Binder" : "Save Changes"}
               </button>
