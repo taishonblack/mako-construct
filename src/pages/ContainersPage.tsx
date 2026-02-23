@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Search, ChevronRight, AlertTriangle, CheckCircle, Clock } from "lucide-react";
+import { Search, ChevronRight, X, Filter } from "lucide-react";
 import { mockBinders } from "@/data/mock-binders";
+import type { BinderStatus } from "@/data/mock-binders";
 
-// Group binders into containers by league
 interface Container {
   id: string;
   name: string;
@@ -36,6 +36,9 @@ function groupIntoContainers(binders: typeof mockBinders): Container[] {
   }));
 }
 
+const allLeagues = Array.from(new Set(mockBinders.map((b) => inferLeague(b.title))));
+const allStatuses: BinderStatus[] = ["active", "draft", "completed", "archived"];
+
 const statusColor: Record<string, string> = {
   draft: "text-muted-foreground",
   active: "text-crimson",
@@ -45,21 +48,35 @@ const statusColor: Record<string, string> = {
 
 export default function ContainersPage() {
   const [search, setSearch] = useState("");
-  const containers = groupIntoContainers(mockBinders);
+  const [leagueFilter, setLeagueFilter] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<BinderStatus | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
 
-  const filtered = containers
-    .map((c) => ({
-      ...c,
-      binders: c.binders.filter((b) => {
-        const q = search.toLowerCase();
-        return (
-          b.title.toLowerCase().includes(q) ||
-          b.partner.toLowerCase().includes(q) ||
-          b.venue.toLowerCase().includes(q)
-        );
-      }),
-    }))
-    .filter((c) => c.binders.length > 0);
+  const containers = useMemo(() => groupIntoContainers(mockBinders), []);
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return containers
+      .map((c) => ({
+        ...c,
+        binders: c.binders.filter((b) => {
+          const league = inferLeague(b.title);
+          const matchesSearch =
+            !q ||
+            b.title.toLowerCase().includes(q) ||
+            b.partner.toLowerCase().includes(q) ||
+            b.venue.toLowerCase().includes(q) ||
+            league.toLowerCase().includes(q);
+          const matchesLeague = !leagueFilter || league === leagueFilter;
+          const matchesStatus = !statusFilter || b.status === statusFilter;
+          return matchesSearch && matchesLeague && matchesStatus;
+        }),
+      }))
+      .filter((c) => c.binders.length > 0);
+  }, [search, leagueFilter, statusFilter, containers]);
+
+  const totalFiltered = filtered.reduce((sum, c) => sum + c.binders.length, 0);
+  const hasActiveFilters = !!leagueFilter || !!statusFilter;
 
   return (
     <div>
@@ -75,27 +92,121 @@ export default function ContainersPage() {
         </p>
       </motion.div>
 
-      {/* Search */}
+      {/* Search + Filters */}
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.1 }}
-        className="mb-6"
+        className="mb-6 space-y-3"
       >
-        <div className="relative max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Search binders..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 text-sm bg-secondary border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-crimson transition-colors"
-          />
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search by title, partner, venue, league…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-8 py-2 text-sm bg-secondary border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-crimson transition-colors"
+            />
+            {search && (
+              <button onClick={() => setSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`flex items-center gap-1.5 px-3 py-2 text-xs tracking-wider uppercase rounded-md border transition-colors ${
+              hasActiveFilters
+                ? "border-crimson text-crimson bg-crimson/5"
+                : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
+            }`}
+          >
+            <Filter className="w-3.5 h-3.5" />
+            Filters
+            {hasActiveFilters && (
+              <span className="ml-1 w-4 h-4 rounded-full bg-crimson text-white text-[9px] flex items-center justify-center font-mono">
+                {(leagueFilter ? 1 : 0) + (statusFilter ? 1 : 0)}
+              </span>
+            )}
+          </button>
         </div>
+
+        {/* Filter chips */}
+        {showFilters && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            transition={{ duration: 0.2 }}
+            className="flex flex-wrap items-center gap-4"
+          >
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground">League</span>
+              <div className="flex gap-1">
+                {allLeagues.map((l) => (
+                  <button
+                    key={l}
+                    onClick={() => setLeagueFilter(leagueFilter === l ? null : l)}
+                    className={`px-2 py-0.5 text-[10px] tracking-wider uppercase rounded border transition-colors ${
+                      leagueFilter === l
+                        ? "border-crimson bg-crimson/10 text-crimson"
+                        : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
+                    }`}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="w-px h-4 bg-border" />
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground">Status</span>
+              <div className="flex gap-1">
+                {allStatuses.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setStatusFilter(statusFilter === s ? null : s)}
+                    className={`px-2 py-0.5 text-[10px] tracking-wider uppercase rounded border transition-colors ${
+                      statusFilter === s
+                        ? "border-crimson bg-crimson/10 text-crimson"
+                        : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/20"
+                    }`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {hasActiveFilters && (
+              <button
+                onClick={() => { setLeagueFilter(null); setStatusFilter(null); }}
+                className="text-[10px] text-crimson hover:text-crimson/80 transition-colors"
+              >
+                Clear all
+              </button>
+            )}
+          </motion.div>
+        )}
+
+        {/* Results summary */}
+        {(search || hasActiveFilters) && (
+          <p className="text-[10px] text-muted-foreground">
+            Showing {totalFiltered} binder{totalFiltered !== 1 ? "s" : ""} in {filtered.length} container{filtered.length !== 1 ? "s" : ""}
+          </p>
+        )}
       </motion.div>
 
       {/* Container list */}
       <div className="space-y-6">
+        {filtered.length === 0 && (
+          <div className="steel-panel px-6 py-12 text-center">
+            <p className="text-sm text-muted-foreground">No binders match your search.</p>
+          </div>
+        )}
         {filtered.map((container, ci) => {
           const openIssues = container.binders.reduce((sum, b) => sum + b.openIssues, 0);
           return (
@@ -127,7 +238,6 @@ export default function ContainersPage() {
                 </div>
               </Link>
 
-              {/* Binder rows */}
               <div className="divide-y divide-border">
                 {container.binders.map((binder) => (
                   <Link
