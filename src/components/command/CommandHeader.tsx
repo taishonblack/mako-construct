@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Pencil } from "lucide-react";
+import { Pencil, Lock, Unlock } from "lucide-react";
 import type { ReadinessLevel } from "@/lib/readiness-engine";
 
 type EventStatus = "planning" | "configured" | "validated" | "live";
@@ -23,9 +23,11 @@ interface CommandHeaderProps {
   readiness: ReadinessLevel;
   reasons: string[];
   onEdit?: () => void;
+  locked?: boolean;
+  lockVersion?: number;
 }
 
-export function CommandHeader({ eventName, status, readiness, reasons, onEdit }: CommandHeaderProps) {
+export function CommandHeader({ eventName, status, readiness, reasons, onEdit, locked, lockVersion }: CommandHeaderProps) {
   const r = readinessConfig[readiness];
 
   return (
@@ -45,10 +47,16 @@ export function CommandHeader({ eventName, status, readiness, reasons, onEdit }:
           <span className={`text-[9px] font-medium tracking-[0.15em] uppercase px-2 py-0.5 rounded ${statusStyles[status]}`}>
             {status}
           </span>
+          {locked && (
+            <span className="flex items-center gap-1 text-[9px] font-medium tracking-[0.15em] uppercase px-2 py-0.5 rounded bg-emerald-900/30 text-emerald-400">
+              <Lock className="w-2.5 h-2.5" />
+              Locked v{lockVersion}
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-3">
-          {onEdit && (
+          {onEdit && !locked && (
             <button
               onClick={onEdit}
               className="flex items-center gap-1.5 px-2.5 py-1 text-[10px] tracking-wider uppercase border border-border rounded-sm text-muted-foreground hover:text-foreground hover:border-crimson transition-colors"
@@ -56,6 +64,12 @@ export function CommandHeader({ eventName, status, readiness, reasons, onEdit }:
               <Pencil className="w-3 h-3" />
               Edit
             </button>
+          )}
+          {onEdit && locked && (
+            <span className="flex items-center gap-1.5 px-2.5 py-1 text-[10px] tracking-wider uppercase text-muted-foreground">
+              <Lock className="w-3 h-3" />
+              Read-only
+            </span>
           )}
           <div className="flex items-center gap-2">
             <div className={`w-2 h-2 rounded-full ${r.dot} ${readiness === "blocked" ? "animate-pulse" : ""}`} />

@@ -44,11 +44,11 @@ interface BuiltInTemplate {
 const BUILTIN_TEMPLATES: BuiltInTemplate[] = [
   {
     name: "Standard Game",
-    description: "Full live game production — 18 ISOs, SRT primary, return feed",
+    description: "Full live NHL game production — 18 ISOs, SRT primary, return feed",
     defaults: {
       showType: "Standard", isoCount: 18, returnRequired: true,
       commercials: "local-insert", primaryTransport: "SRT", backupTransport: "MPEG-TS",
-      siteType: "Arena", signalNamingMode: "iso",
+      siteType: "Arena", signalNamingMode: "iso", gameType: "Regular Season",
       encoderInputsPerUnit: 2, encoderCount: 10, decoderOutputsPerUnit: 4, decoderCount: 5,
     },
   },
@@ -58,7 +58,7 @@ const BUILTIN_TEMPLATES: BuiltInTemplate[] = [
     defaults: {
       showType: "Alt Language", isoCount: 8, returnRequired: false,
       commercials: "pass-through", primaryTransport: "SRT", backupTransport: "MPEG-TS",
-      siteType: "Studio", signalNamingMode: "iso",
+      siteType: "Studio", signalNamingMode: "iso", gameType: "Regular Season",
       encoderInputsPerUnit: 2, encoderCount: 4, decoderOutputsPerUnit: 4, decoderCount: 2,
     },
   },
@@ -68,7 +68,7 @@ const BUILTIN_TEMPLATES: BuiltInTemplate[] = [
     defaults: {
       showType: "Remote Call", isoCount: 12, returnRequired: true,
       commercials: "none", primaryTransport: "RIST", backupTransport: "SRT",
-      siteType: "Remote", signalNamingMode: "iso",
+      siteType: "Remote", signalNamingMode: "iso", gameType: "Regular Season",
       encoderInputsPerUnit: 2, encoderCount: 6, decoderOutputsPerUnit: 4, decoderCount: 3,
     },
   },
@@ -78,8 +78,30 @@ const BUILTIN_TEMPLATES: BuiltInTemplate[] = [
     defaults: {
       showType: "Animated", isoCount: 6, returnRequired: false,
       commercials: "none", primaryTransport: "Fiber", backupTransport: "SRT",
-      siteType: "Studio", signalNamingMode: "iso",
+      siteType: "Studio", signalNamingMode: "iso", gameType: "Regular Season",
       encoderInputsPerUnit: 2, encoderCount: 3, decoderOutputsPerUnit: 4, decoderCount: 2,
+    },
+  },
+  {
+    name: "Stadium Series Special",
+    description: "Outdoor stadium event — 24 ISOs, dual SRT/MPEG-TS, full return, canonical signals",
+    defaults: {
+      showType: "Standard", isoCount: 24, returnRequired: true,
+      commercials: "local-insert", primaryTransport: "SRT", backupTransport: "MPEG-TS",
+      siteType: "Arena", signalNamingMode: "canonical", gameType: "Stadium Series",
+      canonicalSignals: ["Speedy", "Supra", "Handheld Left", "Handheld Right", "Home Bench", "Away Bench", "Beauty", "Overhead", "Jib", "Steadicam", "High Home", "High Away", "Slash Left", "Slash Right", "Baseline Left", "Baseline Right", "Rail Low Left", "Rail Low Right", "Fan Cam", "Tunnel Cam", "Aerial", "Sky Cam", "Scoreboard", "Press Row"],
+      encoderInputsPerUnit: 2, encoderCount: 12, decoderOutputsPerUnit: 4, decoderCount: 6,
+    },
+  },
+  {
+    name: "Winter Classic Special",
+    description: "Outdoor classic event — 22 ISOs, fiber primary, full return, canonical signals",
+    defaults: {
+      showType: "Standard", isoCount: 22, returnRequired: true,
+      commercials: "local-insert", primaryTransport: "Fiber", backupTransport: "SRT",
+      siteType: "Arena", signalNamingMode: "canonical", gameType: "Winter Classic",
+      canonicalSignals: ["Speedy", "Supra", "Handheld Left", "Handheld Right", "Home Bench", "Away Bench", "Beauty", "Overhead", "Jib", "Steadicam", "High Home", "High Away", "Slash Left", "Slash Right", "Aerial", "Sky Cam", "Fan Cam", "Coach Cam", "Tunnel Cam", "Scoreboard", "Rail Low Left", "Rail Low Right"],
+      encoderInputsPerUnit: 2, encoderCount: 11, decoderOutputsPerUnit: 4, decoderCount: 6,
     },
   },
 ];
