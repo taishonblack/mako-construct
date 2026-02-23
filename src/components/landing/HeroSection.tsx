@@ -1,5 +1,12 @@
 import { ArrowRight } from "lucide-react";
+import { motion } from "framer-motion";
 import heroBg from "@/assets/hero-bg.jpg";
+
+const fadeUp = (delay: number) => ({
+  initial: { opacity: 0, y: 20 } as const,
+  animate: { opacity: 1, y: 0 } as const,
+  transition: { duration: 0.7, delay, ease: "easeOut" as const },
+});
 
 export function HeroSection() {
   return (
@@ -10,7 +17,7 @@ export function HeroSection() {
         style={{ backgroundImage: `url(${heroBg})` }}
       />
 
-      {/* Gradient overlay — dark from left for text readability */}
+      {/* Gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/70 to-black/30" />
 
       {/* Vignette */}
@@ -21,73 +28,62 @@ export function HeroSection() {
       {/* Content */}
       <div className="relative z-10 max-w-[1200px] mx-auto w-full px-8 md:px-16">
         {/* Brand label */}
-        <div className="mb-6">
-          <span className="text-sm font-medium tracking-[0.35em] uppercase text-crimson">
-            MAKO
-          </span>
+        <motion.div {...fadeUp(0.2)} className="mb-6">
+          <span className="text-sm font-medium tracking-[0.35em] uppercase text-crimson">MAKO</span>
           <br />
-          <span className="text-sm font-medium tracking-[0.35em] uppercase text-crimson">
-            LIVE
-          </span>
-        </div>
+          <span className="text-sm font-medium tracking-[0.35em] uppercase text-crimson">LIVE</span>
+        </motion.div>
 
         {/* Headline */}
-        <h1 className="text-4xl md:text-5xl lg:text-6xl font-light tracking-tight text-foreground leading-[1.15] mb-8 max-w-xl">
+        <motion.h1
+          {...fadeUp(0.4)}
+          className="text-4xl md:text-5xl lg:text-6xl font-light tracking-tight text-foreground leading-[1.15] mb-8 max-w-xl"
+        >
           Live Production Binder
           <br />
           Built for Broadcast Execution
-        </h1>
+        </motion.h1>
 
         {/* Subhead lines */}
-        <div className="mb-10 space-y-1">
+        <motion.div {...fadeUp(0.6)} className="mb-10 space-y-1">
           <p className="text-base md:text-lg text-muted-foreground font-light">Build once.</p>
           <p className="text-base md:text-lg text-muted-foreground font-light">Align everyone.</p>
           <p className="text-base md:text-lg text-muted-foreground font-light">Go live with confidence.</p>
-        </div>
+        </motion.div>
 
         {/* CTA */}
-        <a
-          href="/binders"
-          className="inline-flex items-center gap-2.5 px-7 py-3.5 bg-primary hover:glow-red text-primary-foreground text-sm font-medium rounded-md transition-all duration-300"
-        >
-          Open a Binder
-          <ArrowRight className="w-4 h-4" />
-        </a>
+        <motion.div {...fadeUp(0.8)}>
+          <a
+            href="/binders"
+            className="inline-flex items-center gap-2.5 px-7 py-3.5 bg-primary hover:glow-red text-primary-foreground text-sm font-medium rounded-md transition-all duration-300"
+          >
+            Open a Binder
+            <ArrowRight className="w-4 h-4" />
+          </a>
+        </motion.div>
 
         {/* Problem / Purpose / Intent */}
         <div className="mt-24 space-y-12 max-w-lg">
-          <div>
-            <h3 className="text-xs font-medium tracking-[0.25em] uppercase text-crimson mb-3">
-              The Problem
-            </h3>
-            <p className="text-sm text-muted-foreground leading-relaxed font-light">
-              Live broadcasts aren't one team. They're many.
-              <br />
-              Decisions happen across calls, emails, and Slack — and then disappear.
-            </p>
-          </div>
-
-          <div>
-            <h3 className="text-xs font-medium tracking-[0.25em] uppercase text-crimson mb-3">
-              The Purpose
-            </h3>
-            <p className="text-sm text-muted-foreground leading-relaxed font-light">
-              MAKO Live creates a shared binder around every show:
-              <br />
-              schedule, contacts, signals, transport, changes, issues — all in one place.
-            </p>
-          </div>
-
-          <div>
-            <h3 className="text-xs font-medium tracking-[0.25em] uppercase text-crimson mb-3">
-              The Intent
-            </h3>
-            <p className="text-sm text-muted-foreground leading-relaxed font-light">
-              No extra noise. No busywork.
-              <br />
-              Just operational truth — for the people building the show.
-            </p>
-          </div>
+          {[
+            { label: "The Problem", text: "Live broadcasts aren't one team. They're many.\nDecisions happen across calls, emails, and Slack — and then disappear." },
+            { label: "The Purpose", text: "MAKO Live creates a shared binder around every show:\nschedule, contacts, signals, transport, changes, issues — all in one place." },
+            { label: "The Intent", text: "No extra noise. No busywork.\nJust operational truth — for the people building the show." },
+          ].map((block, i) => (
+            <motion.div
+              key={block.label}
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-50px" }}
+              transition={{ duration: 0.6, delay: i * 0.15, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <h3 className="text-xs font-medium tracking-[0.25em] uppercase text-crimson mb-3">
+                {block.label}
+              </h3>
+              <p className="text-sm text-muted-foreground leading-relaxed font-light whitespace-pre-line">
+                {block.text}
+              </p>
+            </motion.div>
+          ))}
         </div>
       </div>
     </section>

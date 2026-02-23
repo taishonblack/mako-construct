@@ -1,15 +1,33 @@
+import { useState } from "react";
 import { Search, Plus, SlidersHorizontal } from "lucide-react";
+import { motion } from "framer-motion";
 import { mockBinders } from "@/data/mock-binders";
 import { BinderCard } from "@/components/BinderCard";
 
 export default function BinderLibrary() {
+  const [search, setSearch] = useState("");
+
+  const filtered = mockBinders.filter((b) => {
+    const q = search.toLowerCase();
+    return (
+      b.title.toLowerCase().includes(q) ||
+      b.partner.toLowerCase().includes(q) ||
+      b.venue.toLowerCase().includes(q)
+    );
+  });
+
   return (
     <div>
       {/* Page header */}
-      <div className="flex items-center justify-between mb-8">
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="flex items-center justify-between mb-8"
+      >
         <div>
           <h1 className="text-xl font-medium text-foreground tracking-tight">Binder Library</h1>
-          <p className="text-sm text-muted-foreground mt-1">{mockBinders.length} binders</p>
+          <p className="text-sm text-muted-foreground mt-1">{filtered.length} binder{filtered.length !== 1 ? "s" : ""}</p>
         </div>
         <a
           href="/binders/new"
@@ -18,15 +36,22 @@ export default function BinderLibrary() {
           <Plus className="w-3.5 h-3.5" />
           New Binder
         </a>
-      </div>
+      </motion.div>
 
       {/* Search + filters */}
-      <div className="flex items-center gap-3 mb-6">
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.1 }}
+        className="flex items-center gap-3 mb-6"
+      >
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
             type="text"
             placeholder="Search binders..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-4 py-2 text-sm bg-secondary border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-crimson transition-colors"
           />
         </div>
@@ -34,13 +59,25 @@ export default function BinderLibrary() {
           <SlidersHorizontal className="w-3.5 h-3.5" />
           Filters
         </button>
-      </div>
+      </motion.div>
 
       {/* Binder grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {mockBinders.map((binder) => (
-          <BinderCard key={binder.id} binder={binder} />
+        {filtered.map((binder, i) => (
+          <motion.div
+            key={binder.id}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, delay: 0.15 + i * 0.05 }}
+          >
+            <BinderCard binder={binder} />
+          </motion.div>
         ))}
+        {filtered.length === 0 && (
+          <div className="col-span-full text-center py-16">
+            <p className="text-sm text-muted-foreground">No binders match "{search}"</p>
+          </div>
+        )}
       </div>
     </div>
   );

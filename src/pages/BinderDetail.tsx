@@ -1,5 +1,6 @@
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, Radio, Cpu, Wifi, RotateCcw, AlertCircle, Clock, CheckCircle, ChevronRight } from "lucide-react";
+import { ArrowLeft, Radio, Cpu, Wifi, RotateCcw, AlertCircle, Clock, CheckCircle } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { mockBinderDetail } from "@/data/mock-binder-detail";
 import { mockTransport, mockComms, mockChanges, mockIssues, mockDocs } from "@/data/mock-phase5";
@@ -37,7 +38,7 @@ function timeAgo(ts: string) {
 
 export default function BinderDetail() {
   const { id } = useParams();
-  const binder = mockBinderDetail; // In future, look up by id
+  const binder = mockBinderDetail;
 
   const infoTiles = [
     { label: "Signals", value: binder.isoCount, icon: Radio },
@@ -50,16 +51,23 @@ export default function BinderDetail() {
   return (
     <div className="max-w-6xl">
       {/* Back link */}
-      <Link
-        to="/binders"
-        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-6"
-      >
-        <ArrowLeft className="w-3 h-3" />
-        Binder Library
-      </Link>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+        <Link
+          to="/binders"
+          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-6"
+        >
+          <ArrowLeft className="w-3 h-3" />
+          Binder Library
+        </Link>
+      </motion.div>
 
       {/* Event header */}
-      <div className="flex items-start justify-between mb-6">
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.05 }}
+        className="flex items-start justify-between mb-6"
+      >
         <div>
           <div className="flex items-center gap-3 mb-1">
             <h1 className="text-xl font-medium text-foreground tracking-tight">{binder.title}</h1>
@@ -77,12 +85,18 @@ export default function BinderDetail() {
             {binder.pendingConfirmations} pending
           </div>
         )}
-      </div>
+      </motion.div>
 
       {/* Info tiles */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
-        {infoTiles.map((tile) => (
-          <div key={tile.label} className="steel-panel p-4">
+        {infoTiles.map((tile, i) => (
+          <motion.div
+            key={tile.label}
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, delay: 0.1 + i * 0.05 }}
+            className="steel-panel p-4"
+          >
             <div className="flex items-center gap-2 mb-2">
               <tile.icon className={`w-3.5 h-3.5 ${tile.warn ? "text-crimson" : "text-muted-foreground"}`} />
               <span className="text-[10px] tracking-wider uppercase text-muted-foreground">{tile.label}</span>
@@ -90,13 +104,17 @@ export default function BinderDetail() {
             <p className={`text-lg font-medium ${tile.warn ? "text-crimson" : "text-foreground"}`}>
               {tile.value}
             </p>
-          </div>
+          </motion.div>
         ))}
       </div>
 
       {/* Schedule milestones + recent changes */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
-        {/* Next milestones */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.35 }}
+        className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8"
+      >
         <div className="steel-panel p-5">
           <h2 className="text-[10px] tracking-wider uppercase text-muted-foreground mb-4">Next Milestones</h2>
           <div className="space-y-3">
@@ -113,7 +131,6 @@ export default function BinderDetail() {
           </div>
         </div>
 
-        {/* Recent changes */}
         <div className="steel-panel p-5">
           <h2 className="text-[10px] tracking-wider uppercase text-muted-foreground mb-4">Recent Changes</h2>
           <div className="space-y-3">
@@ -128,28 +145,34 @@ export default function BinderDetail() {
             ))}
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Tabs */}
-      <Tabs defaultValue="schedule" className="w-full">
-        <TabsList className="bg-secondary border border-border rounded-md flex-wrap">
-          <TabsTrigger value="schedule" className="text-xs tracking-wide uppercase data-[state=active]:bg-card data-[state=active]:text-foreground">Schedule</TabsTrigger>
-          <TabsTrigger value="signals" className="text-xs tracking-wide uppercase data-[state=active]:bg-card data-[state=active]:text-foreground">Signals</TabsTrigger>
-          <TabsTrigger value="contacts" className="text-xs tracking-wide uppercase data-[state=active]:bg-card data-[state=active]:text-foreground">Contacts</TabsTrigger>
-          <TabsTrigger value="transport" className="text-xs tracking-wide uppercase data-[state=active]:bg-card data-[state=active]:text-foreground">Transport</TabsTrigger>
-          <TabsTrigger value="comms" className="text-xs tracking-wide uppercase data-[state=active]:bg-card data-[state=active]:text-foreground">Comms</TabsTrigger>
-          <TabsTrigger value="changes" className="text-xs tracking-wide uppercase data-[state=active]:bg-card data-[state=active]:text-foreground">Changes & Issues</TabsTrigger>
-          <TabsTrigger value="docs" className="text-xs tracking-wide uppercase data-[state=active]:bg-card data-[state=active]:text-foreground">Docs</TabsTrigger>
-        </TabsList>
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.45 }}
+      >
+        <Tabs defaultValue="schedule" className="w-full">
+          <TabsList className="bg-secondary border border-border rounded-md flex-wrap">
+            <TabsTrigger value="schedule" className="text-xs tracking-wide uppercase data-[state=active]:bg-card data-[state=active]:text-foreground">Schedule</TabsTrigger>
+            <TabsTrigger value="signals" className="text-xs tracking-wide uppercase data-[state=active]:bg-card data-[state=active]:text-foreground">Signals</TabsTrigger>
+            <TabsTrigger value="contacts" className="text-xs tracking-wide uppercase data-[state=active]:bg-card data-[state=active]:text-foreground">Contacts</TabsTrigger>
+            <TabsTrigger value="transport" className="text-xs tracking-wide uppercase data-[state=active]:bg-card data-[state=active]:text-foreground">Transport</TabsTrigger>
+            <TabsTrigger value="comms" className="text-xs tracking-wide uppercase data-[state=active]:bg-card data-[state=active]:text-foreground">Comms</TabsTrigger>
+            <TabsTrigger value="changes" className="text-xs tracking-wide uppercase data-[state=active]:bg-card data-[state=active]:text-foreground">Changes & Issues</TabsTrigger>
+            <TabsTrigger value="docs" className="text-xs tracking-wide uppercase data-[state=active]:bg-card data-[state=active]:text-foreground">Docs</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="schedule"><ScheduleTab schedule={binder.schedule} /></TabsContent>
-        <TabsContent value="signals"><SignalsTab initialIsoCount={binder.isoCount} encodersAssigned={binder.encodersAssigned} /></TabsContent>
-        <TabsContent value="contacts"><ContactsTab contacts={binder.contacts} /></TabsContent>
-        <TabsContent value="transport"><TransportTab config={mockTransport} /></TabsContent>
-        <TabsContent value="comms"><CommsTab comms={mockComms} /></TabsContent>
-        <TabsContent value="changes"><ChangesIssuesTab changes={mockChanges} issues={mockIssues} /></TabsContent>
-        <TabsContent value="docs"><DocsTab docs={mockDocs} /></TabsContent>
-      </Tabs>
+          <TabsContent value="schedule"><ScheduleTab schedule={binder.schedule} /></TabsContent>
+          <TabsContent value="signals"><SignalsTab initialIsoCount={binder.isoCount} encodersAssigned={binder.encodersAssigned} /></TabsContent>
+          <TabsContent value="contacts"><ContactsTab contacts={binder.contacts} /></TabsContent>
+          <TabsContent value="transport"><TransportTab config={mockTransport} /></TabsContent>
+          <TabsContent value="comms"><CommsTab comms={mockComms} /></TabsContent>
+          <TabsContent value="changes"><ChangesIssuesTab changes={mockChanges} issues={mockIssues} /></TabsContent>
+          <TabsContent value="docs"><DocsTab docs={mockDocs} /></TabsContent>
+        </Tabs>
+      </motion.div>
     </div>
   );
 }
