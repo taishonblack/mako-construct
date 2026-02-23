@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { binderStore } from "@/stores/binder-store";
 import { mockBinderDetail } from "@/data/mock-binder-detail";
@@ -20,6 +20,7 @@ import { BinderFormModal, type BinderFormData } from "@/components/command/Binde
 
 export default function BinderDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const binderId = id || "1";
 
   // Try store first, fall back to mock
@@ -59,7 +60,6 @@ export default function BinderDetail() {
   const eventStatus = binder.status === "active" ? "configured" as const : "planning" as const;
 
   const handleEditSubmit = useCallback((data: BinderFormData) => {
-    // Build changelog entries for changed fields
     const changes: string[] = [];
     if (storeRecord) {
       if (data.partner !== storeRecord.partner) changes.push(`Partner updated: ${storeRecord.partner} → ${data.partner}`);
@@ -71,7 +71,6 @@ export default function BinderDetail() {
       if (data.returnRequired !== storeRecord.returnRequired) changes.push(`Return Feed updated: ${storeRecord.returnRequired ? "Required" : "Not Required"} → ${data.returnRequired ? "Required" : "Not Required"}`);
     }
 
-    // Update store record
     binderStore.update(binderId, {
       title: data.title,
       league: data.league,
@@ -88,7 +87,6 @@ export default function BinderDetail() {
       notes: data.notes,
     });
 
-    // Update local binder state
     update("league", data.league);
     update("partner", data.partner);
     update("venue", data.venue);
@@ -97,12 +95,10 @@ export default function BinderDetail() {
     update("returnRequired", data.returnRequired);
     update("commercials", data.commercials);
 
-    // Handle ISO count change
     if (data.isoCount !== state.isoCount) {
       setIsoCount(data.isoCount);
     }
 
-    // Write changelog entries
     if (changes.length > 0) {
       const newChanges = changes.map((label, i) => ({
         id: `ch-${Date.now()}-${i}`,
@@ -114,6 +110,24 @@ export default function BinderDetail() {
       update("changes", [...newChanges, ...state.changes]);
     }
   }, [binderId, storeRecord, state, update, setIsoCount]);
+
+  const handleDelete = useCallback(() => {
+    // Remove from store
+    binderStore.delete(binderId);
+    // Clean up localStorage binder state
+    localStorage.removeItem(`mako-binder-${binderId}`);
+    navigate("/containers");
+  }, [binderId, navigate]);
+
+  const handleTransportChange = useCallback((field: "primaryTransport" | "backupTransport", value: string) => {
+    binderStore.update(binderId, { [field]: value, ...(field === "primaryTransport" ? { transport: value } : {}) });
+    // Update transport in local state
+    if (field === "primaryTransport") {
+      update("transport", { ...state.transport, primary: { ...state.transport.primary, protocol: value } });
+    } else {
+      update("transport", { ...state.transport, backup: { ...state.transport.backup, protocol: value } });
+    }
+  }, [binderId, state.transport, update]);
 
   return (
     <div className="relative">
@@ -157,6 +171,9 @@ export default function BinderDetail() {
           commercials={state.commercials}
           onCommercialsChange={(v) => update("commercials", v)}
           onFieldChange={(field, value) => update(field as keyof typeof state, value)}
+          primaryTransport={storeRecord?.primaryTransport || binder.transport}
+          backupTransport={storeRecord?.backupTransport || binder.backupTransport}
+          onTransportChange={handleTransportChange}
         />
 
         <SignalMatrix signals={state.signals} report={report} onUpdateSignal={updateSignal} />
@@ -172,6 +189,7 @@ export default function BinderDetail() {
         open={editOpen}
         onClose={() => setEditOpen(false)}
         onSubmit={handleEditSubmit}
+        onDelete={handleDelete}
         mode="edit"
         oldIsoCount={state.isoCount}
         initial={{
