@@ -1,10 +1,11 @@
 import { useState, useCallback } from "react";
 import { motion } from "framer-motion";
-import { Plus, Trash2, ChevronDown, ChevronUp, Wand2 } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronUp, Wand2, Settings2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { applyCRPreset, CR_PRESETS } from "@/data/cr-presets";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -248,22 +249,42 @@ export function EventCommandHeader({ data, onChange, readOnly, onGenerateTxRx }:
           {/* FACILITY */}
           <div>
             <span className="text-[9px] tracking-[0.2em] uppercase text-crimson block mb-3">Facility</span>
-            <div className="space-y-1">
-              <Label className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground">Control Room</Label>
-              <div className="flex gap-4">
-                {(["23", "26"] as const).map(cr => (
-                  <label key={cr} className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-sm border cursor-pointer transition-colors text-sm",
-                    data.controlRoom === cr ? "border-crimson bg-crimson/10 text-foreground" : "border-border text-muted-foreground hover:border-muted-foreground",
-                    readOnly && "pointer-events-none opacity-70"
-                  )}>
-                    <input type="radio" name="controlRoom" value={cr} checked={data.controlRoom === cr}
-                      onChange={() => set("controlRoom", cr)} disabled={readOnly} className="sr-only" />
-                    CR-{cr}
-                  </label>
-                ))}
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground">Control Room</Label>
+                <div className="flex gap-4">
+                  {(["23", "26"] as const).map(cr => (
+                    <label key={cr} className={cn(
+                      "flex items-center gap-2 px-4 py-2 rounded-sm border cursor-pointer transition-colors text-sm",
+                      data.controlRoom === cr ? "border-crimson bg-crimson/10 text-foreground" : "border-border text-muted-foreground hover:border-muted-foreground",
+                      readOnly && "pointer-events-none opacity-70"
+                    )}>
+                      <input type="radio" name="controlRoom" value={cr} checked={data.controlRoom === cr}
+                        onChange={() => {
+                          if (!readOnly) {
+                            const updated = applyCRPreset(data, cr);
+                            onChange(updated);
+                          }
+                        }} disabled={readOnly} className="sr-only" />
+                      CR-{cr}
+                    </label>
+                  ))}
+                </div>
               </div>
-              <p className="text-[10px] text-muted-foreground mt-1">Preset loading based on CR selection — placeholder</p>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                  <Settings2 className="w-3 h-3" />
+                  <span>Preset: <span className="font-mono text-foreground">{CR_PRESETS[data.controlRoom].label}</span></span>
+                </div>
+                <span className="text-[10px] text-muted-foreground">—</span>
+                <span className="text-[10px] text-muted-foreground">{CR_PRESETS[data.controlRoom].decoderNamingNote}</span>
+              </div>
+              {!readOnly && (
+                <Button variant="outline" size="sm" onClick={() => onChange(applyCRPreset(data, data.controlRoom))}
+                  className="text-[10px] tracking-wider uppercase">
+                  <Settings2 className="w-3 h-3 mr-1" /> Re-apply CR-{data.controlRoom} Preset
+                </Button>
+              )}
             </div>
           </div>
 
