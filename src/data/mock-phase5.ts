@@ -39,6 +39,7 @@ export interface DocEntry {
   uploadedBy: string;
   uploadedAt: string;
   extractionStatus: "complete" | "pending" | "failed";
+  url?: string;
 }
 
 export const mockTransport: TransportConfig = {

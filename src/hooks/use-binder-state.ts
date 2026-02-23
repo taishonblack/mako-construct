@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import type { Signal } from "@/data/mock-signals";
 import { generateSignals } from "@/data/mock-signals";
-import type { TransportConfig, CommEntry, ChangeEntry, Issue } from "@/data/mock-phase5";
-import { mockTransport, mockComms, mockChanges, mockIssues } from "@/data/mock-phase5";
+import type { TransportConfig, CommEntry, ChangeEntry, Issue, DocEntry } from "@/data/mock-phase5";
+import { mockTransport, mockComms, mockChanges, mockIssues, mockDocs } from "@/data/mock-phase5";
 import { mockBinderDetail } from "@/data/mock-binder-detail";
 
 export interface ChecklistItem {
@@ -41,6 +41,8 @@ export interface BinderState {
   // Issues & Changes
   issues: Issue[];
   changes: ChangeEntry[];
+  // Documents / Assets
+  docs: DocEntry[];
   // Checklist
   checklist: ChecklistItem[];
 }
@@ -63,6 +65,7 @@ function buildInitialState(id: string): BinderState {
     comms: [...mockComms],
     issues: [...mockIssues],
     changes: [...mockChanges],
+    docs: [...mockDocs],
     checklist: [...defaultChecklist],
   };
 }
@@ -81,6 +84,13 @@ export function useBinderState(binderId: string) {
     localStorage.setItem(STORAGE_KEY + binderId, JSON.stringify(state));
   }, [state, binderId]);
 
+  // Migration: ensure docs exist for older persisted states
+  useEffect(() => {
+    if (!state.docs) {
+      setState((prev) => ({ ...prev, docs: [...mockDocs] }));
+    }
+  }, []);
+
   // Update a top-level field
   const update = useCallback(<K extends keyof BinderState>(key: K, value: BinderState[K]) => {
     setState((prev) => ({ ...prev, [key]: value }));
@@ -94,10 +104,8 @@ export function useBinderState(binderId: string) {
       const newSignals: Signal[] = [];
       for (let i = 0; i < clamped; i++) {
         if (i < existing.length) {
-          // Preserve existing row (user edits intact)
           newSignals.push({ ...existing[i], iso: i + 1 });
         } else {
-          // Generate new row
           const generated = generateSignals(i + 1);
           newSignals.push(generated[i]);
         }
@@ -126,5 +134,25 @@ export function useBinderState(binderId: string) {
     }));
   }, []);
 
-  return { state, update, setIsoCount, updateSignal, toggleChecklist };
+  // Add a doc/asset
+  const addDoc = useCallback((doc: DocEntry) => {
+    setState((prev) => ({ ...prev, docs: [...prev.docs, doc] }));
+  }, []);
+
+  // Remove a doc/asset
+  const removeDoc = useCallback((id: string) => {
+    setState((prev) => ({ ...prev, docs: prev.docs.filter((d) => d.id !== id) }));
+  }, []);
+
+  // Update a doc/asset field
+  const updateDoc = useCallback((id: string, field: keyof DocEntry, value: string) => {
+    setState((prev) => ({
+      ...prev,
+      docs: prev.docs.map((d) =>
+        d.id === id ? { ...d, [field]: value } : d
+      ),
+    }));
+  }, []);
+
+  return { state, update, setIsoCount, updateSignal, toggleChecklist, addDoc, removeDoc, updateDoc };
 }
