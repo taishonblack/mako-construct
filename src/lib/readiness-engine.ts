@@ -1,5 +1,6 @@
 import type { Signal } from "@/data/mock-signals";
 import type { TransportConfig, Issue } from "@/data/mock-phase5";
+import type { ChecklistItem } from "@/hooks/use-binder-state";
 
 export type ReadinessLevel = "ready" | "risk" | "blocked";
 
@@ -16,6 +17,8 @@ export interface ReadinessReport {
   backupDefined: boolean;
   returnConfigured: boolean;
   blockingIssues: number;
+  checklistComplete: number;
+  checklistTotal: number;
 }
 
 export function computeReadiness(
@@ -24,30 +27,26 @@ export function computeReadiness(
   transport: TransportConfig,
   issues: Issue[],
   returnRequired: boolean,
+  checklist: ChecklistItem[] = [],
 ): ReadinessReport {
   const encoderRequired = Math.ceil(signals.length / 2);
   const encoderShortfall = Math.max(0, encoderRequired - encodersAvailable);
 
-  // Decoder mapping — all signals have decoder outputs in our model
   const decoderTotal = signals.length;
   const decoderAssigned = signals.filter((s) => s.decoderOutput).length;
-
-  // Unassigned signals (no destination)
   const unassignedSignals = signals.filter((s) => !s.destination).length;
 
-  // Transport
   const transportComplete = !!transport.primary.protocol && !!transport.primary.destination;
   const backupDefined = !!transport.backup.protocol && !!transport.backup.destination;
-
-  // Return
   const returnConfigured = !returnRequired || transport.returnFeed;
 
-  // Issues
   const blockingIssues = issues.filter(
     (i) => i.status !== "resolved" && i.priority === "high"
   ).length;
 
-  // Compute level
+  const checklistComplete = checklist.filter((c) => c.checked).length;
+  const checklistTotal = checklist.length;
+
   const reasons: string[] = [];
   let level: ReadinessLevel = "ready";
 
@@ -77,6 +76,10 @@ export function computeReadiness(
       reasons.push(`${unassignedSignals} signal${unassignedSignals > 1 ? "s" : ""} unassigned`);
       level = "risk";
     }
+    if (checklistTotal > 0 && checklistComplete < checklistTotal) {
+      reasons.push(`Checklist: ${checklistComplete}/${checklistTotal} complete`);
+      if (level !== "risk") level = "risk";
+    }
   }
 
   if (reasons.length === 0) {
@@ -96,5 +99,7 @@ export function computeReadiness(
     backupDefined,
     returnConfigured,
     blockingIssues,
+    checklistComplete,
+    checklistTotal,
   };
 }

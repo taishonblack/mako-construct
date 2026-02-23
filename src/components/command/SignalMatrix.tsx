@@ -9,9 +9,35 @@ import {
 interface SignalMatrixProps {
   signals: Signal[];
   report: ReadinessReport;
+  onUpdateSignal: (iso: number, field: keyof Signal, value: string) => void;
 }
 
-export function SignalMatrix({ signals, report }: SignalMatrixProps) {
+function InlineInput({ value, onChange, mono }: { value: string; onChange: (v: string) => void; mono?: boolean }) {
+  return (
+    <input
+      type="text"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={`w-full bg-transparent border-b border-transparent hover:border-border focus:border-crimson focus:outline-none text-sm py-0.5 transition-colors ${mono ? "font-mono text-xs text-muted-foreground" : "text-foreground"}`}
+    />
+  );
+}
+
+function InlineSelect({ value, options, onChange }: { value: string; options: string[]; onChange: (v: string) => void }) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="bg-transparent text-[10px] font-mono px-1 py-0.5 rounded border border-transparent hover:border-border focus:border-crimson focus:outline-none text-muted-foreground uppercase tracking-wider transition-colors cursor-pointer"
+    >
+      {options.map((o) => (
+        <option key={o} value={o} className="bg-card text-foreground">{o}</option>
+      ))}
+    </select>
+  );
+}
+
+export function SignalMatrix({ signals, report, onUpdateSignal }: SignalMatrixProps) {
   return (
     <motion.section
       initial={{ opacity: 0, y: 12 }}
@@ -20,7 +46,6 @@ export function SignalMatrix({ signals, report }: SignalMatrixProps) {
     >
       <h2 className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-3">Signal Configuration Matrix</h2>
 
-      {/* Signal table */}
       <div className="steel-panel overflow-hidden">
         <Table>
           <TableHeader>
@@ -29,8 +54,8 @@ export function SignalMatrix({ signals, report }: SignalMatrixProps) {
               <TableHead className="text-[10px] tracking-wider uppercase">Production Alias</TableHead>
               <TableHead className="text-[10px] tracking-wider uppercase">Onsite Encoder</TableHead>
               <TableHead className="text-[10px] tracking-wider uppercase">HQ Decoder</TableHead>
-              <TableHead className="text-[10px] tracking-wider uppercase">Transport</TableHead>
-              <TableHead className="text-[10px] tracking-wider uppercase">Destination</TableHead>
+              <TableHead className="text-[10px] tracking-wider uppercase w-24">Transport</TableHead>
+              <TableHead className="text-[10px] tracking-wider uppercase w-28">Destination</TableHead>
               <TableHead className="w-20 text-[10px] tracking-wider uppercase">Status</TableHead>
             </TableRow>
           </TableHeader>
@@ -40,24 +65,39 @@ export function SignalMatrix({ signals, report }: SignalMatrixProps) {
               return (
                 <TableRow key={signal.iso} className="border-border hover:bg-secondary/50">
                   <TableCell className="font-mono text-xs text-crimson">{signal.iso}</TableCell>
-                  <TableCell className="text-sm text-foreground">{signal.productionAlias}</TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">{signal.encoderInput}</TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">{signal.decoderOutput}</TableCell>
                   <TableCell>
-                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-muted-foreground uppercase tracking-wider">
-                      {signal.transport}
-                    </span>
+                    <InlineInput
+                      value={signal.productionAlias}
+                      onChange={(v) => onUpdateSignal(signal.iso, "productionAlias", v)}
+                    />
                   </TableCell>
                   <TableCell>
-                    <span className={`text-xs px-1.5 py-0.5 rounded ${
-                      signal.destination === "Program"
-                        ? "bg-crimson/15 text-crimson"
-                        : signal.destination === "ISO Record"
-                          ? "bg-secondary text-muted-foreground"
-                          : "bg-muted text-muted-foreground"
-                    }`}>
-                      {signal.destination}
-                    </span>
+                    <InlineInput
+                      value={signal.encoderInput}
+                      onChange={(v) => onUpdateSignal(signal.iso, "encoderInput", v)}
+                      mono
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <InlineInput
+                      value={signal.decoderOutput}
+                      onChange={(v) => onUpdateSignal(signal.iso, "decoderOutput", v)}
+                      mono
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <InlineSelect
+                      value={signal.transport}
+                      options={["SRT", "MPEG-TS"]}
+                      onChange={(v) => onUpdateSignal(signal.iso, "transport", v)}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <InlineSelect
+                      value={signal.destination}
+                      options={["Program", "ISO Record", "Backup"]}
+                      onChange={(v) => onUpdateSignal(signal.iso, "destination", v)}
+                    />
                   </TableCell>
                   <TableCell>
                     <span className={`text-[10px] tracking-wider uppercase ${isMapped ? "text-emerald-400" : "text-crimson"}`}>
@@ -73,7 +113,6 @@ export function SignalMatrix({ signals, report }: SignalMatrixProps) {
 
       {/* Capacity summaries */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
-        {/* Encoder */}
         <div className={`steel-panel p-4 ${report.encoderShortfall > 0 ? "border-glow-red" : ""}`}>
           <span className="text-[10px] tracking-wider uppercase text-muted-foreground block mb-2">Encoder Capacity</span>
           <div className="flex items-baseline gap-2">
@@ -90,7 +129,6 @@ export function SignalMatrix({ signals, report }: SignalMatrixProps) {
           )}
         </div>
 
-        {/* Decoder */}
         <div className="steel-panel p-4">
           <span className="text-[10px] tracking-wider uppercase text-muted-foreground block mb-2">Decoder Mapping</span>
           <div className="flex items-baseline gap-2">
@@ -99,7 +137,6 @@ export function SignalMatrix({ signals, report }: SignalMatrixProps) {
           </div>
         </div>
 
-        {/* Transport */}
         <div className={`steel-panel p-4 ${!report.backupDefined ? "border-glow-red" : ""}`}>
           <span className="text-[10px] tracking-wider uppercase text-muted-foreground block mb-2">Transport</span>
           <div className="flex items-center gap-2">
