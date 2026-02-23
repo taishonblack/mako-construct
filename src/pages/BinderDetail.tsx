@@ -20,6 +20,7 @@ import { Checklist } from "@/components/command/Checklist";
 import { PreAirLock } from "@/components/command/PreAirLock";
 import { DiffView } from "@/components/command/DiffView";
 import { BinderFormModal, type BinderFormData } from "@/components/command/BinderFormModal";
+import { BinderCopilot } from "@/components/command/BinderCopilot";
 
 export default function BinderDetail() {
   const { id } = useParams();
@@ -154,6 +155,7 @@ export default function BinderDetail() {
 
   return (
     <div className="relative">
+      <BinderCopilot state={state} report={report} />
       <CommandHeader
         eventName={binder.title}
         status={eventStatus}
