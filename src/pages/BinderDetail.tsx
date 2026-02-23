@@ -4,6 +4,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { mockBinderDetail } from "@/data/mock-binder-detail";
 import { ScheduleTab } from "@/components/binder/ScheduleTab";
 import { ContactsTab } from "@/components/binder/ContactsTab";
+import { SignalsTab } from "@/components/binder/SignalsTab";
 
 const statusStyles: Record<string, string> = {
   draft: "bg-muted text-muted-foreground",
@@ -130,6 +131,9 @@ export default function BinderDetail() {
           <TabsTrigger value="schedule" className="text-xs tracking-wide uppercase data-[state=active]:bg-card data-[state=active]:text-foreground">
             Schedule
           </TabsTrigger>
+          <TabsTrigger value="signals" className="text-xs tracking-wide uppercase data-[state=active]:bg-card data-[state=active]:text-foreground">
+            Signals
+          </TabsTrigger>
           <TabsTrigger value="contacts" className="text-xs tracking-wide uppercase data-[state=active]:bg-card data-[state=active]:text-foreground">
             Contacts
           </TabsTrigger>
@@ -137,6 +141,10 @@ export default function BinderDetail() {
 
         <TabsContent value="schedule">
           <ScheduleTab schedule={binder.schedule} />
+        </TabsContent>
+
+        <TabsContent value="signals">
+          <SignalsTab initialIsoCount={binder.isoCount} encodersAssigned={binder.encodersAssigned} />
         </TabsContent>
 
         <TabsContent value="contacts">
