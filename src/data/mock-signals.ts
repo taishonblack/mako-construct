@@ -10,6 +10,7 @@ export interface Signal {
   decoderOutput: string;
   txName: string;
   rxName: string;
+  linkedRouteId: string;
 }
 
 export const CANONICAL_SIGNAL_NAMES = [
@@ -63,6 +64,7 @@ export function generateSignals(count: number, namingMode?: SignalNamingMode, cu
       decoderOutput: `DEC-${padded}`,
       txName: "",
       rxName: "",
+      linkedRouteId: "",
     };
   });
 }
