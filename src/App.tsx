@@ -10,12 +10,13 @@ import ContainersPage from "./pages/ContainersPage";
 import ContainerDetailPage from "./pages/ContainerDetailPage";
 import CalendarPage from "./pages/CalendarPage";
 import DashboardPage from "./pages/DashboardPage";
-
 import WikiPage from "./pages/WikiPage";
 import BinderDetail from "./pages/BinderDetail";
 import CreateBinderPage from "./pages/CreateBinderPage";
 import SettingsPage from "./pages/SettingsPage";
 import RoutesPage from "./pages/RoutesPage";
+import StaffPage from "./pages/StaffPage";
+import ChecklistPage from "./pages/ChecklistPage";
 
 const queryClient = new QueryClient();
 
@@ -29,13 +30,15 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/containers" element={<ContainersPage />} />
-            <Route path="/containers/:containerId" element={<ContainerDetailPage />} />
-            <Route path="/binders" element={<Navigate to="/containers" replace />} />
+            <Route path="/binders" element={<ContainersPage />} />
             <Route path="/binders/new" element={<CreateBinderPage />} />
             <Route path="/binders/:id" element={<BinderDetail />} />
+            <Route path="/containers" element={<Navigate to="/binders" replace />} />
+            <Route path="/containers/:containerId" element={<ContainerDetailPage />} />
             <Route path="/calendar" element={<CalendarPage />} />
+            <Route path="/checklist" element={<ChecklistPage />} />
             <Route path="/routes" element={<RoutesPage />} />
+            <Route path="/staff" element={<StaffPage />} />
             <Route path="/wiki" element={<WikiPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>

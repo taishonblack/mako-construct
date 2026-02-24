@@ -6,6 +6,8 @@ import {
   BookOpen,
   BarChart3,
   Route,
+  CheckSquare,
+  Users,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { MakoFinMark } from "@/components/MakoFinMark";
@@ -24,9 +26,11 @@ import {
 
 const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: BarChart3 },
-  { title: "Productions", url: "/containers", icon: LayoutGrid },
-  { title: "Routes", url: "/routes", icon: Route },
+  { title: "Binders", url: "/binders", icon: LayoutGrid },
   { title: "Calendar", url: "/calendar", icon: Calendar },
+  { title: "Checklist", url: "/checklist", icon: CheckSquare },
+  { title: "Routes", url: "/routes", icon: Route },
+  { title: "Staff", url: "/staff", icon: Users },
   { title: "Wiki", url: "/wiki", icon: BookOpen },
 ];
 
@@ -51,7 +55,7 @@ export function AppSidebar() {
             className="flex items-center gap-2 px-3 py-2.5 text-xs font-medium tracking-wide uppercase text-primary-foreground bg-primary rounded-md hover:glow-red transition-all duration-200"
           >
             <Plus className="w-3.5 h-3.5" />
-            New Production
+            New Binder
           </Link>
         </div>
 

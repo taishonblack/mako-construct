@@ -41,14 +41,13 @@ export interface LockState {
 }
 
 const defaultChecklist: ChecklistItem[] = [
-  { id: "ck1", label: "Fax Completed", checked: false },
-  { id: "ck2", label: "Validation Complete", checked: false },
-  { id: "ck3", label: "Transmission Tested", checked: false },
-  { id: "ck4", label: "Return Confirmed", checked: false },
-  { id: "ck5", label: "Encoder Allocation Verified", checked: false },
-  { id: "ck6", label: "Decoder Mapping Verified", checked: false },
-  { id: "ck7", label: "Commercial Handling Confirmed", checked: false },
-  { id: "ck8", label: "Release Confirmed", checked: false },
+  { id: "ck1", label: "Confirm ISO count", checked: false },
+  { id: "ck2", label: "Encoder allocation verified", checked: false },
+  { id: "ck3", label: "Decoder mapping verified", checked: false },
+  { id: "ck4", label: "Transport primary tested", checked: false },
+  { id: "ck5", label: "Return feed request sent to partner", checked: false },
+  { id: "ck6", label: "Comms confirmed", checked: false },
+  { id: "ck7", label: "Release confirmed", checked: false },
 ];
 
 export interface BinderState {

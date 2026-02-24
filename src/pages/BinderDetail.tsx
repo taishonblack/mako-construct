@@ -60,7 +60,6 @@ export default function BinderDetail() {
 
   const { state: routesState } = useRoutesStore();
 
-  // Auto-sync: when routes change, push updates to linked signals
   useEffect(() => {
     if (routesState.routes.length > 0) {
       syncSignalsFromRoutes(routesState.routes);
@@ -94,44 +93,58 @@ export default function BinderDetail() {
     const changes: string[] = [];
     if (storeRecord) {
       if (data.partner !== storeRecord.partner) changes.push(`Partner updated: ${storeRecord.partner} → ${data.partner}`);
-      if (data.isoCount !== storeRecord.isoCount) changes.push(`ISO Count updated: ${storeRecord.isoCount} → ${data.isoCount} (signals regenerated)`);
-      if (data.venue !== storeRecord.venue) changes.push(`Venue updated: ${storeRecord.venue} → ${data.venue}`);
-      if (data.showType !== storeRecord.showType) changes.push(`Show Type updated: ${storeRecord.showType} → ${data.showType}`);
+      if (data.isoCount !== storeRecord.isoCount) changes.push(`ISO Count updated: ${storeRecord.isoCount} → ${data.isoCount}`);
+      if (data.venue !== storeRecord.venue) changes.push(`Arena updated: ${storeRecord.venue} → ${data.venue}`);
       if (data.status !== storeRecord.status) changes.push(`Status updated: ${storeRecord.status} → ${data.status}`);
-      if (data.returnRequired !== storeRecord.returnRequired) changes.push(`Return Feed updated: ${storeRecord.returnRequired ? "Required" : "Not Required"} → ${data.returnRequired ? "Required" : "Not Required"}`);
+      if (data.controlRoom !== storeRecord.controlRoom) changes.push(`Control Room updated: CR-${storeRecord.controlRoom} → CR-${data.controlRoom}`);
     }
 
     binderStore.update(binderId, {
       title: data.title, league: "NHL", venue: data.venue,
-      showType: data.showType === "Other" ? data.customShowType || "Other" : data.showType,
+      showType: data.showType || "Standard",
       partner: data.partner, status: data.status, isoCount: data.isoCount,
-      returnRequired: data.returnRequired, commercials: data.commercials,
-      primaryTransport: data.primaryTransport === "Other" ? data.customPrimaryTransport || "Other" : data.primaryTransport,
-      backupTransport: data.backupTransport === "Other" ? data.customBackupTransport || "Other" : data.backupTransport,
-      transport: data.primaryTransport === "Other" ? data.customPrimaryTransport || "Other" : data.primaryTransport,
+      returnRequired: data.returnRequired, commercials: data.commercials || "local-insert",
+      primaryTransport: data.primaryTransport,
+      backupTransport: data.backupTransport,
+      transport: data.primaryTransport,
       notes: data.notes, eventTime: data.eventTime, timezone: data.timezone,
-      homeTeam: data.homeTeam, awayTeam: data.awayTeam, siteType: data.siteType,
-      studioLocation: data.studioLocation, customShowType: data.customShowType,
-      customPrimaryTransport: data.customPrimaryTransport, customBackupTransport: data.customBackupTransport,
-      customCommercials: data.customCommercials, signalNamingMode: data.signalNamingMode,
+      homeTeam: data.homeTeam, awayTeam: data.awayTeam,
+      siteType: data.siteType || "Arena", studioLocation: data.studioLocation || "",
+      customShowType: data.customShowType || "",
+      customPrimaryTransport: data.customPrimaryTransport || "",
+      customBackupTransport: data.customBackupTransport || "",
+      customCommercials: data.customCommercials || "",
+      signalNamingMode: data.signalNamingMode,
       canonicalSignals: data.canonicalSignals, customSignalNames: data.customSignalNames,
       encoderInputsPerUnit: data.encoderInputsPerUnit, encoderCount: data.encoderCount,
       decoderOutputsPerUnit: data.decoderOutputsPerUnit, decoderCount: data.decoderCount,
       autoAllocate: data.autoAllocate,
+      // New V1 fields
+      controlRoom: data.controlRoom,
+      rehearsalDate: data.rehearsalDate,
+      broadcastFeed: data.broadcastFeed,
+      onsiteTechManager: data.onsiteTechManager,
+      returnFeedEndpoints: data.returnFeedEndpoints,
+      encoders: data.encoders,
+      decoders: data.decoders,
+      outboundHost: data.outboundHost,
+      outboundPort: data.outboundPort,
+      inboundHost: data.inboundHost,
+      inboundPort: data.inboundPort,
     });
 
     update("league", "NHL");
     update("partner", data.partner);
     update("venue", data.venue);
-    update("showType", data.showType === "Other" ? data.customShowType || "Other" : data.showType);
+    update("showType", data.showType || "Standard");
     update("eventDate", data.eventDate);
     update("eventTime", data.eventTime);
     update("timezone", data.timezone);
     update("homeTeam", data.homeTeam);
     update("awayTeam", data.awayTeam);
-    update("siteType", data.siteType);
+    update("siteType", data.siteType || "Arena");
     update("returnRequired", data.returnRequired);
-    update("commercials", data.commercials);
+    update("commercials", data.commercials || "local-insert");
 
     if (data.isoCount !== state.isoCount) {
       setIsoCount(data.isoCount);
@@ -149,7 +162,7 @@ export default function BinderDetail() {
   const handleDelete = useCallback(() => {
     binderStore.delete(binderId);
     localStorage.removeItem(`mako-binder-${binderId}`);
-    navigate("/containers");
+    navigate("/binders");
   }, [binderId, navigate]);
 
   const handleTransportChange = useCallback((field: "primaryTransport" | "backupTransport", value: string) => {
@@ -171,40 +184,25 @@ export default function BinderDetail() {
   }, [isLocked, updateSignals]);
   const lockedToggleChecklist = useCallback((id: string) => { if (!isLocked) toggleChecklist(id); }, [isLocked, toggleChecklist]);
 
-  // Doc-to-Binder Assist apply handler
   const handleDocAssistApply = useCallback((fields: DetectedField[]) => {
     const changes: string[] = [];
     for (const f of fields) {
       if (f.target === "isoCount") {
         const newCount = parseInt(f.value);
-        if (!isNaN(newCount) && newCount !== state.isoCount) {
-          setIsoCount(newCount);
-          changes.push(`ISO Count → ${newCount}`);
-        }
+        if (!isNaN(newCount) && newCount !== state.isoCount) { setIsoCount(newCount); changes.push(`ISO Count → ${newCount}`); }
       } else if (f.target.startsWith("eventHeader.")) {
         const key = f.target.replace("eventHeader.", "") as keyof typeof state.eventHeader;
-        if (state.eventHeader[key] !== undefined) {
-          updateEventHeader({ ...state.eventHeader, [key]: f.value });
-          changes.push(`${f.label} → ${f.value}`);
-        }
+        if (state.eventHeader[key] !== undefined) { updateEventHeader({ ...state.eventHeader, [key]: f.value }); changes.push(`${f.label} → ${f.value}`); }
       } else if (f.target.startsWith("staff.")) {
         const role = f.target.replace("staff.", "");
-        const newStaff = state.eventHeader.staff.map(s =>
-          s.role === role ? { ...s, name: f.value } : s
-        );
-        updateEventHeader({ ...state.eventHeader, staff: newStaff });
-        changes.push(`Staff ${role} → ${f.value}`);
+        const newStaff = state.eventHeader.staff.map(s => s.role === role ? { ...s, name: f.value } : s);
+        updateEventHeader({ ...state.eventHeader, staff: newStaff }); changes.push(`Staff ${role} → ${f.value}`);
       } else if (f.target.startsWith("signal.")) {
-        const parts = f.target.split(".");
-        const iso = parseInt(parts[1]);
-        if (!isNaN(iso)) {
-          updateSignal(iso, "productionAlias", f.value);
-          changes.push(`ISO ${iso} alias → ${f.value}`);
-        }
+        const iso = parseInt(f.target.split(".")[1]);
+        if (!isNaN(iso)) { updateSignal(iso, "productionAlias", f.value); changes.push(`ISO ${iso} alias → ${f.value}`); }
       } else if (f.target.startsWith("audioPhilosophy.")) {
         const key = f.target.replace("audioPhilosophy.", "") as keyof typeof state.audioPhilosophy;
-        updateAudioPhilosophy({ ...state.audioPhilosophy, [key]: f.value });
-        changes.push(`${f.label} → ${f.value}`);
+        updateAudioPhilosophy({ ...state.audioPhilosophy, [key]: f.value }); changes.push(`${f.label} → ${f.value}`);
       }
     }
     if (changes.length > 0) {
@@ -230,9 +228,9 @@ export default function BinderDetail() {
       />
 
       <div className="max-w-6xl mx-auto px-6 py-6 space-y-8">
-        <Link to="/containers"
+        <Link to="/binders"
           className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-          <ArrowLeft className="w-3 h-3" /> Productions
+          <ArrowLeft className="w-3 h-3" /> Binders
         </Link>
 
         <EventCommandHeader
@@ -251,11 +249,7 @@ export default function BinderDetail() {
           </div>
         )}
 
-        <AudioPhilosophy
-          data={state.audioPhilosophy}
-          onChange={isLocked ? () => {} : updateAudioPhilosophy}
-          readOnly={isLocked}
-        />
+        <AudioPhilosophy data={state.audioPhilosophy} onChange={isLocked ? () => {} : updateAudioPhilosophy} readOnly={isLocked} />
 
         <CommandBrief
           venue={state.venue} partner={state.partner} isoCount={state.isoCount}
@@ -303,7 +297,6 @@ export default function BinderDetail() {
         <IssuesChanges changes={state.changes} issues={state.issues} />
         <DocumentArchive docs={state.docs} onAddDoc={isLocked ? () => {} : addDoc} onRemoveDoc={isLocked ? () => {} : removeDoc} onUpdateDoc={isLocked ? () => {} : updateDoc} />
         <Checklist items={state.checklist} onToggle={lockedToggleChecklist} />
-
         <DiffView currentState={state} lockHistory={state.lockHistory || []} />
       </div>
 
@@ -349,6 +342,22 @@ export default function BinderDetail() {
           srtBackupHost: "", srtBackupPort: "", srtBackupMode: "caller", srtBackupPassphrase: "",
           mpegBackupMulticast: "", mpegBackupPort: "",
           saveAsTemplate: false, templateName: "",
+          // New V1 fields
+          controlRoom: storeRecord?.controlRoom || "23",
+          rehearsalDate: storeRecord?.rehearsalDate || "",
+          broadcastFeed: storeRecord?.broadcastFeed || "",
+          onsiteTechManager: storeRecord?.onsiteTechManager || "",
+          returnFeedEndpoints: storeRecord?.returnFeedEndpoints || [],
+          encoders: storeRecord?.encoders || [{ id: "enc-1", brand: "Videon", model: "", outputsPerUnit: 4, unitCount: 2, notes: "" }],
+          decoders: storeRecord?.decoders || [{ id: "dec-1", brand: "Haivision", model: "", outputsPerUnit: 2, unitCount: 6, notes: "" }],
+          outboundHost: storeRecord?.outboundHost || "",
+          outboundPort: storeRecord?.outboundPort || "",
+          inboundHost: storeRecord?.inboundHost || "",
+          inboundPort: storeRecord?.inboundPort || "",
+          backupOutboundHost: "",
+          backupOutboundPort: "",
+          backupInboundHost: "",
+          backupInboundPort: "",
         }}
       />
 
