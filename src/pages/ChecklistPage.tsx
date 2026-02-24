@@ -1,13 +1,14 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
-import { Filter, ArrowUpDown, CheckSquare } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Filter, ArrowUpDown, CheckSquare, X } from "lucide-react";
 import { format, isToday, addDays, isBefore } from "date-fns";
 import { binderStore } from "@/stores/binder-store";
 import { Badge } from "@/components/ui/badge";
 import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
 import type { ChecklistStatus } from "@/hooks/use-binder-state";
 
 interface TaskRow {
@@ -67,6 +68,7 @@ const STATUS_STYLE: Record<string, string> = {
 export default function ChecklistPage() {
   const [filter, setFilter] = useState<FilterMode>("incomplete");
   const [sortKey, setSortKey] = useState<SortKey>("due");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [, bump] = useState(0);
 
   const allTasks = useMemo(() => loadTasks(), [filter, bump]);
@@ -110,17 +112,48 @@ export default function ChecklistPage() {
     return arr;
   }, [filtered, sortKey]);
 
-  const toggleItem = (t: TaskRow) => {
+  const updateTaskStatus = useCallback((t: TaskRow, newStatus: ChecklistStatus) => {
     try {
       const raw = localStorage.getItem(`mako-binder-${t.binderId}`);
       if (!raw) return;
       const state = JSON.parse(raw);
       state.checklist = state.checklist.map((c: any) =>
-        c.id === t.rawId ? { ...c, checked: !c.checked, status: !c.checked ? "done" : "open" } : c
+        c.id === t.rawId ? { ...c, checked: newStatus === "done", status: newStatus } : c
       );
       localStorage.setItem(`mako-binder-${t.binderId}`, JSON.stringify(state));
-      bump((n) => n + 1);
     } catch { /* ignore */ }
+  }, []);
+
+  const toggleItem = (t: TaskRow) => {
+    const newStatus = (t.checked || t.status === "done") ? "open" : "done";
+    updateTaskStatus(t, newStatus);
+    bump((n) => n + 1);
+  };
+
+  const bulkSetStatus = (status: ChecklistStatus) => {
+    const taskMap = new Map<string, TaskRow>();
+    for (const t of sorted) {
+      if (selected.has(t.id)) taskMap.set(t.id, t);
+    }
+    taskMap.forEach((t) => updateTaskStatus(t, status));
+    setSelected(new Set());
+    bump((n) => n + 1);
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selected.size === sorted.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(sorted.map((t) => t.id)));
+    }
   };
 
   const incompleteCount = allTasks.filter(
@@ -172,6 +205,35 @@ export default function ChecklistPage() {
         </div>
       </div>
 
+      {/* Bulk action bar */}
+      <AnimatePresence>
+        {selected.size > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+            className="flex items-center gap-3 mb-3 px-4 py-2.5 rounded border border-primary/30 bg-primary/5"
+          >
+            <span className="text-xs text-foreground font-medium">{selected.size} selected</span>
+            <div className="flex items-center gap-1.5 ml-2">
+              <button onClick={() => bulkSetStatus("open")}
+                className="px-2.5 py-1 text-[10px] tracking-wider uppercase rounded border border-border text-muted-foreground hover:text-foreground hover:border-foreground transition-colors">
+                Open
+              </button>
+              <button onClick={() => bulkSetStatus("in-progress")}
+                className="px-2.5 py-1 text-[10px] tracking-wider uppercase rounded border border-amber-500/40 text-amber-500 hover:bg-amber-500/10 transition-colors">
+                In Progress
+              </button>
+              <button onClick={() => bulkSetStatus("done")}
+                className="px-2.5 py-1 text-[10px] tracking-wider uppercase rounded border border-emerald-500/40 text-emerald-500 hover:bg-emerald-500/10 transition-colors">
+                Done
+              </button>
+            </div>
+            <button onClick={() => setSelected(new Set())} className="ml-auto text-muted-foreground hover:text-foreground transition-colors">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Table */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, delay: 0.1 }}
         className="steel-panel overflow-hidden">
@@ -179,6 +241,13 @@ export default function ChecklistPage() {
           <Table>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
+                <TableHead className="w-10 pr-0">
+                  <Checkbox
+                    checked={sorted.length > 0 && selected.size === sorted.length}
+                    onCheckedChange={toggleSelectAll}
+                    className="border-muted-foreground/50"
+                  />
+                </TableHead>
                 <TableHead className="w-8"></TableHead>
                 <TableHead className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground">Task</TableHead>
                 <TableHead className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground">Assigned To</TableHead>
@@ -190,8 +259,16 @@ export default function ChecklistPage() {
             <TableBody>
               {sorted.map((t) => {
                 const isDone = t.checked || t.status === "done";
+                const isSelected = selected.has(t.id);
                 return (
-                  <TableRow key={t.id} className="border-border group">
+                  <TableRow key={t.id} className={`border-border group ${isSelected ? "bg-primary/5" : ""}`}>
+                    <TableCell className="w-10 pr-0">
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => toggleSelect(t.id)}
+                        className="border-muted-foreground/50"
+                      />
+                    </TableCell>
                     <TableCell className="w-8 pr-0">
                       <button onClick={() => toggleItem(t)} className="p-0.5">
                         {isDone
