@@ -4,6 +4,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { CommandPalette } from "@/components/CommandPalette";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
+import { MobileHeader } from "@/components/MobileHeader";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 export function AppLayout() {
@@ -26,7 +27,9 @@ export function AppLayout() {
       <div className="min-h-screen flex w-full bg-background">
         {!isMobile && <AppSidebar />}
         <div className="flex-1 flex flex-col">
-          {!isMobile && (
+          {isMobile ? (
+            <MobileHeader onSearchClick={() => setCmdOpen(true)} />
+          ) : (
             <header className="h-12 flex items-center border-b border-border px-4 bg-card">
               <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
               <button
