@@ -20,6 +20,12 @@ export interface DeviceLine {
   notes: string;
 }
 
+export interface LQPort {
+  letter: string;
+  label: string;
+  notes: string;
+}
+
 export interface BinderRecord extends MockBinder {
   league: string;
   containerId: string;
@@ -61,6 +67,9 @@ export interface BinderRecord extends MockBinder {
   outboundPort: string;
   inboundHost: string;
   inboundPort: string;
+  // LQ Ports
+  lqRequired: boolean;
+  lqPorts: LQPort[];
 }
 
 export type { BinderStatus };
@@ -109,6 +118,13 @@ function seedFromMock(): BinderRecord[] {
     outboundPort: "",
     inboundHost: "",
     inboundPort: "",
+    lqRequired: false,
+    lqPorts: [
+      { letter: "E", label: "Truck AD", notes: "" },
+      { letter: "F", label: "Truck Production", notes: "" },
+      { letter: "G", label: "Cam Ops", notes: "" },
+      { letter: "H", label: "TBD", notes: "" },
+    ],
   }));
 }
 
@@ -131,6 +147,13 @@ function load(): BinderRecord[] {
         outboundPort: r.outboundPort || "",
         inboundHost: r.inboundHost || "",
         inboundPort: r.inboundPort || "",
+        lqRequired: r.lqRequired ?? false,
+        lqPorts: r.lqPorts || [
+          { letter: "E", label: "Truck AD", notes: "" },
+          { letter: "F", label: "Truck Production", notes: "" },
+          { letter: "G", label: "Cam Ops", notes: "" },
+          { letter: "H", label: "TBD", notes: "" },
+        ],
       }));
     }
   } catch { /* ignore */ }

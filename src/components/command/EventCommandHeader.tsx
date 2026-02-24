@@ -169,7 +169,7 @@ export function EventCommandHeader({ data, onChange, readOnly, onGenerateTxRx }:
     set("externalLQPorts", { ...data.externalLQPorts, [port]: value });
   }, [data, set]);
 
-  const staffNames = data.staff.filter(s => s.name.trim()).map(s => s.name);
+  // Staff names kept for potential future use
 
   return (
     <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
@@ -295,9 +295,7 @@ export function EventCommandHeader({ data, onChange, readOnly, onGenerateTxRx }:
               <Table>
                 <TableHeader>
                   <TableRow className="border-border hover:bg-transparent">
-                    <TableHead className="text-[10px] tracking-wider uppercase">Role</TableHead>
                     <TableHead className="text-[10px] tracking-wider uppercase">Name</TableHead>
-                    <TableHead className="text-[10px] tracking-wider uppercase">Panel / Position</TableHead>
                     {!readOnly && <TableHead className="w-10" />}
                   </TableRow>
                 </TableHeader>
@@ -305,21 +303,13 @@ export function EventCommandHeader({ data, onChange, readOnly, onGenerateTxRx }:
                   {data.staff.map(s => (
                     <TableRow key={s.id} className="border-border hover:bg-secondary/50 group">
                       <TableCell className="p-1">
-                        <Input value={s.role} onChange={(e) => updateStaff(s.id, "role", e.target.value)}
-                          disabled={readOnly} className="h-8 text-xs border-0 bg-transparent" placeholder="Role" />
-                      </TableCell>
-                      <TableCell className="p-1">
                         <Input value={s.name} onChange={(e) => updateStaff(s.id, "name", e.target.value)}
                           disabled={readOnly} className="h-8 text-xs border-0 bg-transparent" placeholder="Name" />
-                      </TableCell>
-                      <TableCell className="p-1">
-                        <Input value={s.panelPosition} onChange={(e) => updateStaff(s.id, "panelPosition", e.target.value)}
-                          disabled={readOnly} className="h-8 text-xs border-0 bg-transparent font-mono" placeholder="Panel" />
                       </TableCell>
                       {!readOnly && (
                         <TableCell className="p-1">
                           <Button variant="ghost" size="icon"
-                            className="h-7 w-7 text-muted-foreground hover:text-crimson opacity-0 group-hover:opacity-100"
+                            className="h-7 w-7 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100"
                             onClick={() => removeStaff(s.id)}>
                             <Trash2 className="w-3 h-3" />
                           </Button>
@@ -338,13 +328,8 @@ export function EventCommandHeader({ data, onChange, readOnly, onGenerateTxRx }:
             )}
             <div className="mt-3 space-y-1">
               <Label className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground">Onsite Tech Manager</Label>
-              <Select value={data.onsiteTechManager} onValueChange={(v) => set("onsiteTechManager", v)} disabled={readOnly}>
-                <SelectTrigger className="h-9 text-sm w-64"><SelectValue placeholder="Select from staff" /></SelectTrigger>
-                <SelectContent>
-                  {staffNames.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
-                  <SelectItem value="__other__">Other…</SelectItem>
-                </SelectContent>
-              </Select>
+              <Input value={data.onsiteTechManager} onChange={(e) => set("onsiteTechManager", e.target.value)}
+                disabled={readOnly} className="h-9 text-sm w-64" placeholder="e.g. John Smith" />
             </div>
           </div>
 

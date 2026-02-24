@@ -5,7 +5,7 @@ import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import type { BinderStatus, ReturnFeedEndpoint, DeviceLine } from "@/stores/binder-store";
+import type { BinderStatus, ReturnFeedEndpoint, DeviceLine, LQPort } from "@/stores/binder-store";
 import { templateStore } from "@/stores/template-store";
 import { staffStore } from "@/stores/staff-store";
 import { CANONICAL_SIGNAL_NAMES } from "@/data/mock-signals";
@@ -99,6 +99,9 @@ export interface BinderFormData {
   srtBackupPassphrase: string;
   mpegBackupMulticast: string;
   mpegBackupPort: string;
+  // LQ Ports
+  lqRequired: boolean;
+  lqPorts: LQPort[];
 }
 
 interface Props {
@@ -160,6 +163,13 @@ const DEFAULT_FORM: BinderFormData = {
   mpegPrimaryMulticast: "", mpegPrimaryPort: "",
   srtBackupHost: "", srtBackupPort: "", srtBackupMode: "caller", srtBackupPassphrase: "",
   mpegBackupMulticast: "", mpegBackupPort: "",
+  lqRequired: false,
+  lqPorts: [
+    { letter: "E", label: "Truck AD", notes: "" },
+    { letter: "F", label: "Truck Production", notes: "" },
+    { letter: "G", label: "Cam Ops", notes: "" },
+    { letter: "H", label: "TBD", notes: "" },
+  ],
 };
 
 export function BinderFormModal({ open, onClose, onSubmit, onDelete, initial, mode, oldIsoCount }: Props) {
@@ -394,10 +404,8 @@ export function BinderFormModal({ open, onClose, onSubmit, onDelete, initial, mo
                   </div>
                 </FormField>
                 <FormField label="Onsite Tech Manager">
-                  <select value={form.onsiteTechManager} onChange={(e) => set("onsiteTechManager", e.target.value)} className={selectClass}>
-                    <option value="">Select…</option>
-                    {allStaff.map((s) => <option key={s.id} value={s.name}>{s.name} — {s.role}</option>)}
-                  </select>
+                  <input type="text" value={form.onsiteTechManager} onChange={(e) => set("onsiteTechManager", e.target.value)}
+                    placeholder="e.g. John Smith" className={inputClass} />
                 </FormField>
               </div>
 
@@ -704,6 +712,48 @@ export function BinderFormModal({ open, onClose, onSubmit, onDelete, initial, mo
                       </FormField>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* ═══ G) LQ PORTS REQUEST ═══ */}
+              <SectionHeader label="LQ Ports Request" />
+              <FormField label="LQ Required">
+                <button onClick={() => set("lqRequired", !form.lqRequired)}
+                  className={cn("text-sm px-3 py-2 rounded-sm border transition-colors w-full",
+                    form.lqRequired ? "border-primary/40 bg-primary/10 text-primary" : "border-border bg-secondary text-muted-foreground")}>
+                  {form.lqRequired ? "Yes — LQ Required" : "No — LQ Not Required"}
+                </button>
+              </FormField>
+
+              {form.lqRequired && (
+                <div className="space-y-3 pl-4 border-l-2 border-primary/20">
+                  <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground">Port Assignments</span>
+                  {form.lqPorts.map((port, idx) => (
+                    <div key={port.letter} className="grid grid-cols-[60px_1fr_1fr] gap-2 items-end">
+                      <div>
+                        <label className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground block mb-1.5">Port</label>
+                        <span className="text-sm font-mono text-foreground block py-2 px-3 bg-secondary/50 border border-border rounded-sm">{port.letter}</span>
+                      </div>
+                      <FormField label="Audio Label">
+                        <input type="text" value={port.label}
+                          onChange={(e) => {
+                            const updated = [...form.lqPorts];
+                            updated[idx] = { ...updated[idx], label: e.target.value };
+                            set("lqPorts", updated);
+                          }}
+                          placeholder="e.g. Truck AD" className={inputClass} />
+                      </FormField>
+                      <FormField label="Notes">
+                        <input type="text" value={port.notes}
+                          onChange={(e) => {
+                            const updated = [...form.lqPorts];
+                            updated[idx] = { ...updated[idx], notes: e.target.value };
+                            set("lqPorts", updated);
+                          }}
+                          placeholder="Optional" className={inputClass} />
+                      </FormField>
+                    </div>
+                  ))}
                 </div>
               )}
 

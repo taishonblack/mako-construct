@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, Wand2 } from "lucide-react";
+import { ArrowLeft, Wand2, Eye, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { binderStore } from "@/stores/binder-store";
 import { mockBinderDetail } from "@/data/mock-binder-detail";
@@ -56,6 +56,7 @@ export default function BinderDetail() {
     updateEventHeader, generateTxRx,
     updateAudioPhilosophy,
     syncSignalsFromRoutes,
+    addChecklistItem, updateChecklistItem, removeChecklistItem,
   } = useBinderState(binderId);
 
   const { state: routesState } = useRoutesStore();
@@ -68,8 +69,11 @@ export default function BinderDetail() {
 
   const [editOpen, setEditOpen] = useState(false);
   const [docAssistOpen, setDocAssistOpen] = useState(false);
+  // Preview mode: binder opens read-only by default
+  const [previewMode, setPreviewMode] = useState(true);
 
   const isLocked = state.currentLock?.locked ?? false;
+  const isReadOnly = previewMode || isLocked;
 
   const report = useMemo(
     () => computeReadiness(
@@ -119,7 +123,6 @@ export default function BinderDetail() {
       encoderInputsPerUnit: data.encoderInputsPerUnit, encoderCount: data.encoderCount,
       decoderOutputsPerUnit: data.decoderOutputsPerUnit, decoderCount: data.decoderCount,
       autoAllocate: data.autoAllocate,
-      // New V1 fields
       controlRoom: data.controlRoom,
       rehearsalDate: data.rehearsalDate,
       broadcastFeed: data.broadcastFeed,
@@ -131,6 +134,8 @@ export default function BinderDetail() {
       outboundPort: data.outboundPort,
       inboundHost: data.inboundHost,
       inboundPort: data.inboundPort,
+      lqRequired: data.lqRequired,
+      lqPorts: data.lqPorts,
     });
 
     update("league", "NHL");
@@ -166,23 +171,23 @@ export default function BinderDetail() {
   }, [binderId, navigate]);
 
   const handleTransportChange = useCallback((field: "primaryTransport" | "backupTransport", value: string) => {
-    if (isLocked) return;
+    if (isReadOnly) return;
     binderStore.update(binderId, { [field]: value, ...(field === "primaryTransport" ? { transport: value } : {}) });
     if (field === "primaryTransport") {
       update("transport", { ...state.transport, primary: { ...state.transport.primary, protocol: value } });
     } else {
       update("transport", { ...state.transport, backup: { ...state.transport.backup, protocol: value } });
     }
-  }, [binderId, state.transport, update, isLocked]);
+  }, [binderId, state.transport, update, isReadOnly]);
 
-  const lockedSetIsoCount = useCallback((count: number) => { if (!isLocked) setIsoCount(count); }, [isLocked, setIsoCount]);
+  const lockedSetIsoCount = useCallback((count: number) => { if (!isReadOnly) setIsoCount(count); }, [isReadOnly, setIsoCount]);
   const lockedUpdateSignal = useCallback((iso: number, field: keyof import("@/data/mock-signals").Signal, value: string) => {
-    if (!isLocked) updateSignal(iso, field, value);
-  }, [isLocked, updateSignal]);
+    if (!isReadOnly) updateSignal(iso, field, value);
+  }, [isReadOnly, updateSignal]);
   const lockedUpdateSignals = useCallback((updater: (signals: import("@/data/mock-signals").Signal[]) => import("@/data/mock-signals").Signal[]) => {
-    if (!isLocked) updateSignals(updater);
-  }, [isLocked, updateSignals]);
-  const lockedToggleChecklist = useCallback((id: string) => { if (!isLocked) toggleChecklist(id); }, [isLocked, toggleChecklist]);
+    if (!isReadOnly) updateSignals(updater);
+  }, [isReadOnly, updateSignals]);
+  const lockedToggleChecklist = useCallback((id: string) => { if (!isReadOnly) toggleChecklist(id); }, [isReadOnly, toggleChecklist]);
 
   const handleDocAssistApply = useCallback((fields: DetectedField[]) => {
     const changes: string[] = [];
@@ -227,20 +232,65 @@ export default function BinderDetail() {
         lockVersion={state.currentLock?.version}
       />
 
-      <div className="max-w-6xl mx-auto px-6 py-6 space-y-8">
+      {/* Preview / Edit mode bar */}
+      <div className="max-w-6xl mx-auto px-6 pt-4 flex items-center justify-between">
         <Link to="/binders"
           className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-3 h-3" /> Binders
         </Link>
+        <div className="flex items-center gap-2">
+          {previewMode && !isLocked && (
+            <Button variant="outline" size="sm" onClick={() => setPreviewMode(false)}
+              className="text-[10px] tracking-wider uppercase gap-1.5">
+              <Pencil className="w-3 h-3" /> Edit Binder
+            </Button>
+          )}
+          {!previewMode && !isLocked && (
+            <Button variant="ghost" size="sm" onClick={() => setPreviewMode(true)}
+              className="text-[10px] tracking-wider uppercase gap-1.5 text-muted-foreground">
+              <Eye className="w-3 h-3" /> Exit Edit Mode
+            </Button>
+          )}
+          {previewMode && (
+            <span className="flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-medium tracking-[0.15em] uppercase rounded bg-secondary text-muted-foreground border border-border">
+              <Eye className="w-2.5 h-2.5" /> Preview
+            </span>
+          )}
+          {!previewMode && !isLocked && (
+            <span className="flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-medium tracking-[0.15em] uppercase rounded bg-primary/10 text-primary border border-primary/30">
+              <Pencil className="w-2.5 h-2.5" /> Editing
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="max-w-6xl mx-auto px-6 py-6 space-y-8">
+        {/* Version selector */}
+        {(state.lockHistory?.length > 0) && (
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground">Version</span>
+            <select
+              className="text-xs bg-secondary border border-border rounded-sm px-2 py-1 text-foreground focus:outline-none focus:border-primary transition-colors"
+              defaultValue="current"
+            >
+              <option value="current">Current (Working)</option>
+              {state.lockHistory.map((snap) => (
+                <option key={snap.id} value={snap.id}>
+                  Lock v{snap.id.replace("lock-v", "")} — {new Date(snap.lockedAt).toLocaleString()}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <EventCommandHeader
           data={state.eventHeader}
-          onChange={isLocked ? () => {} : updateEventHeader}
-          readOnly={isLocked}
-          onGenerateTxRx={isLocked ? undefined : generateTxRx}
+          onChange={isReadOnly ? () => {} : updateEventHeader}
+          readOnly={isReadOnly}
+          onGenerateTxRx={isReadOnly ? undefined : generateTxRx}
         />
 
-        {!isLocked && (
+        {!isReadOnly && (
           <div className="flex justify-end">
             <Button variant="outline" size="sm" onClick={() => setDocAssistOpen(true)}
               className="text-[10px] tracking-wider uppercase">
@@ -249,7 +299,7 @@ export default function BinderDetail() {
           </div>
         )}
 
-        <AudioPhilosophy data={state.audioPhilosophy} onChange={isLocked ? () => {} : updateAudioPhilosophy} readOnly={isLocked} />
+        <AudioPhilosophy data={state.audioPhilosophy} onChange={isReadOnly ? () => {} : updateAudioPhilosophy} readOnly={isReadOnly} />
 
         <CommandBrief
           venue={state.venue} partner={state.partner} isoCount={state.isoCount}
@@ -269,13 +319,13 @@ export default function BinderDetail() {
           showType={state.showType} eventDate={state.eventDate} isoCount={state.isoCount}
           onIsoCountChange={lockedSetIsoCount}
           returnRequired={state.returnRequired}
-          onReturnRequiredChange={(v) => !isLocked && update("returnRequired", v)}
+          onReturnRequiredChange={(v) => !isReadOnly && update("returnRequired", v)}
           commercials={state.commercials}
-          onCommercialsChange={(v) => !isLocked && update("commercials", v)}
-          onFieldChange={(field, value) => !isLocked && update(field as keyof typeof state, value)}
+          onCommercialsChange={(v) => !isReadOnly && update("commercials", v)}
+          onFieldChange={(field, value) => !isReadOnly && update(field as keyof typeof state, value)}
           primaryTransport={storeRecord?.primaryTransport || binder.transport}
           backupTransport={storeRecord?.backupTransport || binder.backupTransport}
-          onTransportChange={isLocked ? undefined : handleTransportChange}
+          onTransportChange={isReadOnly ? undefined : handleTransportChange}
         />
 
         <SignalMatrix
@@ -288,15 +338,22 @@ export default function BinderDetail() {
         <TransportProfile config={state.transport} returnRequired={state.returnRequired} />
         <CommsStructure
           comms={state.comms}
-          onUpdateComm={isLocked ? undefined : updateComm}
-          onAddComm={isLocked ? undefined : addComm}
-          onRemoveComm={isLocked ? undefined : removeComm}
-          readOnly={isLocked}
+          onUpdateComm={isReadOnly ? undefined : updateComm}
+          onAddComm={isReadOnly ? undefined : addComm}
+          onRemoveComm={isReadOnly ? undefined : removeComm}
+          readOnly={isReadOnly}
         />
         <ExecutionTimeline />
         <IssuesChanges changes={state.changes} issues={state.issues} />
-        <DocumentArchive docs={state.docs} onAddDoc={isLocked ? () => {} : addDoc} onRemoveDoc={isLocked ? () => {} : removeDoc} onUpdateDoc={isLocked ? () => {} : updateDoc} />
-        <Checklist items={state.checklist} onToggle={lockedToggleChecklist} />
+        <DocumentArchive docs={state.docs} onAddDoc={isReadOnly ? () => {} : addDoc} onRemoveDoc={isReadOnly ? () => {} : removeDoc} onUpdateDoc={isReadOnly ? () => {} : updateDoc} />
+        <Checklist
+          items={state.checklist}
+          onToggle={lockedToggleChecklist}
+          onAddItem={isReadOnly ? undefined : addChecklistItem}
+          onUpdateItem={isReadOnly ? undefined : updateChecklistItem}
+          onRemoveItem={isReadOnly ? undefined : removeChecklistItem}
+          readOnly={isReadOnly}
+        />
         <DiffView currentState={state} lockHistory={state.lockHistory || []} />
       </div>
 
@@ -342,7 +399,6 @@ export default function BinderDetail() {
           srtBackupHost: "", srtBackupPort: "", srtBackupMode: "caller", srtBackupPassphrase: "",
           mpegBackupMulticast: "", mpegBackupPort: "",
           saveAsTemplate: false, templateName: "",
-          // New V1 fields
           controlRoom: storeRecord?.controlRoom || "23",
           rehearsalDate: storeRecord?.rehearsalDate || "",
           broadcastFeed: storeRecord?.broadcastFeed || "",
@@ -358,6 +414,13 @@ export default function BinderDetail() {
           backupOutboundPort: "",
           backupInboundHost: "",
           backupInboundPort: "",
+          lqRequired: storeRecord?.lqRequired ?? false,
+          lqPorts: storeRecord?.lqPorts || [
+            { letter: "E", label: "Truck AD", notes: "" },
+            { letter: "F", label: "Truck Production", notes: "" },
+            { letter: "G", label: "Cam Ops", notes: "" },
+            { letter: "H", label: "TBD", notes: "" },
+          ],
         }}
       />
 

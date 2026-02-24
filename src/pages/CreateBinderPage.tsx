@@ -73,6 +73,8 @@ export default function CreateBinderPage() {
       outboundPort: data.outboundPort,
       inboundHost: data.inboundHost,
       inboundPort: data.inboundPort,
+      lqRequired: data.lqRequired,
+      lqPorts: data.lqPorts,
     });
 
     // Generate signals
