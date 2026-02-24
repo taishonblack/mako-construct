@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -55,9 +55,17 @@ export default function BinderDetail() {
     lockBinder, unlockBinder,
     updateEventHeader, generateTxRx,
     updateAudioPhilosophy,
+    syncSignalsFromRoutes,
   } = useBinderState(binderId);
 
   const { state: routesState } = useRoutesStore();
+
+  // Auto-sync: when routes change, push updates to linked signals
+  useEffect(() => {
+    if (routesState.routes.length > 0) {
+      syncSignalsFromRoutes(routesState.routes);
+    }
+  }, [routesState.routes, syncSignalsFromRoutes]);
 
   const [editOpen, setEditOpen] = useState(false);
   const [docAssistOpen, setDocAssistOpen] = useState(false);

@@ -415,6 +415,52 @@ export function useBinderState(binderId: string) {
     });
   }, []);
 
+  // Auto-sync linked route data back into signals
+  const syncSignalsFromRoutes = useCallback((routes: import("@/stores/route-store").SignalRoute[]) => {
+    setState((prev) => {
+      const routeMap = new Map(routes.map((r) => [r.id, r]));
+      let changed = false;
+      const newSignals = prev.signals.map((s) => {
+        if (!s.linkedRouteId) return s;
+        const route = routeMap.get(s.linkedRouteId);
+        if (!route) return s;
+
+        const updates: Partial<Signal> = {};
+        // Sync production alias from route
+        if (route.alias.productionName && route.alias.productionName !== s.productionAlias) {
+          updates.productionAlias = route.alias.productionName;
+        }
+        // Sync transport type
+        if (route.transport.type && route.transport.type !== s.transport) {
+          updates.transport = route.transport.type;
+        }
+        // Sync TX/RX names from route
+        if (route.routeName && route.routeName !== s.txName) {
+          updates.txName = route.routeName;
+        }
+        if (route.alias.engineeringName && route.alias.engineeringName !== s.rxName) {
+          updates.rxName = route.alias.engineeringName;
+        }
+        // Sync encoder/decoder device names
+        if (route.encoder.deviceName && route.encoder.deviceName !== s.encoderInput) {
+          updates.encoderInput = route.encoder.deviceName;
+        }
+        if (route.decoder.deviceName && route.decoder.deviceName !== s.decoderOutput) {
+          updates.decoderOutput = route.decoder.deviceName;
+        }
+
+        if (Object.keys(updates).length > 0) {
+          changed = true;
+          return { ...s, ...updates };
+        }
+        return s;
+      });
+
+      if (!changed) return prev;
+      return { ...prev, signals: newSignals };
+    });
+  }, []);
+
   return {
     state, update, setIsoCount, updateSignal, updateSignals, updateTopology,
     toggleChecklist, addDoc, removeDoc, updateDoc,
@@ -422,5 +468,6 @@ export function useBinderState(binderId: string) {
     lockBinder, unlockBinder,
     updateEventHeader, generateTxRx,
     updateAudioPhilosophy,
+    syncSignalsFromRoutes,
   };
 }
