@@ -72,6 +72,18 @@ export default function BinderDetail() {
     }
   }, [routesState.routes, syncSignalsFromRoutes]);
 
+  // Auto-scroll to hash anchor (e.g. #checklist)
+  useEffect(() => {
+    const hash = window.location.hash.replace("#", "");
+    if (hash) {
+      const timeout = setTimeout(() => {
+        const el = document.getElementById(hash);
+        el?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 600);
+      return () => clearTimeout(timeout);
+    }
+  }, []);
+
   const [editOpen, setEditOpen] = useState(false);
   const [docAssistOpen, setDocAssistOpen] = useState(false);
   const [previewMode, setPreviewMode] = useState(true);
@@ -399,6 +411,7 @@ export default function BinderDetail() {
         <DocumentArchive docs={state.docs} onAddDoc={isReadOnly ? () => {} : addDoc} onRemoveDoc={isReadOnly ? () => {} : removeDoc} onUpdateDoc={isReadOnly ? () => {} : updateDoc} />
         {/* Checklist section */}
         <motion.section
+          id="checklist"
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.7 }}
