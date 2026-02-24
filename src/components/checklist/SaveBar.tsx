@@ -16,7 +16,7 @@ export function SaveBar({ isDirty, onSave, onDiscard }: SaveBarProps) {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 60, opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-center gap-4 px-6 py-3 bg-secondary/95 border-t border-border backdrop-blur-sm"
+          className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-center gap-4 px-6 py-3 bg-secondary/95 border-t border-border backdrop-blur-sm md:bottom-0 bottom-16"
         >
           <span className="text-xs text-muted-foreground tracking-wider uppercase">Unsaved changes</span>
           <button
