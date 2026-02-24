@@ -4,11 +4,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { useRoutesStore } from "@/stores/route-store";
 import { RouteChain } from "@/components/routes/RouteChain";
-import { RoutersView } from "@/components/routes/RoutersView";
 import { TransportView } from "@/components/routes/TransportView";
 
 export default function RoutesPage() {
-  const { state, addRoute, updateRoute, removeRoute, updateRouter, syncRouterCrosspoints } = useRoutesStore();
+  const { state, addRoute, updateRoute, removeRoute, syncRouterCrosspoints } = useRoutesStore();
   const [tab, setTab] = useState("topology");
 
   return (
@@ -18,7 +17,7 @@ export default function RoutesPage() {
         <div>
           <h1 className="text-xl font-bold tracking-tight">Routes</h1>
           <p className="text-xs text-muted-foreground mt-1">
-            Live contribution topology — Arena → Encoder → Transport → Cloud → Decoder → Router → Production
+            Live contribution topology — Arena → Encoder → Transport → Cloud → Decoder → Production
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -35,7 +34,6 @@ export default function RoutesPage() {
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="bg-muted/50">
           <TabsTrigger value="topology" className="text-xs">Topology</TabsTrigger>
-          <TabsTrigger value="routers" className="text-xs">Routers</TabsTrigger>
           <TabsTrigger value="transport" className="text-xs">Transport</TabsTrigger>
         </TabsList>
 
@@ -51,10 +49,6 @@ export default function RoutesPage() {
               ))}
             </div>
           )}
-        </TabsContent>
-
-        <TabsContent value="routers" className="mt-4">
-          <RoutersView routers={state.routers} onUpdateRouter={updateRouter} />
         </TabsContent>
 
         <TabsContent value="transport" className="mt-4">

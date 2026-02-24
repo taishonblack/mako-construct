@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -9,42 +9,48 @@ import { generateSignals, generatePatchpoints } from "@/data/mock-signals";
 import { mockTransport, mockComms } from "@/data/mock-phase5";
 import type { SignalNamingMode } from "@/data/mock-signals";
 
+const DEFAULT_CHECKLIST = [
+  { id: "ck1", label: "Confirm ISO count", checked: false },
+  { id: "ck2", label: "Encoder allocation verified", checked: false },
+  { id: "ck3", label: "Decoder mapping verified", checked: false },
+  { id: "ck4", label: "Transport primary tested", checked: false },
+  { id: "ck5", label: "Return feed request sent to partner", checked: false },
+  { id: "ck6", label: "Comms confirmed", checked: false },
+  { id: "ck7", label: "Release confirmed", checked: false },
+];
+
 export default function CreateBinderPage() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-    const _searchParams = searchParams;
-
   const [open, setOpen] = useState(true);
 
   const handleCreate = (data: BinderFormData) => {
-    // Create binder record in store
     const record = binderStore.create({
       title: data.title,
       league: "NHL",
       containerId: data.containerId,
       eventDate: data.eventDate,
       venue: data.venue,
-      showType: data.showType === "Other" ? data.customShowType || "Other" : data.showType,
+      showType: data.showType || "Standard",
       partner: data.partner,
       status: data.status,
       isoCount: data.isoCount,
       returnRequired: data.returnRequired,
-      commercials: data.commercials === "Other" ? data.customCommercials || "Other" : data.commercials,
-      primaryTransport: data.primaryTransport === "Other" ? data.customPrimaryTransport || "Other" : data.primaryTransport,
-      backupTransport: data.backupTransport === "Other" ? data.customBackupTransport || "Other" : data.backupTransport,
+      commercials: data.commercials || "local-insert",
+      primaryTransport: data.primaryTransport,
+      backupTransport: data.backupTransport,
       notes: data.notes,
-      transport: data.primaryTransport === "Other" ? data.customPrimaryTransport || "Other" : data.primaryTransport,
+      transport: data.primaryTransport,
       openIssues: 0,
       eventTime: data.eventTime,
       timezone: data.timezone,
       homeTeam: data.homeTeam,
       awayTeam: data.awayTeam,
-      siteType: data.siteType,
-      studioLocation: data.studioLocation,
-      customShowType: data.customShowType,
-      customPrimaryTransport: data.customPrimaryTransport,
-      customBackupTransport: data.customBackupTransport,
-      customCommercials: data.customCommercials,
+      siteType: data.siteType || "Arena",
+      studioLocation: data.studioLocation || "",
+      customShowType: data.customShowType || "",
+      customPrimaryTransport: data.customPrimaryTransport || "",
+      customBackupTransport: data.customBackupTransport || "",
+      customCommercials: data.customCommercials || "",
       signalNamingMode: data.signalNamingMode,
       canonicalSignals: data.canonicalSignals,
       customSignalNames: data.customSignalNames,
@@ -55,28 +61,32 @@ export default function CreateBinderPage() {
       autoAllocate: data.autoAllocate,
       gameType: data.gameType || "Regular Season",
       season: data.season || "2025–26",
+      // New V1 fields
+      controlRoom: data.controlRoom,
+      rehearsalDate: data.rehearsalDate,
+      broadcastFeed: data.broadcastFeed,
+      onsiteTechManager: data.onsiteTechManager,
+      returnFeedEndpoints: data.returnFeedEndpoints,
+      encoders: data.encoders,
+      decoders: data.decoders,
+      outboundHost: data.outboundHost,
+      outboundPort: data.outboundPort,
+      inboundHost: data.inboundHost,
+      inboundPort: data.inboundPort,
     });
 
-    // Generate signals based on naming mode
+    // Generate signals
     const customNames = data.signalNamingMode === "custom"
-      ? data.customSignalNames.split("\n").map((n) => n.trim()).filter(Boolean)
+      ? data.customSignalNames.split("\n").map((n) => n.trim().slice(0, 48)).filter(Boolean)
       : undefined;
-    const canonicalNames = data.signalNamingMode === "canonical"
-      ? data.canonicalSignals
-      : undefined;
+    const canonicalNames = data.signalNamingMode === "canonical" ? data.canonicalSignals : undefined;
+    const signals = generateSignals(data.isoCount, data.signalNamingMode as SignalNamingMode, customNames, canonicalNames);
 
-    const signals = generateSignals(
-      data.isoCount,
-      data.signalNamingMode as SignalNamingMode,
-      customNames,
-      canonicalNames
-    );
-
-    // Generate patchpoints from topology
+    // Generate patchpoints from computed topology
     const encoderPatchpoints = generatePatchpoints("encoder", data.encoderCount, data.encoderInputsPerUnit);
     const decoderPatchpoints = generatePatchpoints("decoder", data.decoderCount, data.decoderOutputsPerUnit);
 
-    // Auto-allocate patchpoints if enabled
+    // Auto-allocate
     const finalSignals = data.autoAllocate
       ? signals.map((s, i) => ({
           ...s,
@@ -85,41 +95,38 @@ export default function CreateBinderPage() {
         }))
       : signals;
 
-    const resolvedPrimaryTransport = data.primaryTransport === "Other" ? data.customPrimaryTransport || "Other" : data.primaryTransport;
-    const resolvedBackupTransport = data.backupTransport === "Other" ? data.customBackupTransport || "Other" : data.backupTransport;
-
-    // Initialize binder state in localStorage
+    // Initialize binder state
     const binderState = {
       league: "NHL",
       partner: data.partner,
       venue: data.venue,
-      showType: data.showType === "Other" ? data.customShowType || "Other" : data.showType,
+      showType: data.showType || "Standard",
       eventDate: data.eventDate,
       eventTime: data.eventTime,
       timezone: data.timezone,
       homeTeam: data.homeTeam,
       awayTeam: data.awayTeam,
-      siteType: data.siteType,
+      siteType: data.siteType || "Arena",
       isoCount: data.isoCount,
       returnRequired: data.returnRequired,
-      commercials: data.commercials === "Other" ? data.customCommercials || "Other" : data.commercials,
+      commercials: data.commercials || "local-insert",
       signals: finalSignals,
       transport: {
         ...mockTransport,
         primary: {
           ...mockTransport.primary,
-          protocol: resolvedPrimaryTransport,
-          destination: data.srtPrimaryHost || mockTransport.primary.destination,
-          port: data.srtPrimaryPort ? parseInt(data.srtPrimaryPort) : mockTransport.primary.port,
+          protocol: data.primaryTransport,
+          destination: data.outboundHost || mockTransport.primary.destination,
+          port: data.outboundPort ? parseInt(data.outboundPort) : mockTransport.primary.port,
         },
         backup: {
           ...mockTransport.backup,
-          protocol: resolvedBackupTransport,
-          destination: data.srtBackupHost || mockTransport.backup.destination,
-          port: data.srtBackupPort ? parseInt(data.srtBackupPort) : mockTransport.backup.port,
+          protocol: data.backupTransport || "MPEG-TS",
+          destination: data.backupOutboundHost || mockTransport.backup.destination,
+          port: data.backupOutboundPort ? parseInt(data.backupOutboundPort) : mockTransport.backup.port,
         },
         returnFeed: data.returnRequired,
-        commercials: (data.commercials === "Other" ? "none" : data.commercials) as "local-insert" | "pass-through" | "none",
+        commercials: (data.commercials || "local-insert") as "local-insert" | "pass-through" | "none",
       },
       comms: [...mockComms],
       issues: [],
@@ -127,18 +134,8 @@ export default function CreateBinderPage() {
       docs: [
         { id: `d-${Date.now()}-1`, type: "Primer", name: "Production Primer", version: "1.0", uploadedBy: "System", uploadedAt: new Date().toISOString(), extractionStatus: "pending" },
         { id: `d-${Date.now()}-2`, type: "Call Sheet", name: "Call Sheet", version: "1.0", uploadedBy: "System", uploadedAt: new Date().toISOString(), extractionStatus: "pending" },
-        { id: `d-${Date.now()}-3`, type: "Schedule", name: "Schedule", version: "1.0", uploadedBy: "System", uploadedAt: new Date().toISOString(), extractionStatus: "pending" },
       ],
-      checklist: [
-        { id: "ck1", label: "Fax Completed", checked: false },
-        { id: "ck2", label: "Validation Complete", checked: false },
-        { id: "ck3", label: "Transmission Tested", checked: false },
-        { id: "ck4", label: "Return Confirmed", checked: false },
-        { id: "ck5", label: "Encoder Allocation Verified", checked: false },
-        { id: "ck6", label: "Decoder Mapping Verified", checked: false },
-        { id: "ck7", label: "Commercial Handling Confirmed", checked: false },
-        { id: "ck8", label: "Release Confirmed", checked: false },
-      ],
+      checklist: DEFAULT_CHECKLIST,
       topology: {
         encoderInputsPerUnit: data.encoderInputsPerUnit,
         encoderCount: data.encoderCount,
@@ -155,34 +152,20 @@ export default function CreateBinderPage() {
 
   const handleClose = () => {
     setOpen(false);
-    navigate("/containers");
+    navigate("/binders");
   };
 
   return (
     <div>
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="mb-8"
-      >
-        <Link
-          to="/containers"
-          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-4"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          Productions
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="mb-8">
+        <Link to="/binders" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mb-4">
+          <ArrowLeft className="w-3.5 h-3.5" /> Binders
         </Link>
-        <h1 className="text-xl font-medium text-foreground tracking-tight">New Production</h1>
+        <h1 className="text-xl font-medium text-foreground tracking-tight">New Binder</h1>
         <p className="text-sm text-muted-foreground mt-1">Configure a new NHL production binder</p>
       </motion.div>
 
-      <BinderFormModal
-        open={open}
-        onClose={handleClose}
-        onSubmit={handleCreate}
-        mode="create"
-      />
+      <BinderFormModal open={open} onClose={handleClose} onSubmit={handleCreate} mode="create" />
     </div>
   );
 }

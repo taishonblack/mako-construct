@@ -1,6 +1,25 @@
 import { mockBinders } from "@/data/mock-binders";
 import type { MockBinder, BinderStatus } from "@/data/mock-binders";
 
+export interface ReturnFeedEndpoint {
+  id: string;
+  sourcePartner: string;
+  type: string;
+  host: string;
+  port: string;
+  mode: string;
+  notes: string;
+}
+
+export interface DeviceLine {
+  id: string;
+  brand: string;
+  model: string;
+  outputsPerUnit: number;
+  unitCount: number;
+  notes: string;
+}
+
 export interface BinderRecord extends MockBinder {
   league: string;
   containerId: string;
@@ -30,6 +49,18 @@ export interface BinderRecord extends MockBinder {
   autoAllocate: boolean;
   gameType: string;
   season: string;
+  // V1 new fields
+  controlRoom: string;
+  rehearsalDate: string;
+  broadcastFeed: string;
+  onsiteTechManager: string;
+  returnFeedEndpoints: ReturnFeedEndpoint[];
+  encoders: DeviceLine[];
+  decoders: DeviceLine[];
+  outboundHost: string;
+  outboundPort: string;
+  inboundHost: string;
+  inboundPort: string;
 }
 
 export type { BinderStatus };
@@ -67,18 +98,41 @@ function seedFromMock(): BinderRecord[] {
     autoAllocate: true,
     gameType: "Regular Season",
     season: "2025–26",
+    controlRoom: "23",
+    rehearsalDate: "",
+    broadcastFeed: "",
+    onsiteTechManager: "",
+    returnFeedEndpoints: [],
+    encoders: [{ id: "enc-1", brand: "Videon", model: "", outputsPerUnit: 4, unitCount: 2, notes: "" }],
+    decoders: [{ id: "dec-1", brand: "Haivision", model: "", outputsPerUnit: 2, unitCount: 6, notes: "" }],
+    outboundHost: "",
+    outboundPort: "",
+    inboundHost: "",
+    inboundPort: "",
   }));
-}
-
-/** @deprecated NHL-only in V1 */
-export function inferLeague(_title: string): string {
-  return "NHL";
 }
 
 function load(): BinderRecord[] {
   try {
     const raw = localStorage.getItem(STORE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const records: BinderRecord[] = JSON.parse(raw);
+      // Backward compat: add new fields with defaults
+      return records.map((r) => ({
+        ...r,
+        controlRoom: r.controlRoom || "23",
+        rehearsalDate: r.rehearsalDate || "",
+        broadcastFeed: r.broadcastFeed || "",
+        onsiteTechManager: r.onsiteTechManager || "",
+        returnFeedEndpoints: r.returnFeedEndpoints || [],
+        encoders: r.encoders || [{ id: "enc-1", brand: "Videon", model: "", outputsPerUnit: 4, unitCount: 2, notes: "" }],
+        decoders: r.decoders || [{ id: "dec-1", brand: "Haivision", model: "", outputsPerUnit: 2, unitCount: 6, notes: "" }],
+        outboundHost: r.outboundHost || "",
+        outboundPort: r.outboundPort || "",
+        inboundHost: r.inboundHost || "",
+        inboundPort: r.inboundPort || "",
+      }));
+    }
   } catch { /* ignore */ }
   const seeded = seedFromMock();
   save(seeded);
