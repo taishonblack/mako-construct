@@ -10,7 +10,9 @@ import {
   Plus,
   Trash2,
   Pencil,
+  UserCircle,
 } from "lucide-react";
+import { useDisplayName } from "@/hooks/use-display-name";
 
 const STORAGE_KEY = "mako-settings";
 
@@ -99,6 +101,7 @@ type SettingsTab = "organization" | "team" | "templates" | "permissions";
 
 export default function SettingsPage() {
   const stored = loadSettings();
+  const { displayName, setDisplayName } = useDisplayName();
 
   const [tab, setTab] = useState<SettingsTab>("organization");
   const [org, setOrg] = useState<OrgSettings>(stored?.org ?? defaultOrg);
@@ -107,6 +110,7 @@ export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
   const [newItemText, setNewItemText] = useState("");
+  const [localDisplayName, setLocalDisplayName] = useState(displayName);
 
   function persist(overrides?: { org?: OrgSettings; templates?: ChecklistTemplate[] }) {
     saveSettings({
@@ -195,8 +199,25 @@ export default function SettingsPage() {
                   />
                 </div>
               ))}
+
+              {/* Display Name */}
+              <div className="pt-4 border-t border-border">
+                <div className="flex items-center gap-2 mb-3">
+                  <UserCircle className="w-4 h-4 text-primary" />
+                  <h3 className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground">Display Name</h3>
+                </div>
+                <p className="text-xs text-muted-foreground mb-2">Used for "Assign me" in checklists</p>
+                <input
+                  type="text"
+                  value={localDisplayName}
+                  onChange={(e) => setLocalDisplayName(e.target.value)}
+                  placeholder="Your display name…"
+                  className="w-full bg-secondary border border-border rounded px-3 py-2 text-sm text-foreground focus:outline-none focus:border-crimson transition-colors"
+                />
+              </div>
+
               <button
-                onClick={() => persist({ org })}
+                onClick={() => { persist({ org }); setDisplayName(localDisplayName); }}
                 className="flex items-center gap-2 px-4 py-2 text-xs font-medium uppercase tracking-wide text-primary-foreground bg-primary rounded hover:glow-red transition-all"
               >
                 <Save className="w-3.5 h-3.5" />
