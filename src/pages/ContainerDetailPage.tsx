@@ -12,15 +12,15 @@ function inferReadiness(binder: ReturnType<typeof binderStore.getAll>[0]): "read
 }
 
 const readinessDot: Record<string, string> = {
-  ready: "bg-emerald-400",
-  risk: "bg-amber-400",
-  blocked: "bg-crimson",
+  ready: "bg-emerald-500",
+  risk: "bg-amber-500",
+  blocked: "bg-destructive",
 };
 
 const readinessLabel: Record<string, string> = {
-  ready: "text-emerald-400",
-  risk: "text-amber-400",
-  blocked: "text-crimson",
+  ready: "text-emerald-500",
+  risk: "text-amber-500",
+  blocked: "text-destructive",
 };
 
 function getContainerData(containerId: string) {
@@ -38,7 +38,7 @@ function StatCard({ label, value, alert }: { label: string; value: string | numb
   return (
     <div className="steel-panel p-5">
       <span className="text-[10px] tracking-wider uppercase text-muted-foreground block mb-2">{label}</span>
-      <span className={`text-2xl font-mono font-medium ${alert ? "text-crimson" : "text-foreground"}`}>{value}</span>
+      <span className={`text-2xl font-mono font-medium ${alert ? "text-destructive" : "text-foreground"}`}>{value}</span>
     </div>
   );
 }
@@ -86,7 +86,7 @@ export default function ContainerDetailPage() {
           </div>
           <Link
             to={`/binders/new?league=${container.league}`}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs tracking-wider uppercase rounded-sm border border-crimson/40 bg-crimson/10 text-crimson hover:bg-crimson/20 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-2 text-xs tracking-wider uppercase rounded-sm border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
             New Binder
@@ -117,19 +117,19 @@ export default function ContainerDetailPage() {
       >
         <h2 className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-4">Readiness Distribution</h2>
         <div className="flex gap-1 h-3 rounded-sm overflow-hidden mb-3">
-          {readiness.ready > 0 && <div className="bg-emerald-400 rounded-sm" style={{ flex: readiness.ready }} />}
-          {readiness.risk > 0 && <div className="bg-amber-400 rounded-sm" style={{ flex: readiness.risk }} />}
-          {readiness.blocked > 0 && <div className="bg-crimson rounded-sm" style={{ flex: readiness.blocked }} />}
+          {readiness.ready > 0 && <div className="bg-emerald-500 rounded-sm" style={{ flex: readiness.ready }} />}
+          {readiness.risk > 0 && <div className="bg-amber-500 rounded-sm" style={{ flex: readiness.risk }} />}
+          {readiness.blocked > 0 && <div className="bg-destructive rounded-sm" style={{ flex: readiness.blocked }} />}
         </div>
         <div className="flex gap-6">
           <span className="flex items-center gap-1.5 text-xs text-foreground">
-            <span className="w-2 h-2 rounded-full bg-emerald-400" /> {readiness.ready} Ready
+            <span className="w-2 h-2 rounded-full bg-emerald-500" /> {readiness.ready} Ready
           </span>
           <span className="flex items-center gap-1.5 text-xs text-foreground">
-            <span className="w-2 h-2 rounded-full bg-amber-400" /> {readiness.risk} Risk
+            <span className="w-2 h-2 rounded-full bg-amber-500" /> {readiness.risk} Risk
           </span>
           <span className="flex items-center gap-1.5 text-xs text-foreground">
-            <span className="w-2 h-2 rounded-full bg-crimson" /> {readiness.blocked} Blocked
+            <span className="w-2 h-2 rounded-full bg-destructive" /> {readiness.blocked} Blocked
           </span>
         </div>
       </motion.div>
@@ -166,12 +166,12 @@ export default function ContainerDetailPage() {
                   </span>
                   <span className={`text-[10px] tracking-wider uppercase shrink-0 ${readinessLabel[r]}`}>{r}</span>
                   {binder.openIssues > 0 && (
-                    <span className="flex items-center gap-1 text-[10px] text-crimson shrink-0">
+                    <span className="flex items-center gap-1 text-[10px] text-destructive shrink-0">
                       <AlertTriangle className="w-3 h-3" />
                       {binder.openIssues}
                     </span>
                   )}
-                  {binder.openIssues === 0 && <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
+                  {binder.openIssues === 0 && <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
                   <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                 </Link>
               );
