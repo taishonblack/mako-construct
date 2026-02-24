@@ -3,8 +3,8 @@ import type { MockBinder, BinderStatus } from "@/data/mock-binders";
 
 const statusStyles: Record<BinderStatus, string> = {
   draft: "bg-muted text-muted-foreground",
-  active: "bg-crimson/20 text-crimson",
-  completed: "bg-emerald-900/30 text-emerald-400",
+  active: "bg-primary/20 text-primary",
+  completed: "bg-emerald-900/30 text-emerald-500",
   archived: "bg-muted text-muted-foreground",
 };
 
@@ -57,7 +57,7 @@ export function BinderCard({ binder }: { binder: MockBinder }) {
           {binder.isoCount} ISOs
         </span>
         {binder.openIssues > 0 && (
-          <span className="flex items-center gap-1.5 text-crimson">
+          <span className="flex items-center gap-1.5 text-destructive">
             <AlertCircle className="w-3 h-3" />
             {binder.openIssues}
           </span>
