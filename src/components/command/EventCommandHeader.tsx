@@ -288,135 +288,37 @@ export function EventCommandHeader({ data, onChange, readOnly, onGenerateTxRx }:
             </div>
           </div>
 
-          {/* STAFF */}
+          {/* ONSITE TECH MANAGER */}
           <div>
-            <span className="text-[9px] tracking-[0.2em] uppercase text-crimson block mb-3">Staff</span>
-            <div className="steel-panel overflow-hidden mb-3">
+            <span className="text-[9px] tracking-[0.2em] uppercase text-crimson block mb-3">Onsite Tech Manager</span>
+            <Input value={data.onsiteTechManager} onChange={(e) => set("onsiteTechManager", e.target.value)}
+              disabled={readOnly} className="h-9 text-sm w-64" placeholder="e.g. John Smith" />
+          </div>
+
+          {/* LQ PORTS REQUEST */}
+          <div>
+            <span className="text-[9px] tracking-[0.2em] uppercase text-crimson block mb-3">LQ Ports Request</span>
+            <div className="steel-panel overflow-hidden">
               <Table>
                 <TableHeader>
                   <TableRow className="border-border hover:bg-transparent">
-                    <TableHead className="text-[10px] tracking-wider uppercase">Name</TableHead>
-                    {!readOnly && <TableHead className="w-10" />}
+                    <TableHead className="text-[10px] tracking-wider uppercase w-20">Port</TableHead>
+                    <TableHead className="text-[10px] tracking-wider uppercase">Label</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.staff.map(s => (
-                    <TableRow key={s.id} className="border-border hover:bg-secondary/50 group">
+                  {(["E", "F", "G", "H"] as const).map(port => (
+                    <TableRow key={port} className="border-border hover:bg-secondary/50">
+                      <TableCell className="font-mono text-xs text-primary font-semibold">Port {port}</TableCell>
                       <TableCell className="p-1">
-                        <Input value={s.name} onChange={(e) => updateStaff(s.id, "name", e.target.value)}
-                          disabled={readOnly} className="h-8 text-xs border-0 bg-transparent" placeholder="Name" />
+                        <Input value={data.externalLQPorts[port]}
+                          onChange={(e) => setExtPort(port, e.target.value)}
+                          disabled={readOnly} className="h-8 text-xs border-0 bg-transparent" placeholder={port === "H" ? "(optional)" : "Audio label"} />
                       </TableCell>
-                      {!readOnly && (
-                        <TableCell className="p-1">
-                          <Button variant="ghost" size="icon"
-                            className="h-7 w-7 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100"
-                            onClick={() => removeStaff(s.id)}>
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </TableCell>
-                      )}
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
-            </div>
-            {!readOnly && (
-              <Button variant="ghost" size="sm" onClick={addStaff}
-                className="text-[10px] tracking-wider uppercase text-muted-foreground hover:text-crimson">
-                <Plus className="w-3 h-3 mr-1" /> Add Staff
-              </Button>
-            )}
-            <div className="mt-3 space-y-1">
-              <Label className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground">Onsite Tech Manager</Label>
-              <Input value={data.onsiteTechManager} onChange={(e) => set("onsiteTechManager", e.target.value)}
-                disabled={readOnly} className="h-9 text-sm w-64" placeholder="e.g. John Smith" />
-            </div>
-          </div>
-
-          {/* CONTRIBUTION NAMING SCHEME */}
-          <div>
-            <span className="text-[9px] tracking-[0.2em] uppercase text-crimson block mb-3">Contribution Naming Scheme</span>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <Label className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground">TX Format</Label>
-                <Input value={data.txFormat} onChange={(e) => set("txFormat", e.target.value)}
-                  disabled={readOnly} className="h-9 text-sm font-mono" placeholder="TX-ENC{##}-{IN##}" />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground">RX Format</Label>
-                <Input value={data.rxFormat} onChange={(e) => set("rxFormat", e.target.value)}
-                  disabled={readOnly} className="h-9 text-sm font-mono" placeholder="RX-CR{23|26}-DEC{##}-{OUT##}" />
-              </div>
-            </div>
-            {!readOnly && onGenerateTxRx && (
-              <Button variant="outline" size="sm" onClick={onGenerateTxRx} className="mt-3 text-[10px] tracking-wider uppercase">
-                <Wand2 className="w-3 h-3 mr-1" /> Generate Missing TX/RX
-              </Button>
-            )}
-          </div>
-
-          {/* COMMS — Internal LQ */}
-          <div>
-            <span className="text-[9px] tracking-[0.2em] uppercase text-crimson block mb-3">Internal LQ</span>
-            <div className="steel-panel overflow-hidden mb-3">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-border hover:bg-transparent">
-                    <TableHead className="text-[10px] tracking-wider uppercase">Person</TableHead>
-                    <TableHead className="text-[10px] tracking-wider uppercase">Role</TableHead>
-                    <TableHead className="text-[10px] tracking-wider uppercase">LQ Position</TableHead>
-                    {!readOnly && <TableHead className="w-10" />}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.internalLQ.map(l => (
-                    <TableRow key={l.id} className="border-border hover:bg-secondary/50 group">
-                      <TableCell className="p-1">
-                        <Input value={l.person} onChange={(e) => updateLQ(l.id, "person", e.target.value)}
-                          disabled={readOnly} className="h-8 text-xs border-0 bg-transparent" placeholder="Name" />
-                      </TableCell>
-                      <TableCell className="p-1">
-                        <Input value={l.role} onChange={(e) => updateLQ(l.id, "role", e.target.value)}
-                          disabled={readOnly} className="h-8 text-xs border-0 bg-transparent" placeholder="Role" />
-                      </TableCell>
-                      <TableCell className="p-1">
-                        <Input value={l.lqPosition} onChange={(e) => updateLQ(l.id, "lqPosition", e.target.value)}
-                          disabled={readOnly} className="h-8 text-xs border-0 bg-transparent font-mono" placeholder="LQ-##" />
-                      </TableCell>
-                      {!readOnly && (
-                        <TableCell className="p-1">
-                          <Button variant="ghost" size="icon"
-                            className="h-7 w-7 text-muted-foreground hover:text-crimson opacity-0 group-hover:opacity-100"
-                            onClick={() => removeLQ(l.id)}>
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-            {!readOnly && (
-              <Button variant="ghost" size="sm" onClick={addLQ}
-                className="text-[10px] tracking-wider uppercase text-muted-foreground hover:text-crimson">
-                <Plus className="w-3 h-3 mr-1" /> Add LQ
-              </Button>
-            )}
-
-            {/* External LQ Ports */}
-            <div className="mt-4">
-              <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground block mb-2">External LQ Ports</span>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {(["E", "F", "G", "H"] as const).map(port => (
-                  <div key={port} className="space-y-1">
-                    <Label className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground font-mono">Port {port}</Label>
-                    <Input value={data.externalLQPorts[port]}
-                      onChange={(e) => setExtPort(port, e.target.value)}
-                      disabled={readOnly} className="h-8 text-xs font-mono" placeholder="Assignment" />
-                  </div>
-                ))}
-              </div>
             </div>
           </div>
 
