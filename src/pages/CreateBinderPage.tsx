@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -6,23 +6,43 @@ import { motion } from "framer-motion";
 import { BinderFormModal, type BinderFormData } from "@/components/command/BinderFormModal";
 import { binderStore } from "@/stores/binder-store";
 import { generateSignals, generatePatchpoints } from "@/data/mock-signals";
-import { mockTransport, mockComms } from "@/data/mock-phase5";
+import { mockTransport } from "@/data/mock-phase5";
 import type { SignalNamingMode } from "@/data/mock-signals";
 
-const DEFAULT_CHECKLIST = [
-  { id: "ck1", label: "Confirm ISO count", checked: false },
-  { id: "ck2", label: "Encoder allocation verified", checked: false },
-  { id: "ck3", label: "Decoder mapping verified", checked: false },
-  { id: "ck4", label: "Transport primary tested", checked: false },
-  { id: "ck5", label: "Return feed request sent to partner", checked: false },
-  { id: "ck6", label: "Comms confirmed", checked: false },
-  { id: "ck7", label: "Release confirmed", checked: false },
+const DEFAULT_CHECKLIST_SEEDS = [
+  { label: "Confirm ISO count + signal naming", always: true },
+  { label: "Encoder allocation verified", always: true },
+  { label: "Decoder allocation verified", always: true },
+  { label: "TX/RX naming generated", always: true },
+  { label: "Transport endpoints entered/tested", always: true },
+  { label: "Return feed request sent", always: false }, // only if return enabled
+  { label: "Routes reviewed", always: true },
+  { label: "Pre-air readiness check", always: true },
 ];
 
 export default function CreateBinderPage() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(true);
+  const [seedChecklist, setSeedChecklist] = useState(true);
+  const [customItems, setCustomItems] = useState<{ label: string; assignedTo: string; dueAt: string }[]>([]);
 
+  const buildChecklist = useCallback((returnRequired: boolean) => {
+    const now = new Date().toISOString();
+    const items: { id: string; label: string; checked: boolean; assignedTo: string; dueAt: string; createdAt: string; status: "open"; notes: string }[] = [];
+    if (seedChecklist) {
+      DEFAULT_CHECKLIST_SEEDS
+        .filter(s => s.always || (s.label.includes("Return") && returnRequired))
+        .forEach((s, i) => {
+          items.push({ id: `ck-seed-${i}`, label: s.label, checked: false, assignedTo: "", dueAt: "", createdAt: now, status: "open", notes: "" });
+        });
+    }
+    customItems.forEach((c, i) => {
+      if (c.label.trim()) {
+        items.push({ id: `ck-custom-${Date.now()}-${i}`, label: c.label, checked: false, assignedTo: c.assignedTo, dueAt: c.dueAt, createdAt: now, status: "open", notes: "" });
+      }
+    });
+    return items;
+  }, [seedChecklist, customItems]);
   const handleCreate = (data: BinderFormData) => {
     const record = binderStore.create({
       title: data.title,
@@ -130,14 +150,14 @@ export default function CreateBinderPage() {
         returnFeed: data.returnRequired,
         commercials: (data.commercials || "local-insert") as "local-insert" | "pass-through" | "none",
       },
-      comms: [...mockComms],
+      comms: [],
       issues: [],
       changes: [],
       docs: [
         { id: `d-${Date.now()}-1`, type: "Primer", name: "Production Primer", version: "1.0", uploadedBy: "System", uploadedAt: new Date().toISOString(), extractionStatus: "pending" },
         { id: `d-${Date.now()}-2`, type: "Call Sheet", name: "Call Sheet", version: "1.0", uploadedBy: "System", uploadedAt: new Date().toISOString(), extractionStatus: "pending" },
       ],
-      checklist: DEFAULT_CHECKLIST,
+      checklist: buildChecklist(data.returnRequired),
       topology: {
         encoderInputsPerUnit: data.encoderInputsPerUnit,
         encoderCount: data.encoderCount,
@@ -167,7 +187,8 @@ export default function CreateBinderPage() {
         <p className="text-sm text-muted-foreground mt-1">Configure a new NHL production binder</p>
       </motion.div>
 
-      <BinderFormModal open={open} onClose={handleClose} onSubmit={handleCreate} mode="create" />
+      <BinderFormModal open={open} onClose={handleClose} onSubmit={handleCreate} mode="create"
+        checklistSeed={{ seedChecklist, onSeedChange: setSeedChecklist, customItems, onCustomItemsChange: setCustomItems }} />
     </div>
   );
 }

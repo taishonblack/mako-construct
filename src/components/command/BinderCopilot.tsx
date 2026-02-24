@@ -83,10 +83,10 @@ function answerQuery(query: string, state: BinderState, report: ReadinessReport)
   }
 
   // Comms / who owns
-  if (q.includes("comms") || q.includes("who owns") || q.includes("communication") || q.includes("clear-com") || q.includes("lq")) {
+  if (q.includes("comms") || q.includes("who owns") || q.includes("communication") || q.includes("lq")) {
     const total = state.comms.length;
     const unassigned = state.comms.filter(c => !c.assignment.trim());
-    if (total === 0) return "⚠️ No comms channels configured. Add Clear-Com, LQ, or Hot Mic channels in the Comms Structure section.";
+    if (total === 0) return "ℹ️ Comms are managed via LQ Ports Request in the Event Command Header. Check the LQ ports section.";
     let result = `**${total} comms channel${total > 1 ? "s" : ""} configured.**\n\n`;
     if (unassigned.length > 0) {
       result += `🟡 **${unassigned.length} unassigned:**\n`;
