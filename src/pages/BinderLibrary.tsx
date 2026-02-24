@@ -17,7 +17,7 @@ export default function BinderLibrary() {
   });
 
   return (
-    <div>
+    <div className="w-full max-w-full overflow-x-hidden">
       {/* Page header */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
