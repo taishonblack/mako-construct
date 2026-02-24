@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
 import { GitCompare, ChevronDown } from "lucide-react";
 import type { LockSnapshot, BinderState } from "@/hooks/use-binder-state";
@@ -6,6 +6,7 @@ import type { LockSnapshot, BinderState } from "@/hooks/use-binder-state";
 interface DiffViewProps {
   currentState: BinderState;
   lockHistory: LockSnapshot[];
+  preSelectedVersion?: string;
 }
 
 interface DiffEntry {
@@ -160,16 +161,25 @@ function compareStates(before: Partial<BinderState>, after: Partial<BinderState>
 }
 
 const typeColor = {
-  added: "text-emerald-400 bg-emerald-900/20 border-emerald-500/20",
-  removed: "text-crimson bg-crimson/10 border-crimson/20",
-  modified: "text-amber-400 bg-amber-900/20 border-amber-500/20",
+  added: "text-emerald-500 bg-emerald-900/20 border-emerald-500/20",
+  removed: "text-destructive bg-destructive/10 border-destructive/20",
+  modified: "text-amber-500 bg-amber-900/20 border-amber-500/20",
 };
 
 const typeLabel = { added: "Added", removed: "Removed", modified: "Modified" };
 
-export function DiffView({ currentState, lockHistory }: DiffViewProps) {
-  const [compareToIdx, setCompareToIdx] = useState(0);
+export function DiffView({ currentState, lockHistory, preSelectedVersion }: DiffViewProps) {
+  const preIdx = preSelectedVersion ? lockHistory.findIndex(s => s.id === preSelectedVersion) : 0;
+  const [compareToIdx, setCompareToIdx] = useState(preIdx >= 0 ? preIdx : 0);
   const [showSelector, setShowSelector] = useState(false);
+
+  // Sync when preSelectedVersion changes from parent
+  useEffect(() => {
+    if (preSelectedVersion) {
+      const idx = lockHistory.findIndex(s => s.id === preSelectedVersion);
+      if (idx >= 0) setCompareToIdx(idx);
+    }
+  }, [preSelectedVersion, lockHistory]);
 
   const compareTo = lockHistory[compareToIdx] || null;
 
@@ -267,8 +277,8 @@ export function DiffView({ currentState, lockHistory }: DiffViewProps) {
                           <span className="text-foreground text-xs">{d.after}</span>
                         </>
                       )}
-                      {d.type === "added" && <span className="text-emerald-400 text-xs">{d.after}</span>}
-                      {d.type === "removed" && <span className="text-crimson text-xs line-through">{d.before}</span>}
+                      {d.type === "added" && <span className="text-emerald-500 text-xs">{d.after}</span>}
+                      {d.type === "removed" && <span className="text-destructive text-xs line-through">{d.before}</span>}
                     </div>
                   ))}
                 </div>

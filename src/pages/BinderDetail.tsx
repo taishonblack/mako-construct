@@ -1,6 +1,6 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, Wand2, Eye, Pencil } from "lucide-react";
+import { ArrowLeft, Wand2, Eye, Pencil, GitCompare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { binderStore } from "@/stores/binder-store";
 import { mockBinderDetail } from "@/data/mock-binder-detail";
@@ -71,6 +71,8 @@ export default function BinderDetail() {
   const [docAssistOpen, setDocAssistOpen] = useState(false);
   // Preview mode: binder opens read-only by default
   const [previewMode, setPreviewMode] = useState(true);
+  const [selectedVersion, setSelectedVersion] = useState<string>("current");
+  const diffRef = useRef<HTMLDivElement>(null);
 
   const isLocked = state.currentLock?.locked ?? false;
   const isReadOnly = previewMode || isLocked;
@@ -265,13 +267,14 @@ export default function BinderDetail() {
       </div>
 
       <div className="max-w-6xl mx-auto px-6 py-6 space-y-8">
-        {/* Version selector */}
+        {/* Version selector + Compare */}
         {(state.lockHistory?.length > 0) && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground">Version</span>
             <select
               className="text-xs bg-secondary border border-border rounded-sm px-2 py-1 text-foreground focus:outline-none focus:border-primary transition-colors"
-              defaultValue="current"
+              value={selectedVersion}
+              onChange={(e) => setSelectedVersion(e.target.value)}
             >
               <option value="current">Current (Working)</option>
               {state.lockHistory.map((snap) => (
@@ -280,6 +283,16 @@ export default function BinderDetail() {
                 </option>
               ))}
             </select>
+            {selectedVersion !== "current" && (
+              <Button variant="outline" size="sm"
+                onClick={() => {
+                  diffRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+                className="text-[10px] tracking-wider uppercase gap-1.5"
+              >
+                <GitCompare className="w-3 h-3" /> Compare
+              </Button>
+            )}
           </div>
         )}
 
@@ -354,7 +367,13 @@ export default function BinderDetail() {
           onRemoveItem={isReadOnly ? undefined : removeChecklistItem}
           readOnly={isReadOnly}
         />
-        <DiffView currentState={state} lockHistory={state.lockHistory || []} />
+        <div ref={diffRef}>
+          <DiffView
+            currentState={state}
+            lockHistory={state.lockHistory || []}
+            preSelectedVersion={selectedVersion !== "current" ? selectedVersion : undefined}
+          />
+        </div>
       </div>
 
       <BinderFormModal
