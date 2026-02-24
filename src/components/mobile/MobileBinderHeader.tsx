@@ -71,11 +71,11 @@ export function MobileBinderHeader({
         )}
       </div>
 
-      {/* Scrollable metadata chips */}
+      {/* Wrapping metadata chips */}
       {metadata.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+        <div className="flex flex-wrap gap-1.5">
           {metadata.map((m) => (
-            <div key={m.label} className="shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded bg-secondary border border-border">
+            <div key={m.label} className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-secondary border border-border">
               <span className="text-[9px] tracking-wider uppercase text-muted-foreground">{m.label}</span>
               <span className="text-[10px] font-mono text-foreground">{m.value}</span>
             </div>
