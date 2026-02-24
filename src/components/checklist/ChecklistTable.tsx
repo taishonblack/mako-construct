@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { format } from "date-fns";
-import { CheckSquare, Plus, Trash2, UserPlus } from "lucide-react";
+import { format, endOfDay } from "date-fns";
+import { CheckSquare, Plus, Trash2, UserPlus, CalendarClock } from "lucide-react";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -283,12 +283,22 @@ export function ChecklistTable({
                       )}
                     </div>
                   ) : (
-                    <span
-                      className={!readOnly ? "cursor-text hover:bg-secondary/60 px-1 -mx-1 py-0.5 rounded transition-colors" : ""}
-                      onClick={() => !readOnly && setEditing({ id: t.id, field: "dueAt" })}
-                    >
-                      {t.dueAt ? format(new Date(t.dueAt), "MMM d, HH:mm") : "—"}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className={!readOnly ? "cursor-text hover:bg-secondary/60 px-1 -mx-1 py-0.5 rounded transition-colors" : ""}
+                        onClick={() => !readOnly && setEditing({ id: t.id, field: "dueAt" })}
+                      >
+                        {t.dueAt ? format(new Date(t.dueAt), "MMM d, HH:mm") : "—"}
+                      </span>
+                      {!readOnly && !t.dueAt && (
+                        <button
+                          onClick={() => updateItem(t.id, { dueAt: endOfDay(new Date()).toISOString() })}
+                          className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 text-[9px] tracking-wider uppercase text-primary hover:text-foreground transition-all"
+                        >
+                          <CalendarClock className="w-2.5 h-2.5" /> Due today
+                        </button>
+                      )}
+                    </div>
                   )}
                 </TableCell>
 
