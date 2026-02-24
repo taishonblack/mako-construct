@@ -14,7 +14,7 @@ import { CommandBrief } from "@/components/command/CommandBrief";
 import { ProductionDefinition } from "@/components/command/ProductionDefinition";
 import { SignalMatrix } from "@/components/command/SignalMatrix";
 import { TransportProfile } from "@/components/command/TransportProfile";
-import { CommsStructure } from "@/components/command/CommsStructure";
+// CommsStructure removed for NHL V1 — replaced by LQ Ports Request in EventCommandHeader
 import { ExecutionTimeline } from "@/components/command/ExecutionTimeline";
 import { IssuesChanges } from "@/components/command/IssuesChanges";
 import { DocumentArchive } from "@/components/command/DocumentArchive";
@@ -356,13 +356,7 @@ export default function BinderDetail() {
           routes={routesState.routes}
         />
         <TransportProfile config={state.transport} returnRequired={state.returnRequired} />
-        <CommsStructure
-          comms={state.comms}
-          onUpdateComm={isReadOnly ? undefined : updateComm}
-          onAddComm={isReadOnly ? undefined : addComm}
-          onRemoveComm={isReadOnly ? undefined : removeComm}
-          readOnly={isReadOnly}
-        />
+        {/* CommsStructure removed for NHL V1 — LQ Ports Request lives in EventCommandHeader */}
         <ExecutionTimeline />
         <IssuesChanges changes={state.changes} issues={state.issues} />
         <DocumentArchive docs={state.docs} onAddDoc={isReadOnly ? () => {} : addDoc} onRemoveDoc={isReadOnly ? () => {} : removeDoc} onUpdateDoc={isReadOnly ? () => {} : updateDoc} />
