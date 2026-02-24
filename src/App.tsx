@@ -17,6 +17,7 @@ import SettingsPage from "./pages/SettingsPage";
 import RoutesPage from "./pages/RoutesPage";
 import StaffPage from "./pages/StaffPage";
 import ChecklistPage from "./pages/ChecklistPage";
+import MorePage from "./pages/MorePage";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,7 @@ const App = () => (
             <Route path="/staff" element={<StaffPage />} />
             <Route path="/wiki" element={<WikiPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/more" element={<MorePage />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
