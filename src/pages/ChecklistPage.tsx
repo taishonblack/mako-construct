@@ -1,32 +1,23 @@
-import { useState, useMemo, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { Link, useBlocker } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Filter, CheckSquare, ChevronDown, ChevronRight, ChevronsUpDown } from "lucide-react";
 import { format, isToday, addDays, isBefore, isPast } from "date-fns";
 import { binderStore } from "@/stores/binder-store";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
-} from "@/components/ui/table";
-import type { ChecklistStatus } from "@/hooks/use-binder-state";
-
-interface TaskRow {
-  id: string;
-  rawId: string;
-  label: string;
-  checked: boolean;
-  assignedTo: string;
-  dueAt: string;
-  createdAt: string;
-  status: ChecklistStatus;
-}
+import { Input } from "@/components/ui/input";
+import { ChecklistTable } from "@/components/checklist/ChecklistTable";
+import { SaveBar } from "@/components/checklist/SaveBar";
+import { UnsavedChangesDialog } from "@/components/checklist/UnsavedChangesDialog";
+import { useDisplayName } from "@/hooks/use-display-name";
+import type { ChecklistItem, ChecklistStatus } from "@/hooks/use-binder-state";
 
 interface BinderGroup {
   binderId: string;
   binderTitle: string;
   eventDate: string;
   binderStatus: string;
-  tasks: TaskRow[];
+  tasks: ChecklistItem[];
   counts: { open: number; dueToday: number; overdue: number; unassigned: number };
 }
 
@@ -39,17 +30,16 @@ function loadGroups(): BinderGroup[] {
       if (!raw) continue;
       const state = JSON.parse(raw);
       if (!state.checklist || state.checklist.length === 0) continue;
-      const tasks: TaskRow[] = state.checklist.map((item: any) => ({
-        id: `${b.id}-${item.id}`,
-        rawId: item.id,
+      const tasks: ChecklistItem[] = state.checklist.map((item: any) => ({
+        id: item.id,
         label: item.label,
         checked: item.checked,
         assignedTo: item.assignedTo || "",
         dueAt: item.dueAt || "",
         createdAt: item.createdAt || "",
         status: item.status || (item.checked ? "done" : "open"),
+        notes: item.notes || "",
       }));
-      const now = new Date();
       const open = tasks.filter(t => !t.checked && t.status !== "done").length;
       const dueToday = tasks.filter(t => t.dueAt && isToday(new Date(t.dueAt)) && t.status !== "done").length;
       const overdue = tasks.filter(t => t.dueAt && isPast(new Date(t.dueAt)) && !isToday(new Date(t.dueAt)) && t.status !== "done").length;
@@ -64,13 +54,15 @@ function loadGroups(): BinderGroup[] {
   return groups;
 }
 
-type FilterMode = "all" | "today" | "week" | "incomplete" | "assigned";
+function computeCounts(tasks: ChecklistItem[]) {
+  const open = tasks.filter(t => !t.checked && t.status !== "done").length;
+  const dueToday = tasks.filter(t => t.dueAt && isToday(new Date(t.dueAt)) && t.status !== "done").length;
+  const overdue = tasks.filter(t => t.dueAt && isPast(new Date(t.dueAt)) && !isToday(new Date(t.dueAt)) && t.status !== "done").length;
+  const unassigned = tasks.filter(t => !t.assignedTo && t.status !== "done").length;
+  return { open, dueToday, overdue, unassigned };
+}
 
-const STATUS_STYLE: Record<string, string> = {
-  open: "border-muted-foreground/40 text-muted-foreground",
-  "in-progress": "border-amber-500/40 text-amber-500 bg-amber-500/10",
-  done: "border-emerald-500/40 text-emerald-500 bg-emerald-500/10",
-};
+type FilterMode = "all" | "today" | "week" | "incomplete" | "assigned";
 
 const BINDER_STATUS_STYLE: Record<string, string> = {
   draft: "border-muted-foreground/40 text-muted-foreground",
@@ -83,10 +75,97 @@ export default function ChecklistPage() {
   const [filter, setFilter] = useState<FilterMode>("incomplete");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [, bump] = useState(0);
+  const { displayName, setDisplayName } = useDisplayName();
+  const [namePrompt, setNamePrompt] = useState(false);
+  const [nameInput, setNameInput] = useState("");
 
-  const groups = useMemo(() => loadGroups(), [filter, bump]);
+  // Saved state from localStorage
+  const savedGroups = useMemo(() => loadGroups(), [filter, bump]);
 
-  const filterTask = useCallback((t: TaskRow, eventDate: string) => {
+  // Draft state per binder
+  const [drafts, setDrafts] = useState<Record<string, ChecklistItem[]>>(() => {
+    const d: Record<string, ChecklistItem[]> = {};
+    for (const g of loadGroups()) {
+      d[g.binderId] = [...g.tasks];
+    }
+    return d;
+  });
+
+  // Refresh drafts when saved groups change (after save)
+  useEffect(() => {
+    setDrafts((prev) => {
+      const next: Record<string, ChecklistItem[]> = {};
+      for (const g of savedGroups) {
+        // Only update if no local draft changes exist
+        if (!prev[g.binderId] || JSON.stringify(prev[g.binderId]) === JSON.stringify(g.tasks)) {
+          next[g.binderId] = [...g.tasks];
+        } else {
+          next[g.binderId] = prev[g.binderId];
+        }
+      }
+      return next;
+    });
+  }, [savedGroups]);
+
+  // Dirty tracking
+  const dirtyBinders = useMemo(() => {
+    const dirty = new Set<string>();
+    for (const g of savedGroups) {
+      const draft = drafts[g.binderId];
+      if (draft && JSON.stringify(draft) !== JSON.stringify(g.tasks)) {
+        dirty.add(g.binderId);
+      }
+    }
+    return dirty;
+  }, [savedGroups, drafts]);
+
+  const isDirty = dirtyBinders.size > 0;
+
+  // Navigation blocker
+  const blocker = useBlocker(isDirty);
+  const showBlockerDialog = blocker.state === "blocked";
+
+  // beforeunload
+  useEffect(() => {
+    if (!isDirty) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isDirty]);
+
+  const updateDraft = useCallback((binderId: string, items: ChecklistItem[]) => {
+    setDrafts((prev) => ({ ...prev, [binderId]: items }));
+  }, []);
+
+  const saveAll = useCallback(() => {
+    for (const binderId of dirtyBinders) {
+      try {
+        const raw = localStorage.getItem(`mako-binder-${binderId}`);
+        if (!raw) continue;
+        const state = JSON.parse(raw);
+        state.checklist = drafts[binderId];
+        localStorage.setItem(`mako-binder-${binderId}`, JSON.stringify(state));
+      } catch { /* ignore */ }
+    }
+    bump((n) => n + 1);
+    // Reset drafts to match new saved state
+    const freshGroups = loadGroups();
+    const d: Record<string, ChecklistItem[]> = {};
+    for (const g of freshGroups) {
+      d[g.binderId] = [...g.tasks];
+    }
+    setDrafts(d);
+  }, [dirtyBinders, drafts]);
+
+  const discardAll = useCallback(() => {
+    const d: Record<string, ChecklistItem[]> = {};
+    for (const g of savedGroups) {
+      d[g.binderId] = [...g.tasks];
+    }
+    setDrafts(d);
+  }, [savedGroups]);
+
+  const filterTask = useCallback((t: ChecklistItem) => {
     const now = new Date();
     const weekEnd = addDays(now, 7);
     if (filter === "incomplete" && (t.checked || t.status === "done")) return false;
@@ -102,33 +181,24 @@ export default function ChecklistPage() {
     return true;
   }, [filter]);
 
+  // Build visible groups using draft data
   const visibleGroups = useMemo(() => {
-    return groups
+    return savedGroups
       .filter(g => g.binderStatus !== "archived")
-      .map(g => ({ ...g, tasks: g.tasks.filter(t => filterTask(t, g.eventDate)).sort((a, b) => {
-        const aDone = a.status === "done" ? 1 : 0;
-        const bDone = b.status === "done" ? 1 : 0;
-        if (aDone !== bDone) return aDone - bDone;
-        const aD = a.dueAt || "9999";
-        const bD = b.dueAt || "9999";
-        return new Date(aD).getTime() - new Date(bD).getTime();
-      }) }))
-      .filter(g => g.tasks.length > 0);
-  }, [groups, filterTask]);
-
-  const toggleItem = (binderId: string, t: TaskRow) => {
-    try {
-      const raw = localStorage.getItem(`mako-binder-${binderId}`);
-      if (!raw) return;
-      const state = JSON.parse(raw);
-      const newStatus: ChecklistStatus = (t.checked || t.status === "done") ? "open" : "done";
-      state.checklist = state.checklist.map((c: any) =>
-        c.id === t.rawId ? { ...c, checked: newStatus === "done", status: newStatus } : c
-      );
-      localStorage.setItem(`mako-binder-${binderId}`, JSON.stringify(state));
-    } catch { /* ignore */ }
-    bump(n => n + 1);
-  };
+      .map(g => {
+        const draftTasks = drafts[g.binderId] || g.tasks;
+        const filtered = draftTasks.filter(t => filterTask(t)).sort((a, b) => {
+          const aDone = a.status === "done" ? 1 : 0;
+          const bDone = b.status === "done" ? 1 : 0;
+          if (aDone !== bDone) return aDone - bDone;
+          const aD = a.dueAt || "9999";
+          const bD = b.dueAt || "9999";
+          return new Date(aD).getTime() - new Date(bD).getTime();
+        });
+        return { ...g, tasks: draftTasks, filteredTasks: filtered, counts: computeCounts(draftTasks) };
+      })
+      .filter(g => g.filteredTasks.length > 0);
+  }, [savedGroups, drafts, filterTask]);
 
   const toggleCollapse = (id: string) => {
     setCollapsed(prev => {
@@ -146,7 +216,7 @@ export default function ChecklistPage() {
     }
   };
 
-  const totalOpen = groups.reduce((s, g) => s + g.counts.open, 0);
+  const totalOpen = visibleGroups.reduce((s, g) => s + g.counts.open, 0);
 
   const filters: { label: string; value: FilterMode }[] = [
     { label: "Incomplete", value: "incomplete" },
@@ -156,14 +226,47 @@ export default function ChecklistPage() {
     { label: "All", value: "all" },
   ];
 
+  const handlePromptDisplayName = () => {
+    setNamePrompt(true);
+    setNameInput(displayName);
+  };
+
+  const handleSaveName = () => {
+    if (nameInput.trim()) {
+      setDisplayName(nameInput.trim());
+    }
+    setNamePrompt(false);
+  };
+
   return (
-    <div>
+    <div className="pb-16">
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="mb-6">
         <h1 className="text-xl font-medium text-foreground tracking-tight">Task Queue</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          {totalOpen} open task{totalOpen !== 1 ? "s" : ""} across {groups.length} binder{groups.length !== 1 ? "s" : ""}
+          {totalOpen} open task{totalOpen !== 1 ? "s" : ""} across {savedGroups.length} binder{savedGroups.length !== 1 ? "s" : ""}
         </p>
       </motion.div>
+
+      {/* Display name prompt */}
+      {namePrompt && (
+        <div className="mb-4 p-3 bg-secondary/50 rounded-sm border border-border flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Set your name for assignments:</span>
+          <Input
+            value={nameInput}
+            onChange={(e) => setNameInput(e.target.value)}
+            placeholder="Your name…"
+            className="h-8 text-sm max-w-48"
+            onKeyDown={(e) => e.key === "Enter" && handleSaveName()}
+            autoFocus
+          />
+          <button onClick={handleSaveName} className="px-3 py-1.5 text-[10px] tracking-wider uppercase bg-primary text-primary-foreground rounded-sm">
+            Save Name
+          </button>
+          <button onClick={() => setNamePrompt(false)} className="px-3 py-1.5 text-[10px] tracking-wider uppercase text-muted-foreground hover:text-foreground">
+            Cancel
+          </button>
+        </div>
+      )}
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-4 mb-5">
@@ -187,9 +290,10 @@ export default function ChecklistPage() {
         <AnimatePresence initial={false}>
           {visibleGroups.length > 0 ? visibleGroups.map(g => {
             const isOpen = !collapsed.has(g.binderId);
+            const dirty = dirtyBinders.has(g.binderId);
             return (
               <motion.div key={g.binderId} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                className="steel-panel overflow-hidden">
+                className={`steel-panel overflow-hidden ${dirty ? "ring-1 ring-primary/30" : ""}`}>
                 {/* Binder header */}
                 <button onClick={() => toggleCollapse(g.binderId)}
                   className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors text-left">
@@ -203,6 +307,9 @@ export default function ChecklistPage() {
                       <Badge variant="outline" className={`text-[9px] tracking-wider uppercase font-medium ${BINDER_STATUS_STYLE[g.binderStatus] || BINDER_STATUS_STYLE.draft}`}>
                         {g.binderStatus}
                       </Badge>
+                      {dirty && (
+                        <span className="text-[9px] tracking-wider uppercase text-primary">● modified</span>
+                      )}
                     </div>
                     <p className="text-[11px] text-muted-foreground mt-0.5">
                       {format(new Date(g.eventDate), "MMM d, yyyy")}
@@ -220,50 +327,13 @@ export default function ChecklistPage() {
                 <AnimatePresence initial={false}>
                   {isOpen && (
                     <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }}>
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="border-border hover:bg-transparent">
-                            <TableHead className="w-8"></TableHead>
-                            <TableHead className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground">Task</TableHead>
-                            <TableHead className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground">Assigned To</TableHead>
-                            <TableHead className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground">Due</TableHead>
-                            <TableHead className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground">Status</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {g.tasks.map(t => {
-                            const isDone = t.checked || t.status === "done";
-                            return (
-                              <TableRow key={t.id} className="border-border group">
-                                <TableCell className="w-8 pr-0">
-                                  <button onClick={() => toggleItem(g.binderId, t)} className="p-0.5">
-                                    {isDone
-                                      ? <CheckSquare className="w-4 h-4 text-emerald-500" />
-                                      : <div className="w-4 h-4 border border-muted-foreground/50 rounded-sm group-hover:border-foreground transition-colors" />}
-                                  </button>
-                                </TableCell>
-                                <TableCell className={`text-sm ${isDone ? "text-muted-foreground line-through" : "text-foreground"}`}>
-                                  {t.label}
-                                </TableCell>
-                                <TableCell className="text-sm">
-                                  {t.assignedTo
-                                    ? <span className="text-foreground">{t.assignedTo}</span>
-                                    : <span className="text-muted-foreground/60 italic">Unassigned</span>}
-                                </TableCell>
-                                <TableCell className="text-sm font-mono text-muted-foreground">
-                                  {t.dueAt ? format(new Date(t.dueAt), "MMM d, HH:mm") : "—"}
-                                </TableCell>
-                                <TableCell>
-                                  <Badge variant="outline"
-                                    className={`text-[9px] tracking-wider uppercase font-medium ${STATUS_STYLE[t.status] || STATUS_STYLE.open}`}>
-                                    {t.status === "in-progress" ? "In Progress" : t.status}
-                                  </Badge>
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
-                        </TableBody>
-                      </Table>
+                      <ChecklistTable
+                        items={drafts[g.binderId] || g.tasks}
+                        onChange={(items) => updateDraft(g.binderId, items)}
+                        readOnly={false}
+                        displayName={displayName}
+                        onPromptDisplayName={handlePromptDisplayName}
+                      />
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -279,6 +349,17 @@ export default function ChecklistPage() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Save bar */}
+      <SaveBar isDirty={isDirty} onSave={saveAll} onDiscard={discardAll} />
+
+      {/* Navigation guard */}
+      <UnsavedChangesDialog
+        open={showBlockerDialog}
+        onSave={() => { saveAll(); blocker.proceed?.(); }}
+        onDiscard={() => { discardAll(); blocker.proceed?.(); }}
+        onCancel={() => blocker.reset?.()}
+      />
     </div>
   );
 }

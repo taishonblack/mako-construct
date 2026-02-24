@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useBlocker } from "react-router-dom";
 import { ArrowLeft, Wand2, Eye, Pencil, GitCompare, FileDown } from "lucide-react";
+import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { binderStore } from "@/stores/binder-store";
 import { mockBinderDetail } from "@/data/mock-binder-detail";
@@ -18,7 +19,10 @@ import { TransportProfile } from "@/components/command/TransportProfile";
 import { ExecutionTimeline } from "@/components/command/ExecutionTimeline";
 import { IssuesChanges } from "@/components/command/IssuesChanges";
 import { DocumentArchive } from "@/components/command/DocumentArchive";
-import { Checklist } from "@/components/command/Checklist";
+import { ChecklistTable } from "@/components/checklist/ChecklistTable";
+import { SaveBar } from "@/components/checklist/SaveBar";
+import { UnsavedChangesDialog } from "@/components/checklist/UnsavedChangesDialog";
+import { useDisplayName } from "@/hooks/use-display-name";
 import { PreAirLock } from "@/components/command/PreAirLock";
 import { DiffView } from "@/components/command/DiffView";
 import { BinderFormModal, type BinderFormData } from "@/components/command/BinderFormModal";
@@ -70,10 +74,43 @@ export default function BinderDetail() {
 
   const [editOpen, setEditOpen] = useState(false);
   const [docAssistOpen, setDocAssistOpen] = useState(false);
-  // Preview mode: binder opens read-only by default
   const [previewMode, setPreviewMode] = useState(true);
   const [selectedVersion, setSelectedVersion] = useState<string>("current");
   const diffRef = useRef<HTMLDivElement>(null);
+  const { displayName, setDisplayName } = useDisplayName();
+  const [namePrompt, setNamePrompt] = useState(false);
+  const [nameInput, setNameInput] = useState("");
+
+  // Draft checklist state
+  const [draftChecklist, setDraftChecklist] = useState<import("@/hooks/use-binder-state").ChecklistItem[]>(() => [...state.checklist]);
+  const checklistDirty = useMemo(() => JSON.stringify(draftChecklist) !== JSON.stringify(state.checklist), [draftChecklist, state.checklist]);
+
+  // Sync draft when saved state changes externally
+  useEffect(() => {
+    if (!checklistDirty) {
+      setDraftChecklist([...state.checklist]);
+    }
+  }, [state.checklist]);
+
+  // Navigation blocker for dirty checklist
+  const blocker = useBlocker(checklistDirty);
+  const showBlockerDialog = blocker.state === "blocked";
+
+  // beforeunload
+  useEffect(() => {
+    if (!checklistDirty) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [checklistDirty]);
+
+  const saveChecklist = useCallback(() => {
+    update("checklist", draftChecklist);
+  }, [draftChecklist, update]);
+
+  const discardChecklist = useCallback(() => {
+    setDraftChecklist([...state.checklist]);
+  }, [state.checklist]);
 
   const isLocked = state.currentLock?.locked ?? false;
   const isReadOnly = previewMode || isLocked;
@@ -360,13 +397,61 @@ export default function BinderDetail() {
         <ExecutionTimeline />
         <IssuesChanges changes={state.changes} issues={state.issues} />
         <DocumentArchive docs={state.docs} onAddDoc={isReadOnly ? () => {} : addDoc} onRemoveDoc={isReadOnly ? () => {} : removeDoc} onUpdateDoc={isReadOnly ? () => {} : updateDoc} />
-        <Checklist
-          items={state.checklist}
-          onToggle={lockedToggleChecklist}
-          onAddItem={isReadOnly ? undefined : addChecklistItem}
-          onUpdateItem={isReadOnly ? undefined : updateChecklistItem}
-          onRemoveItem={isReadOnly ? undefined : removeChecklistItem}
-          readOnly={isReadOnly}
+        {/* Checklist section */}
+        <motion.section
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.7 }}
+        >
+          <div className="flex items-center gap-3 mb-3">
+            <h2 className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground">Checklist</h2>
+            <span className={`text-[10px] font-mono ${draftChecklist.filter(c => c.status === "done" || c.checked).length === draftChecklist.length ? "text-emerald-500" : "text-muted-foreground"}`}>
+              {draftChecklist.filter(c => c.status === "done" || c.checked).length}/{draftChecklist.length}
+            </span>
+            <div className="flex-1 max-w-32 h-1 bg-secondary rounded-full overflow-hidden">
+              <div
+                className="h-full bg-primary rounded-full transition-all duration-300"
+                style={{ width: `${draftChecklist.length > 0 ? (draftChecklist.filter(c => c.status === "done" || c.checked).length / draftChecklist.length) * 100 : 0}%` }}
+              />
+            </div>
+          </div>
+          <div className="steel-panel p-5">
+            {/* Name prompt for Assign Me */}
+            {namePrompt && (
+              <div className="mb-3 p-3 bg-secondary/50 rounded-sm border border-border flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Set your name:</span>
+                <input
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  placeholder="Your name…"
+                  className="h-8 text-sm max-w-48 bg-secondary border border-border rounded px-2 text-foreground focus:outline-none focus:border-primary"
+                  onKeyDown={(e) => { if (e.key === "Enter" && nameInput.trim()) { setDisplayName(nameInput.trim()); setNamePrompt(false); } }}
+                  autoFocus
+                />
+                <button onClick={() => { if (nameInput.trim()) { setDisplayName(nameInput.trim()); } setNamePrompt(false); }}
+                  className="px-3 py-1.5 text-[10px] tracking-wider uppercase bg-primary text-primary-foreground rounded-sm">Save</button>
+              </div>
+            )}
+            <ChecklistTable
+              items={draftChecklist}
+              onChange={setDraftChecklist}
+              readOnly={isReadOnly}
+              displayName={displayName}
+              onPromptDisplayName={() => { setNamePrompt(true); setNameInput(displayName); }}
+              showAddTask={!isReadOnly}
+            />
+          </div>
+        </motion.section>
+
+        {/* Checklist save bar */}
+        <SaveBar isDirty={checklistDirty && !isReadOnly} onSave={saveChecklist} onDiscard={discardChecklist} />
+
+        {/* Navigation guard for checklist */}
+        <UnsavedChangesDialog
+          open={showBlockerDialog}
+          onSave={() => { saveChecklist(); blocker.proceed?.(); }}
+          onDiscard={() => { discardChecklist(); blocker.proceed?.(); }}
+          onCancel={() => blocker.reset?.()}
         />
         <div ref={diffRef}>
           <DiffView
