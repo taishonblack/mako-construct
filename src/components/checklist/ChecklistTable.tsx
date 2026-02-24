@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { format, endOfDay } from "date-fns";
-import { CheckSquare, Plus, Trash2, UserPlus, CalendarClock } from "lucide-react";
+import { CheckSquare, Plus, Trash2, UserPlus, CalendarClock, CheckCheck } from "lucide-react";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -82,6 +82,7 @@ export function ChecklistTable({
   const [statusDropdown, setStatusDropdown] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [newTitle, setNewTitle] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const statusRef = useRef<HTMLDivElement>(null);
 
   // Close status dropdown on outside click
@@ -139,6 +140,31 @@ export function ChecklistTable({
     setShowAdd(false);
   };
 
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selected.size === items.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(items.map((t) => t.id)));
+    }
+  };
+
+  const bulkSetStatus = (status: ChecklistStatus) => {
+    onChange(items.map((c) =>
+      selected.has(c.id) ? { ...c, status, checked: status === "done" } : c
+    ));
+    setSelected(new Set());
+  };
+
+  const hasSelection = !readOnly && selected.size > 0;
+
   return (
     <div>
       {showAddTask && !readOnly && (
@@ -172,9 +198,44 @@ export function ChecklistTable({
         </div>
       )}
 
+      {/* Bulk action bar */}
+      {hasSelection && (
+        <div className="flex items-center gap-3 px-3 py-2 mb-2 bg-secondary/80 border border-border rounded-sm">
+          <CheckCheck className="w-3.5 h-3.5 text-primary" />
+          <span className="text-[10px] tracking-wider uppercase text-muted-foreground">
+            {selected.size} selected
+          </span>
+          <button onClick={() => bulkSetStatus("open")}
+            className="px-2.5 py-1 text-[10px] tracking-wider uppercase rounded border border-border text-muted-foreground hover:text-foreground transition-colors">
+            Open
+          </button>
+          <button onClick={() => bulkSetStatus("in-progress")}
+            className="px-2.5 py-1 text-[10px] tracking-wider uppercase rounded border border-amber-500/40 text-amber-500 hover:bg-amber-500/10 transition-colors">
+            In Progress
+          </button>
+          <button onClick={() => bulkSetStatus("done")}
+            className="px-2.5 py-1 text-[10px] tracking-wider uppercase rounded border border-emerald-500/40 text-emerald-500 hover:bg-emerald-500/10 transition-colors">
+            Done
+          </button>
+          <button onClick={() => setSelected(new Set())}
+            className="ml-auto text-[10px] tracking-wider uppercase text-muted-foreground hover:text-foreground transition-colors">
+            Clear
+          </button>
+        </div>
+      )}
+
       <Table>
         <TableHeader>
           <TableRow className="border-border hover:bg-transparent">
+            {!readOnly && (
+              <TableHead className="w-8 pr-0">
+                <button onClick={toggleSelectAll} className="p-0.5">
+                  {selected.size === items.length && items.length > 0
+                    ? <CheckSquare className="w-3.5 h-3.5 text-primary" />
+                    : <div className="w-3.5 h-3.5 border border-muted-foreground/50 rounded-sm hover:border-foreground transition-colors" />}
+                </button>
+              </TableHead>
+            )}
             <TableHead className="w-8"></TableHead>
             <TableHead className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground">Task</TableHead>
             <TableHead className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground">Assigned To</TableHead>
@@ -187,10 +248,21 @@ export function ChecklistTable({
           {items.map((t) => {
             const isDone = t.checked || t.status === "done";
             const isEditing = (field: string) => editing?.id === t.id && editing?.field === field;
+            const isSelected = selected.has(t.id);
 
             return (
-              <TableRow key={t.id} className="border-border group">
-                {/* Checkbox */}
+              <TableRow key={t.id} className={`border-border group ${isSelected ? "bg-primary/5" : ""}`}>
+                {/* Selection checkbox */}
+                {!readOnly && (
+                  <TableCell className="w-8 pr-0">
+                    <button onClick={() => toggleSelect(t.id)} className="p-0.5">
+                      {isSelected
+                        ? <CheckSquare className="w-3.5 h-3.5 text-primary" />
+                        : <div className="w-3.5 h-3.5 border border-muted-foreground/50 rounded-sm group-hover:border-foreground transition-colors" />}
+                    </button>
+                  </TableCell>
+                )}
+                {/* Done checkbox */}
                 <TableCell className="w-8 pr-0">
                   {!readOnly ? (
                     <button onClick={() => toggleCheckbox(t.id)} className="p-0.5">
