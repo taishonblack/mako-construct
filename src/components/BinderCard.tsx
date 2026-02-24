@@ -29,11 +29,11 @@ export function BinderCard({ binder }: { binder: MockBinder }) {
   return (
     <a
       href={`/binders/${binder.id}`}
-      className="group block steel-panel p-5 hover:border-glow-red transition-all duration-300"
+      className="group block steel-panel p-5 hover:border-glow-red transition-all duration-300 w-full max-w-full overflow-hidden"
     >
       {/* Header row */}
       <div className="flex items-start justify-between mb-3">
-        <h3 className="text-sm font-medium text-foreground leading-snug pr-3">
+        <h3 className="text-sm font-medium text-foreground leading-snug pr-3 min-w-0 truncate">
           {binder.title}
         </h3>
         <span
@@ -44,7 +44,7 @@ export function BinderCard({ binder }: { binder: MockBinder }) {
       </div>
 
       {/* Partner + venue */}
-      <p className="text-xs text-muted-foreground mb-4">{binder.partner} · {binder.venue}</p>
+      <p className="text-xs text-muted-foreground mb-4 min-w-0 truncate">{binder.partner} · {binder.venue}</p>
 
       {/* Stats row */}
       <div className="flex items-center gap-4 text-xs text-muted-foreground mb-4">
