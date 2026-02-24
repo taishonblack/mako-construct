@@ -9,10 +9,17 @@ import { DEFAULT_EVENT_HEADER } from "@/components/command/EventCommandHeader";
 import type { AudioPhilosophyData } from "@/components/command/AudioPhilosophy";
 import { DEFAULT_AUDIO_PHILOSOPHY } from "@/components/command/AudioPhilosophy";
 
+export type ChecklistStatus = "open" | "in-progress" | "done";
+
 export interface ChecklistItem {
   id: string;
   label: string;
   checked: boolean;
+  assignedTo: string;
+  dueAt: string;
+  createdAt: string;
+  status: ChecklistStatus;
+  notes: string;
 }
 
 export interface TopologyConfig {
@@ -41,17 +48,16 @@ export interface LockState {
 }
 
 const defaultChecklist: ChecklistItem[] = [
-  { id: "ck1", label: "Confirm ISO count", checked: false },
-  { id: "ck2", label: "Encoder allocation verified", checked: false },
-  { id: "ck3", label: "Decoder mapping verified", checked: false },
-  { id: "ck4", label: "Transport primary tested", checked: false },
-  { id: "ck5", label: "Return feed request sent to partner", checked: false },
-  { id: "ck6", label: "Comms confirmed", checked: false },
-  { id: "ck7", label: "Release confirmed", checked: false },
+  { id: "ck1", label: "Confirm ISO count", checked: false, assignedTo: "", dueAt: "", createdAt: new Date().toISOString(), status: "open", notes: "" },
+  { id: "ck2", label: "Encoder allocation verified", checked: false, assignedTo: "", dueAt: "", createdAt: new Date().toISOString(), status: "open", notes: "" },
+  { id: "ck3", label: "Decoder mapping verified", checked: false, assignedTo: "", dueAt: "", createdAt: new Date().toISOString(), status: "open", notes: "" },
+  { id: "ck4", label: "Transport primary tested", checked: false, assignedTo: "", dueAt: "", createdAt: new Date().toISOString(), status: "open", notes: "" },
+  { id: "ck5", label: "Return feed request sent to partner", checked: false, assignedTo: "", dueAt: "", createdAt: new Date().toISOString(), status: "open", notes: "" },
+  { id: "ck6", label: "Comms confirmed", checked: false, assignedTo: "", dueAt: "", createdAt: new Date().toISOString(), status: "open", notes: "" },
+  { id: "ck7", label: "Release confirmed", checked: false, assignedTo: "", dueAt: "", createdAt: new Date().toISOString(), status: "open", notes: "" },
 ];
 
 export interface BinderState {
-  // Production Definition
   league: string;
   partner: string;
   venue: string;
@@ -65,27 +71,17 @@ export interface BinderState {
   isoCount: number;
   returnRequired: boolean;
   commercials: string;
-  // Signals
   signals: Signal[];
-  // Transport
   transport: TransportConfig;
-  // Comms
   comms: CommEntry[];
-  // Issues & Changes
   issues: Issue[];
   changes: ChangeEntry[];
-  // Documents / Assets
   docs: DocEntry[];
-  // Checklist
   checklist: ChecklistItem[];
-  // Topology
   topology: TopologyConfig;
-  // Lock
   currentLock: LockState;
   lockHistory: LockSnapshot[];
-  // Event Command Header
   eventHeader: EventCommandHeaderData;
-  // Audio Philosophy
   audioPhilosophy: AudioPhilosophyData;
 }
 
@@ -107,6 +103,17 @@ function buildDefaultTopology(): TopologyConfig {
 }
 
 const DEFAULT_LOCK: LockState = { locked: false, lockedAt: null, lockedBy: "You", version: 0 };
+
+function migrateChecklist(items: any[]): ChecklistItem[] {
+  return items.map((item) => ({
+    ...item,
+    assignedTo: item.assignedTo || "",
+    dueAt: item.dueAt || "",
+    createdAt: item.createdAt || new Date().toISOString(),
+    status: item.status || (item.checked ? "done" : "open"),
+    notes: item.notes || "",
+  }));
+}
 
 function buildInitialState(_id: string): BinderState {
   const binder = mockBinderDetail;
@@ -155,6 +162,10 @@ export function useBinderState(binderId: string) {
         if (!parsed.lockHistory) parsed.lockHistory = [];
         if (!parsed.eventHeader) parsed.eventHeader = { ...DEFAULT_EVENT_HEADER };
         if (!parsed.audioPhilosophy) parsed.audioPhilosophy = { ...DEFAULT_AUDIO_PHILOSOPHY };
+        // Migrate checklist items to new format
+        if (parsed.checklist) {
+          parsed.checklist = migrateChecklist(parsed.checklist);
+        }
         // Ensure signals have txName/rxName/linkedRouteId
         if (parsed.signals) {
           parsed.signals = parsed.signals.map((s: Signal) => ({
@@ -222,8 +233,36 @@ export function useBinderState(binderId: string) {
     setState((prev) => ({
       ...prev,
       checklist: prev.checklist.map((c) =>
-        c.id === id ? { ...c, checked: !c.checked } : c
+        c.id === id ? { ...c, checked: !c.checked, status: !c.checked ? "done" : "open" } : c
       ),
+    }));
+  }, []);
+
+  // Enhanced checklist operations
+  const addChecklistItem = useCallback((item: Omit<ChecklistItem, "id" | "createdAt">) => {
+    setState((prev) => ({
+      ...prev,
+      checklist: [...prev.checklist, {
+        ...item,
+        id: `ck-${Date.now()}`,
+        createdAt: new Date().toISOString(),
+      }],
+    }));
+  }, []);
+
+  const updateChecklistItem = useCallback((id: string, patch: Partial<ChecklistItem>) => {
+    setState((prev) => ({
+      ...prev,
+      checklist: prev.checklist.map((c) =>
+        c.id === id ? { ...c, ...patch, checked: patch.status === "done" ? true : patch.status === "open" ? false : c.checked } : c
+      ),
+    }));
+  }, []);
+
+  const removeChecklistItem = useCallback((id: string) => {
+    setState((prev) => ({
+      ...prev,
+      checklist: prev.checklist.filter((c) => c.id !== id),
     }));
   }, []);
 
@@ -345,7 +384,7 @@ export function useBinderState(binderId: string) {
     });
   }, []);
 
-  // Generate TX/RX names for signals with empty values
+  // Generate TX/RX names
   const generateTxRx = useCallback(() => {
     setState((prev) => {
       const cr = prev.eventHeader.controlRoom;
@@ -368,7 +407,7 @@ export function useBinderState(binderId: string) {
     });
   }, []);
 
-  // --- Lock operations ---
+  // Lock operations
   const lockBinder = useCallback(() => {
     setState((prev) => {
       const newVersion = prev.currentLock.version + 1;
@@ -414,7 +453,7 @@ export function useBinderState(binderId: string) {
     });
   }, []);
 
-  // Auto-sync linked route data back into signals
+  // Auto-sync linked route data
   const syncSignalsFromRoutes = useCallback((routes: import("@/stores/route-store").SignalRoute[]) => {
     setState((prev) => {
       const routeMap = new Map(routes.map((r) => [r.id, r]));
@@ -425,22 +464,18 @@ export function useBinderState(binderId: string) {
         if (!route) return s;
 
         const updates: Partial<Signal> = {};
-        // Sync production alias from route
         if (route.alias.productionName && route.alias.productionName !== s.productionAlias) {
           updates.productionAlias = route.alias.productionName;
         }
-        // Sync transport type
         if (route.transport.type && route.transport.type !== s.transport) {
           updates.transport = route.transport.type;
         }
-        // Sync TX/RX names from route
         if (route.routeName && route.routeName !== s.txName) {
           updates.txName = route.routeName;
         }
         if (route.alias.engineeringName && route.alias.engineeringName !== s.rxName) {
           updates.rxName = route.alias.engineeringName;
         }
-        // Sync encoder/decoder device names
         if (route.encoder.deviceName && route.encoder.deviceName !== s.encoderInput) {
           updates.encoderInput = route.encoder.deviceName;
         }
@@ -468,5 +503,6 @@ export function useBinderState(binderId: string) {
     updateEventHeader, generateTxRx,
     updateAudioPhilosophy,
     syncSignalsFromRoutes,
+    addChecklistItem, updateChecklistItem, removeChecklistItem,
   };
 }

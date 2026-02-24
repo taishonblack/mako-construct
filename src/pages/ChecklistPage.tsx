@@ -1,14 +1,20 @@
 import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { CheckSquare, Square, ChevronRight, Filter } from "lucide-react";
+import { CheckSquare, Square, ChevronRight, Filter, Clock, User } from "lucide-react";
 import { format, isToday, addDays, isBefore } from "date-fns";
 import { binderStore } from "@/stores/binder-store";
+import type { ChecklistStatus } from "@/hooks/use-binder-state";
 
 interface AggregatedChecklistItem {
   id: string;
   label: string;
   checked: boolean;
+  assignedTo: string;
+  dueAt: string;
+  createdAt: string;
+  status: ChecklistStatus;
+  notes: string;
   binderId: string;
   binderTitle: string;
   eventDate: string;
@@ -30,6 +36,11 @@ function loadChecklistsFromBinders(): AggregatedChecklistItem[] {
           id: `${binder.id}-${item.id}`,
           label: item.label,
           checked: item.checked,
+          assignedTo: item.assignedTo || "",
+          dueAt: item.dueAt || "",
+          createdAt: item.createdAt || "",
+          status: item.status || (item.checked ? "done" : "open"),
+          notes: item.notes || "",
           binderId: binder.id,
           binderTitle: binder.title,
           eventDate: binder.eventDate,
@@ -42,7 +53,7 @@ function loadChecklistsFromBinders(): AggregatedChecklistItem[] {
   return items;
 }
 
-type FilterMode = "all" | "today" | "week" | "incomplete";
+type FilterMode = "all" | "today" | "week" | "incomplete" | "assigned";
 
 export default function ChecklistPage() {
   const [filter, setFilter] = useState<FilterMode>("incomplete");
@@ -54,13 +65,24 @@ export default function ChecklistPage() {
     const now = new Date();
     const weekEnd = addDays(now, 7);
     return allItems.filter((item) => {
-      // Only show items from active binders (and drafts for the creator)
       if (item.binderStatus === "archived") return false;
-      if (filter === "incomplete" && item.checked) return false;
-      if (filter === "today" && !isToday(new Date(item.eventDate))) return false;
-      if (filter === "week" && !isBefore(new Date(item.eventDate), weekEnd)) return false;
+      if (filter === "incomplete" && (item.checked || item.status === "done")) return false;
+      if (filter === "today") {
+        if (!item.dueAt) return isToday(new Date(item.eventDate));
+        return isToday(new Date(item.dueAt));
+      }
+      if (filter === "week") {
+        const d = item.dueAt ? new Date(item.dueAt) : new Date(item.eventDate);
+        return d >= now && isBefore(d, weekEnd);
+      }
+      if (filter === "assigned") return !!item.assignedTo;
       return true;
-    }).sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime());
+    }).sort((a, b) => {
+      // Sort by due date first, then event date
+      const aDate = a.dueAt || a.eventDate;
+      const bDate = b.dueAt || b.eventDate;
+      return new Date(aDate).getTime() - new Date(bDate).getTime();
+    });
   }, [allItems, filter]);
 
   // Group by binder
@@ -79,7 +101,7 @@ export default function ChecklistPage() {
       if (!raw) return;
       const state = JSON.parse(raw);
       state.checklist = state.checklist.map((c: any) =>
-        c.id === itemId ? { ...c, checked: !c.checked } : c
+        c.id === itemId ? { ...c, checked: !c.checked, status: !c.checked ? "done" : "open" } : c
       );
       localStorage.setItem(`mako-binder-${binderId}`, JSON.stringify(state));
       forceUpdate((n) => n + 1);
@@ -88,12 +110,13 @@ export default function ChecklistPage() {
 
   const filters: { label: string; value: FilterMode }[] = [
     { label: "Incomplete", value: "incomplete" },
-    { label: "Today", value: "today" },
+    { label: "Due Today", value: "today" },
     { label: "Next 7 Days", value: "week" },
+    { label: "Assigned", value: "assigned" },
     { label: "All", value: "all" },
   ];
 
-  const incompleteCount = allItems.filter((i) => !i.checked && i.binderStatus !== "archived").length;
+  const incompleteCount = allItems.filter((i) => !i.checked && i.status !== "done" && i.binderStatus !== "archived").length;
 
   return (
     <div>
@@ -111,7 +134,7 @@ export default function ChecklistPage() {
         {filters.map((f) => (
           <button key={f.value} onClick={() => setFilter(f.value)}
             className={`px-2.5 py-1 text-[10px] tracking-wider uppercase rounded border transition-colors ${
-              filter === f.value ? "border-crimson bg-crimson/10 text-crimson" : "border-border text-muted-foreground hover:text-foreground"
+              filter === f.value ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground"
             }`}>{f.label}</button>
         ))}
       </div>
@@ -127,7 +150,7 @@ export default function ChecklistPage() {
               <div>
                 <h3 className="text-sm font-medium text-foreground group-hover:text-foreground">{items[0].binderTitle}</h3>
                 <p className="text-[10px] text-muted-foreground">
-                  {format(new Date(items[0].eventDate), "EEE, MMM d")} · {items.filter((i) => i.checked).length}/{items.length} complete
+                  {format(new Date(items[0].eventDate), "EEE, MMM d")} · {items.filter((i) => i.checked || i.status === "done").length}/{items.length} complete
                 </p>
               </div>
               <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
@@ -138,12 +161,23 @@ export default function ChecklistPage() {
                 return (
                   <button key={item.id} onClick={() => toggleItem(binderId, realId)}
                     className="flex items-center gap-3 px-5 py-2.5 w-full text-left hover:bg-secondary/30 transition-colors">
-                    {item.checked
-                      ? <CheckSquare className="w-4 h-4 text-emerald-400 shrink-0" />
+                    {item.checked || item.status === "done"
+                      ? <CheckSquare className="w-4 h-4 text-emerald-500 shrink-0" />
                       : <Square className="w-4 h-4 text-muted-foreground shrink-0" />}
-                    <span className={`text-sm ${item.checked ? "text-muted-foreground line-through" : "text-foreground"}`}>
+                    <span className={`text-sm flex-1 ${item.checked || item.status === "done" ? "text-muted-foreground line-through" : "text-foreground"}`}>
                       {item.label}
                     </span>
+                    <div className="flex items-center gap-2 text-[9px] text-muted-foreground">
+                      {item.assignedTo && (
+                        <span className="flex items-center gap-0.5"><User className="w-2.5 h-2.5" />{item.assignedTo}</span>
+                      )}
+                      {item.dueAt && (
+                        <span className="flex items-center gap-0.5"><Clock className="w-2.5 h-2.5" />{format(new Date(item.dueAt), "MMM d")}</span>
+                      )}
+                      {item.status === "in-progress" && (
+                        <span className="text-amber-500 uppercase tracking-wider">In Progress</span>
+                      )}
+                    </div>
                   </button>
                 );
               })}
@@ -153,7 +187,7 @@ export default function ChecklistPage() {
 
         {grouped.length === 0 && (
           <div className="steel-panel px-6 py-12 text-center">
-            <CheckSquare className="w-8 h-8 text-emerald-400 mx-auto mb-3" />
+            <CheckSquare className="w-8 h-8 text-emerald-500 mx-auto mb-3" />
             <p className="text-sm text-muted-foreground">
               {filter === "incomplete" ? "All tasks complete!" : "No checklist items found."}
             </p>
