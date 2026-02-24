@@ -73,13 +73,13 @@ const BINDER_STATUS_STYLE: Record<string, string> = {
 export default function ChecklistPage() {
   const [filter, setFilter] = useState<FilterMode>("incomplete");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const [, bump] = useState(0);
   const { displayName, setDisplayName } = useDisplayName();
   const [namePrompt, setNamePrompt] = useState(false);
   const [nameInput, setNameInput] = useState("");
 
-  // Saved state from localStorage
-  const savedGroups = useMemo(() => loadGroups(), [filter, bump]);
+  // Saved state from localStorage — savedVersion triggers reload after save
+  const [savedVersion, bumpVersion] = useState(0);
+  const savedGroups = useMemo(() => loadGroups(), [savedVersion]);
 
   // Draft state per binder
   const [drafts, setDrafts] = useState<Record<string, ChecklistItem[]>>(() => {
@@ -133,24 +133,21 @@ export default function ChecklistPage() {
   }, []);
 
   const saveAll = useCallback(() => {
-    for (const binderId of dirtyBinders) {
+    // Write all dirty binder checklists to localStorage
+    for (const [binderId, draftItems] of Object.entries(drafts)) {
       try {
         const raw = localStorage.getItem(`mako-binder-${binderId}`);
         if (!raw) continue;
         const state = JSON.parse(raw);
-        state.checklist = drafts[binderId];
-        localStorage.setItem(`mako-binder-${binderId}`, JSON.stringify(state));
+        if (JSON.stringify(state.checklist) !== JSON.stringify(draftItems)) {
+          state.checklist = draftItems;
+          localStorage.setItem(`mako-binder-${binderId}`, JSON.stringify(state));
+        }
       } catch { /* ignore */ }
     }
-    bump((n) => n + 1);
-    // Reset drafts to match new saved state
-    const freshGroups = loadGroups();
-    const d: Record<string, ChecklistItem[]> = {};
-    for (const g of freshGroups) {
-      d[g.binderId] = [...g.tasks];
-    }
-    setDrafts(d);
-  }, [dirtyBinders, drafts]);
+    // Bump version to reload savedGroups from localStorage
+    bumpVersion((n) => n + 1);
+  }, [drafts]);
 
   const discardAll = useCallback(() => {
     const d: Record<string, ChecklistItem[]> = {};
