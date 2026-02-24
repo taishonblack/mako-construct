@@ -1,4 +1,4 @@
-import { Search } from "lucide-react";
+import { Search, Bell } from "lucide-react";
 import { Link } from "react-router-dom";
 import { MakoFinMark } from "@/components/MakoFinMark";
 
@@ -15,13 +15,22 @@ export function MobileHeader({ onSearchClick }: MobileHeaderProps) {
           MAKO LIVE
         </span>
       </Link>
-      <button
-        onClick={onSearchClick}
-        className="w-8 h-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-        aria-label="Search"
-      >
-        <Search className="w-4 h-4" />
-      </button>
+      <div className="flex items-center gap-1">
+        <button
+          className="w-8 h-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors relative"
+          aria-label="Notifications"
+        >
+          <Bell className="w-4 h-4" />
+          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-primary" />
+        </button>
+        <button
+          onClick={onSearchClick}
+          className="w-8 h-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+          aria-label="Search"
+        >
+          <Search className="w-4 h-4" />
+        </button>
+      </div>
     </header>
   );
 }
