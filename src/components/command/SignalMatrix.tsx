@@ -9,6 +9,9 @@ import type { SignalRoute } from "@/stores/route-store";
 import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from "@/components/ui/table";
+import {
+  Tooltip, TooltipTrigger, TooltipContent, TooltipProvider,
+} from "@/components/ui/tooltip";
 
 interface SignalMatrixProps {
   signals: Signal[];
@@ -94,6 +97,35 @@ function PatchpointSelect({ value, options, onChange, customLabel, onCustomLabel
         {onCustomLabelChange && <option value="__custom__" className="bg-card text-foreground">Custom…</option>}
       </select>
     </div>
+  );
+}
+
+function SyncedBadge({ signal, field, routes }: { signal: Signal; field: string; routes: SignalRoute[] }) {
+  if (!signal.linkedRouteId) return null;
+  const route = routes.find(r => r.id === signal.linkedRouteId);
+  if (!route) return null;
+
+  // Check if this field is actually synced from the route
+  const syncMap: Record<string, boolean> = {
+    productionAlias: !!route.alias.productionName && signal.productionAlias === route.alias.productionName,
+    transport: !!route.transport.type && signal.transport === route.transport.type,
+    txName: !!route.routeName && signal.txName === route.routeName,
+    rxName: !!route.alias.engineeringName && signal.rxName === route.alias.engineeringName,
+    encoderInput: !!route.encoder.deviceName && signal.encoderInput === route.encoder.deviceName,
+    decoderOutput: !!route.decoder.deviceName && signal.decoderOutput === route.decoder.deviceName,
+  };
+
+  if (!syncMap[field]) return null;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Link2 className="w-2.5 h-2.5 text-sky-400 shrink-0 inline-block ml-1 cursor-help" />
+      </TooltipTrigger>
+      <TooltipContent side="top" className="text-[10px]">
+        Synced from route: <span className="font-mono font-medium">{route.routeName}</span>
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -326,6 +358,7 @@ export function SignalMatrix({ signals, report, onUpdateSignal, onUpdateSignals,
 
       {/* Signal table */}
       <div className="steel-panel overflow-hidden">
+        <TooltipProvider delayDuration={200}>
         <Table>
           <TableHeader>
             <TableRow className="border-border hover:bg-transparent">
@@ -347,31 +380,40 @@ export function SignalMatrix({ signals, report, onUpdateSignal, onUpdateSignals,
               <TableRow key={signal.iso} className="border-border hover:bg-secondary/50">
                 <TableCell className="font-mono text-xs text-crimson">{signal.iso}</TableCell>
                 <TableCell>
-                  <InlineInput value={signal.productionAlias} onChange={(v) => onUpdateSignal(signal.iso, "productionAlias", v)} />
+                  <div className="flex items-center">
+                    <InlineInput value={signal.productionAlias} onChange={(v) => onUpdateSignal(signal.iso, "productionAlias", v)} />
+                    <SyncedBadge signal={signal} field="productionAlias" routes={routes} />
+                  </div>
                   {showNamingContext && signal.productionAlias && (
                     <div className="text-[9px] text-muted-foreground/60 mt-0.5">Production: {signal.productionAlias}</div>
                   )}
                 </TableCell>
                 <TableCell>
-                  {encoderPatchpoints.length > 0 ? (
-                    <PatchpointSelect value={signal.encoderInput} options={encoderPatchpoints}
-                      onChange={(v) => onUpdateSignal(signal.iso, "encoderInput", v)} />
-                  ) : (
-                    <InlineInput value={signal.encoderInput} onChange={(v) => onUpdateSignal(signal.iso, "encoderInput", v)} mono />
-                  )}
+                  <div className="flex items-center">
+                    {encoderPatchpoints.length > 0 ? (
+                      <PatchpointSelect value={signal.encoderInput} options={encoderPatchpoints}
+                        onChange={(v) => onUpdateSignal(signal.iso, "encoderInput", v)} />
+                    ) : (
+                      <InlineInput value={signal.encoderInput} onChange={(v) => onUpdateSignal(signal.iso, "encoderInput", v)} mono />
+                    )}
+                    <SyncedBadge signal={signal} field="encoderInput" routes={routes} />
+                  </div>
                   {showNamingContext && signal.encoderInput && (
                     <div className="text-[9px] text-muted-foreground/60 mt-0.5">Onsite: {signal.encoderInput}</div>
                   )}
                 </TableCell>
                 <TableCell>
-                  {decoderPatchpoints.length > 0 ? (
-                    <PatchpointSelect value={signal.decoderOutput} options={decoderPatchpoints}
-                      onChange={(v) => onUpdateSignal(signal.iso, "decoderOutput", v)}
-                      customLabel={signal.hqPatchCustomLabel}
-                      onCustomLabelChange={(v) => onUpdateSignal(signal.iso, "hqPatchCustomLabel", v)} />
-                  ) : (
-                    <InlineInput value={signal.decoderOutput} onChange={(v) => onUpdateSignal(signal.iso, "decoderOutput", v)} mono />
-                  )}
+                  <div className="flex items-center">
+                    {decoderPatchpoints.length > 0 ? (
+                      <PatchpointSelect value={signal.decoderOutput} options={decoderPatchpoints}
+                        onChange={(v) => onUpdateSignal(signal.iso, "decoderOutput", v)}
+                        customLabel={signal.hqPatchCustomLabel}
+                        onCustomLabelChange={(v) => onUpdateSignal(signal.iso, "hqPatchCustomLabel", v)} />
+                    ) : (
+                      <InlineInput value={signal.decoderOutput} onChange={(v) => onUpdateSignal(signal.iso, "decoderOutput", v)} mono />
+                    )}
+                    <SyncedBadge signal={signal} field="decoderOutput" routes={routes} />
+                  </div>
                   {showNamingContext && (signal.decoderOutput || signal.hqPatchCustomLabel) && (
                     <div className="text-[9px] text-muted-foreground/60 mt-0.5">
                       HQ: {signal.hqPatchCustomLabel || signal.decoderOutput}
@@ -379,21 +421,30 @@ export function SignalMatrix({ signals, report, onUpdateSignal, onUpdateSignals,
                    )}
                 </TableCell>
                 <TableCell>
-                  <InlineInput value={signal.txName} onChange={(v) => onUpdateSignal(signal.iso, "txName", v)} mono placeholder="TX-…" />
+                  <div className="flex items-center">
+                    <InlineInput value={signal.txName} onChange={(v) => onUpdateSignal(signal.iso, "txName", v)} mono placeholder="TX-…" />
+                    <SyncedBadge signal={signal} field="txName" routes={routes} />
+                  </div>
                 </TableCell>
                 <TableCell>
-                  <InlineInput value={signal.rxName} onChange={(v) => onUpdateSignal(signal.iso, "rxName", v)} mono placeholder="RX-…" />
+                  <div className="flex items-center">
+                    <InlineInput value={signal.rxName} onChange={(v) => onUpdateSignal(signal.iso, "rxName", v)} mono placeholder="RX-…" />
+                    <SyncedBadge signal={signal} field="rxName" routes={routes} />
+                  </div>
                 </TableCell>
                 <TableCell>
-                  <InlineSelect value={signal.transport} options={TRANSPORT_OPTIONS}
-                    onChange={(v) => {
-                      if (v === "__custom__") {
-                        onUpdateSignal(signal.iso, "transport", "");
-                      } else {
-                        onUpdateSignal(signal.iso, "transport", v);
-                      }
-                    }}
-                    allowCustom />
+                  <div className="flex items-center">
+                    <InlineSelect value={signal.transport} options={TRANSPORT_OPTIONS}
+                      onChange={(v) => {
+                        if (v === "__custom__") {
+                          onUpdateSignal(signal.iso, "transport", "");
+                        } else {
+                          onUpdateSignal(signal.iso, "transport", v);
+                        }
+                      }}
+                      allowCustom />
+                    <SyncedBadge signal={signal} field="transport" routes={routes} />
+                  </div>
                 </TableCell>
                 <TableCell>
                   <InlineSelect value={signal.destination} options={DESTINATION_OPTIONS}
@@ -462,6 +513,7 @@ export function SignalMatrix({ signals, report, onUpdateSignal, onUpdateSignals,
             ))}
           </TableBody>
         </Table>
+        </TooltipProvider>
       </div>
     </motion.section>
   );
