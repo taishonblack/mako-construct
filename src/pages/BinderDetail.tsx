@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, Wand2, Eye, Pencil, GitCompare } from "lucide-react";
+import { ArrowLeft, Wand2, Eye, Pencil, GitCompare, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { binderStore } from "@/stores/binder-store";
 import { mockBinderDetail } from "@/data/mock-binder-detail";
@@ -25,6 +25,7 @@ import { BinderFormModal, type BinderFormData } from "@/components/command/Binde
 import { BinderCopilot } from "@/components/command/BinderCopilot";
 import { DocToBinderAssist, type DetectedField } from "@/components/command/DocToBinderAssist";
 import { AudioPhilosophy } from "@/components/command/AudioPhilosophy";
+import { PdfExport } from "@/components/command/PdfExport";
 
 export default function BinderDetail() {
   const { id } = useParams();
@@ -284,14 +285,20 @@ export default function BinderDetail() {
               ))}
             </select>
             {selectedVersion !== "current" && (
-              <Button variant="outline" size="sm"
-                onClick={() => {
-                  diffRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                }}
-                className="text-[10px] tracking-wider uppercase gap-1.5"
-              >
-                <GitCompare className="w-3 h-3" /> Compare
-              </Button>
+              <>
+                <Button variant="outline" size="sm"
+                  onClick={() => {
+                    diffRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }}
+                  className="text-[10px] tracking-wider uppercase gap-1.5"
+                >
+                  <GitCompare className="w-3 h-3" /> Compare
+                </Button>
+                {(() => {
+                  const snap = state.lockHistory.find(s => s.id === selectedVersion);
+                  return snap ? <PdfExport snapshot={snap} binderTitle={binder.title} /> : null;
+                })()}
+              </>
             )}
           </div>
         )}
