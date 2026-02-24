@@ -19,7 +19,7 @@ import {
   FileText,
   Folder,
 } from "lucide-react";
-import { binderStore, inferLeague } from "@/stores/binder-store";
+import { binderStore } from "@/stores/binder-store";
 
 const pages = [
   { label: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
@@ -41,11 +41,11 @@ export function CommandPalette({ open, onOpenChange }: Props) {
   const allBinders = useMemo(() => binderStore.getAll(), []);
 
   const containers = useMemo(() => {
-    const leagues = new Set(allBinders.map((b) => b.league || inferLeague(b.title)));
+    const leagues = new Set(allBinders.map((b) => b.league || "NHL"));
     return Array.from(leagues).map((league, i) => ({
       label: `${league} 2026 Season`,
       league,
-      path: `/containers/${i}`,
+      path: `/binders`,
     }));
   }, [allBinders]);
 

@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ChevronRight, AlertTriangle, CheckCircle, ArrowLeft, Plus } from "lucide-react";
 import { format } from "date-fns";
-import { binderStore, inferLeague } from "@/stores/binder-store";
+import { binderStore } from "@/stores/binder-store";
 
 function inferReadiness(binder: ReturnType<typeof binderStore.getAll>[0]): "ready" | "risk" | "blocked" {
   if (binder.openIssues >= 5) return "blocked";
@@ -25,12 +25,12 @@ const readinessLabel: Record<string, string> = {
 
 function getContainerData(containerId: string) {
   const allBinders = binderStore.getAll();
-  const leagues = Array.from(new Set(allBinders.map((b) => b.league || inferLeague(b.title))));
+  const leagues = Array.from(new Set(allBinders.map((b) => b.league || "NHL")));
   const sorted = leagues.sort();
   const index = parseInt(containerId, 10);
   if (isNaN(index) || index < 0 || index >= sorted.length) return null;
   const league = sorted[index];
-  const binders = allBinders.filter((b) => (b.league || inferLeague(b.title)) === league);
+  const binders = allBinders.filter((b) => (b.league || "NHL") === league);
   return { id: containerId, name: `${league} 2026 Season`, league, binders };
 }
 
