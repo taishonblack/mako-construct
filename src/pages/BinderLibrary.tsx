@@ -45,7 +45,7 @@ export default function BinderLibrary() {
         transition={{ duration: 0.3, delay: 0.1 }}
         className="flex items-center gap-3 mb-6"
       >
-        <div className="relative flex-1 max-w-sm">
+        <div className="relative flex-1 min-w-0 max-w-full md:max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
             type="text"
@@ -55,14 +55,14 @@ export default function BinderLibrary() {
             className="w-full pl-9 pr-4 py-2 text-sm bg-secondary border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-crimson transition-colors"
           />
         </div>
-        <button className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground border border-border rounded-md hover:border-crimson hover:text-foreground transition-colors">
+        <button className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground border border-border rounded-md hover:border-crimson hover:text-foreground transition-colors shrink-0">
           <SlidersHorizontal className="w-3.5 h-3.5" />
           Filters
         </button>
       </motion.div>
 
       {/* Binder grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
         {filtered.map((binder, i) => (
           <motion.div
             key={binder.id}
