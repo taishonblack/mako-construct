@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { Link, useBlocker } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Filter, CheckSquare, ChevronDown, ChevronRight, ChevronsUpDown } from "lucide-react";
 import { format, isToday, addDays, isBefore, isPast } from "date-fns";
@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ChecklistTable } from "@/components/checklist/ChecklistTable";
 import { SaveBar } from "@/components/checklist/SaveBar";
-import { UnsavedChangesDialog } from "@/components/checklist/UnsavedChangesDialog";
 import { useDisplayName } from "@/hooks/use-display-name";
 import type { ChecklistItem, ChecklistStatus } from "@/hooks/use-binder-state";
 
@@ -120,10 +119,6 @@ export default function ChecklistPage() {
   }, [savedGroups, drafts]);
 
   const isDirty = dirtyBinders.size > 0;
-
-  // Navigation blocker
-  const blocker = useBlocker(isDirty);
-  const showBlockerDialog = blocker.state === "blocked";
 
   // beforeunload
   useEffect(() => {
@@ -353,13 +348,6 @@ export default function ChecklistPage() {
       {/* Save bar */}
       <SaveBar isDirty={isDirty} onSave={saveAll} onDiscard={discardAll} />
 
-      {/* Navigation guard */}
-      <UnsavedChangesDialog
-        open={showBlockerDialog}
-        onSave={() => { saveAll(); blocker.proceed?.(); }}
-        onDiscard={() => { discardAll(); blocker.proceed?.(); }}
-        onCancel={() => blocker.reset?.()}
-      />
     </div>
   );
 }

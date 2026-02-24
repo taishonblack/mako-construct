@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { useParams, Link, useNavigate, useBlocker } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, Wand2, Eye, Pencil, GitCompare, FileDown } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,6 @@ import { IssuesChanges } from "@/components/command/IssuesChanges";
 import { DocumentArchive } from "@/components/command/DocumentArchive";
 import { ChecklistTable } from "@/components/checklist/ChecklistTable";
 import { SaveBar } from "@/components/checklist/SaveBar";
-import { UnsavedChangesDialog } from "@/components/checklist/UnsavedChangesDialog";
 import { useDisplayName } from "@/hooks/use-display-name";
 import { PreAirLock } from "@/components/command/PreAirLock";
 import { DiffView } from "@/components/command/DiffView";
@@ -103,10 +102,6 @@ export default function BinderDetail() {
       setDraftChecklist([...state.checklist]);
     }
   }, [state.checklist]);
-
-  // Navigation blocker for dirty checklist
-  const blocker = useBlocker(checklistDirty);
-  const showBlockerDialog = blocker.state === "blocked";
 
   // beforeunload
   useEffect(() => {
@@ -459,13 +454,6 @@ export default function BinderDetail() {
         {/* Checklist save bar */}
         <SaveBar isDirty={checklistDirty && !isReadOnly} onSave={saveChecklist} onDiscard={discardChecklist} />
 
-        {/* Navigation guard for checklist */}
-        <UnsavedChangesDialog
-          open={showBlockerDialog}
-          onSave={() => { saveChecklist(); blocker.proceed?.(); }}
-          onDiscard={() => { discardChecklist(); blocker.proceed?.(); }}
-          onCancel={() => blocker.reset?.()}
-        />
         <div ref={diffRef}>
           <DiffView
             currentState={state}
