@@ -217,6 +217,14 @@ export function ChecklistTable({
             className="px-2.5 py-1 text-[10px] tracking-wider uppercase rounded border border-emerald-500/40 text-emerald-500 hover:bg-emerald-500/10 transition-colors">
             Done
           </button>
+          <button onClick={() => {
+            if (!displayName) { onPromptDisplayName?.(); return; }
+            onChange(items.map((c) => selected.has(c.id) ? { ...c, assignedTo: displayName } : c));
+            setSelected(new Set());
+          }}
+            className="px-2.5 py-1 text-[10px] tracking-wider uppercase rounded border border-primary/40 text-primary hover:bg-primary/10 transition-colors flex items-center gap-1">
+            <UserPlus className="w-3 h-3" /> Assign me
+          </button>
           <button onClick={() => setSelected(new Set())}
             className="ml-auto text-[10px] tracking-wider uppercase text-muted-foreground hover:text-foreground transition-colors">
             Clear
