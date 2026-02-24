@@ -104,6 +104,13 @@ export interface BinderFormData {
   lqPorts: LQPort[];
 }
 
+interface ChecklistSeedProps {
+  seedChecklist: boolean;
+  onSeedChange: (v: boolean) => void;
+  customItems: { label: string; assignedTo: string; dueAt: string }[];
+  onCustomItemsChange: (items: { label: string; assignedTo: string; dueAt: string }[]) => void;
+}
+
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -112,6 +119,7 @@ interface Props {
   initial?: Partial<BinderFormData>;
   mode: "create" | "edit";
   oldIsoCount?: number;
+  checklistSeed?: ChecklistSeedProps;
 }
 
 function SectionHeader({ label, variant = "default" }: { label: string; variant?: "required" | "default" }) {
@@ -172,7 +180,7 @@ const DEFAULT_FORM: BinderFormData = {
   ],
 };
 
-export function BinderFormModal({ open, onClose, onSubmit, onDelete, initial, mode, oldIsoCount }: Props) {
+export function BinderFormModal({ open, onClose, onSubmit, onDelete, initial, mode, oldIsoCount, checklistSeed }: Props) {
   const [form, setForm] = useState<BinderFormData>(DEFAULT_FORM);
   const [customIso, setCustomIso] = useState(false);
   const [showIsoWarning, setShowIsoWarning] = useState(false);
@@ -754,6 +762,78 @@ export function BinderFormModal({ open, onClose, onSubmit, onDelete, initial, mo
                       </FormField>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* ═══ CHECKLIST SEED ═══ */}
+              {mode === "create" && checklistSeed && (
+                <div className="pt-2 border-t border-border space-y-3">
+                  <SectionHeader label="Checklist" />
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={checklistSeed.seedChecklist}
+                      onChange={(e) => checklistSeed.onSeedChange(e.target.checked)}
+                      className="accent-[hsl(var(--crimson))] w-3.5 h-3.5" />
+                    <span className="text-xs text-foreground">Seed default checklist</span>
+                    <span className="text-[10px] text-muted-foreground ml-1">(recommended)</span>
+                  </label>
+                  {checklistSeed.seedChecklist && (
+                    <details className="group">
+                      <summary className="text-[10px] text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+                        8 default tasks added — <span className="underline">expand</span>
+                      </summary>
+                      <ul className="mt-2 space-y-1 pl-4">
+                        {["Confirm ISO count + signal naming", "Encoder allocation verified", "Decoder allocation verified", "TX/RX naming generated", "Transport endpoints entered/tested", "Return feed request sent", "Routes reviewed", "Pre-air readiness check"].map((t, i) => (
+                          <li key={i} className="text-[10px] text-muted-foreground flex items-center gap-1.5">
+                            <span className="w-1 h-1 rounded-full bg-muted-foreground inline-block" />
+                            {t}
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
+                  {/* Custom items */}
+                  <div className="space-y-2">
+                    {checklistSeed.customItems.map((item, idx) => (
+                      <div key={idx} className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-end">
+                        <FormField label={idx === 0 ? "Custom Task" : ""}>
+                          <input type="text" value={item.label}
+                            onChange={(e) => {
+                              const updated = [...checklistSeed.customItems];
+                              updated[idx] = { ...updated[idx], label: e.target.value };
+                              checklistSeed.onCustomItemsChange(updated);
+                            }}
+                            placeholder="Task title" className={inputClass} />
+                        </FormField>
+                        <FormField label={idx === 0 ? "Assigned" : ""}>
+                          <input type="text" value={item.assignedTo}
+                            onChange={(e) => {
+                              const updated = [...checklistSeed.customItems];
+                              updated[idx] = { ...updated[idx], assignedTo: e.target.value };
+                              checklistSeed.onCustomItemsChange(updated);
+                            }}
+                            placeholder="Name" className={cn(inputClass, "w-28")} />
+                        </FormField>
+                        <FormField label={idx === 0 ? "Due" : ""}>
+                          <input type="datetime-local" value={item.dueAt}
+                            onChange={(e) => {
+                              const updated = [...checklistSeed.customItems];
+                              updated[idx] = { ...updated[idx], dueAt: e.target.value };
+                              checklistSeed.onCustomItemsChange(updated);
+                            }}
+                            className={cn(inputClass, "w-44")} />
+                        </FormField>
+                        <button onClick={() => {
+                          checklistSeed.onCustomItemsChange(checklistSeed.customItems.filter((_, i) => i !== idx));
+                        }} className="h-9 px-2 text-muted-foreground hover:text-destructive">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                    <button onClick={() => checklistSeed.onCustomItemsChange([...checklistSeed.customItems, { label: "", assignedTo: "", dueAt: "" }])}
+                      className="flex items-center gap-1 text-[10px] tracking-wider uppercase text-muted-foreground hover:text-primary transition-colors">
+                      <Plus className="w-3 h-3" /> Add checklist item
+                    </button>
+                  </div>
                 </div>
               )}
 

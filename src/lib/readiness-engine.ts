@@ -83,8 +83,9 @@ export function computeReadiness(
     level = "blocked";
   }
 
-  const commsTotal = comms.length;
-  const commsUnassigned = comms.filter(c => !c.assignment.trim()).length;
+  // Comms validation removed for NHL V1 — only LQ ports matter now
+  const commsTotal = 0;
+  const commsUnassigned = 0;
 
   if (level !== "blocked") {
     if (!backupDefined) {
@@ -97,13 +98,6 @@ export function computeReadiness(
     }
     if (checklistTotal > 0 && checklistComplete < checklistTotal) {
       reasons.push(`Checklist: ${checklistComplete}/${checklistTotal} complete`);
-      if (level !== "risk") level = "risk";
-    }
-    if (commsTotal === 0) {
-      reasons.push("No comms channels configured");
-      if (level !== "risk") level = "risk";
-    } else if (commsUnassigned > 0) {
-      reasons.push(`${commsUnassigned} comms channel${commsUnassigned > 1 ? "s" : ""} unassigned`);
       if (level !== "risk") level = "risk";
     }
   }
