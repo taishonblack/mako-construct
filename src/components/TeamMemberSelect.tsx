@@ -133,7 +133,9 @@ export function TeamMemberSelect({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <span>{triggerDisplay}</span>
+        <button type="button" className="text-left">
+          {triggerDisplay}
+        </button>
       </PopoverTrigger>
       <PopoverContent className="w-64 p-1 bg-popover border-border" align="start" sideOffset={4}>
         {listContent}
