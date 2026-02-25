@@ -5,6 +5,7 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { TeamMemberSelect } from "@/components/TeamMemberSelect";
 import type { ChecklistItem, ChecklistStatus } from "@/hooks/use-binder-state";
 
 const STATUS_STYLE: Record<string, string> = {
@@ -147,21 +148,12 @@ function MobileTaskCard({
       {/* Meta row */}
       <div className="flex items-center gap-3 flex-wrap pl-6">
         {/* Assigned */}
-        {!readOnly && isEditing("assignedTo") ? (
-          <InlineInput
-            value={t.assignedTo}
-            onCommit={(v) => { updateItem(t.id, { assignedTo: v }); setEditing(null); }}
-            onCancel={() => setEditing(null)}
-            placeholder="Name"
-          />
-        ) : (
-          <span
-            className={`text-[11px] ${t.assignedTo ? "text-foreground" : "text-muted-foreground/60 italic"} ${!readOnly ? "cursor-text" : ""}`}
-            onClick={() => !readOnly && setEditing({ id: t.id, field: "assignedTo" })}
-          >
-            {t.assignedTo || "Unassigned"}
-          </span>
-        )}
+        <TeamMemberSelect
+          value={t.assignedTo}
+          onChange={(name, _id) => updateItem(t.id, { assignedTo: name })}
+          disabled={readOnly}
+          className="text-[11px]"
+        />
 
         {/* Due */}
         {!readOnly && isEditing("dueAt") ? (
@@ -474,41 +466,25 @@ export function ChecklistTable({
                     )}
                   </TableCell>
                   <TableCell className="text-sm">
-                    {!readOnly && isEditing("assignedTo") ? (
-                      <InlineInput
-                        value={t.assignedTo}
-                        onCommit={(v) => { updateItem(t.id, { assignedTo: v }); setEditing(null); }}
-                        onCancel={() => setEditing(null)}
-                        placeholder="Name"
-                      />
-                    ) : (
+                    {!readOnly ? (
                       <div className="flex items-center gap-1.5">
-                        {t.assignedTo ? (
-                          <span
-                            className={!readOnly ? "cursor-text hover:bg-secondary/60 px-1 -mx-1 py-0.5 rounded transition-colors text-foreground" : "text-foreground"}
-                            onClick={() => !readOnly && setEditing({ id: t.id, field: "assignedTo" })}
+                        <TeamMemberSelect
+                          value={t.assignedTo}
+                          onChange={(name, _id) => updateItem(t.id, { assignedTo: name })}
+                        />
+                        {!t.assignedTo && (
+                          <button
+                            onClick={() => assignMe(t.id)}
+                            className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 text-[9px] tracking-wider uppercase text-primary hover:text-foreground transition-all"
                           >
-                            {t.assignedTo}
-                          </span>
-                        ) : (
-                          <>
-                            <span
-                              className={`text-muted-foreground/60 italic ${!readOnly ? "cursor-text" : ""}`}
-                              onClick={() => !readOnly && setEditing({ id: t.id, field: "assignedTo" })}
-                            >
-                              Unassigned
-                            </span>
-                            {!readOnly && (
-                              <button
-                                onClick={() => assignMe(t.id)}
-                                className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 text-[9px] tracking-wider uppercase text-primary hover:text-foreground transition-all"
-                              >
-                                <UserPlus className="w-2.5 h-2.5" /> Assign me
-                              </button>
-                            )}
-                          </>
+                            <UserPlus className="w-2.5 h-2.5" /> Assign me
+                          </button>
                         )}
                       </div>
+                    ) : (
+                      <span className={t.assignedTo ? "text-foreground" : "text-muted-foreground/60 italic"}>
+                        {t.assignedTo || "Unassigned"}
+                      </span>
                     )}
                   </TableCell>
                   <TableCell className="text-sm font-mono text-muted-foreground">

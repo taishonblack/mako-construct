@@ -11,8 +11,12 @@ import {
   Trash2,
   Pencil,
   UserCircle,
+  Search,
+  X,
 } from "lucide-react";
 import { useDisplayName } from "@/hooks/use-display-name";
+import { useTeam } from "@/hooks/use-team";
+import { Input } from "@/components/ui/input";
 
 const STORAGE_KEY = "mako-settings";
 
@@ -23,12 +27,6 @@ interface OrgSettings {
   encoderModel: string;
 }
 
-interface TeamMember {
-  id: string;
-  name: string;
-  role: string;
-  access: "admin" | "editor" | "viewer";
-}
 
 interface ChecklistTemplate {
   id: string;
@@ -56,13 +54,6 @@ const defaultOrg: OrgSettings = {
   encoderModel: "Haivision Makito X4",
 };
 
-const defaultTeam: TeamMember[] = [
-  { id: "1", name: "Alex Rivera", role: "Director of Operations", access: "admin" },
-  { id: "2", name: "Jordan Kim", role: "Senior Technical Manager", access: "admin" },
-  { id: "3", name: "Morgan Ellis", role: "Signal Engineer", access: "editor" },
-  { id: "4", name: "Casey Novak", role: "Transport Specialist", access: "editor" },
-  { id: "5", name: "Taylor Brooks", role: "Production Coordinator", access: "viewer" },
-];
 
 const defaultTemplates: ChecklistTemplate[] = [
   {
@@ -105,7 +96,12 @@ export default function SettingsPage() {
 
   const [tab, setTab] = useState<SettingsTab>("organization");
   const [org, setOrg] = useState<OrgSettings>(stored?.org ?? defaultOrg);
-  const [team] = useState<TeamMember[]>(stored?.team ?? defaultTeam);
+  const { members: team, addMember, removeMember } = useTeam();
+  const [teamSearch, setTeamSearch] = useState("");
+  const [showInvite, setShowInvite] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newRole, setNewRole] = useState("");
+  const [newAccess, setNewAccess] = useState<"admin" | "editor" | "viewer">("editor");
   const [templates, setTemplates] = useState<ChecklistTemplate[]>(stored?.templates ?? defaultTemplates);
   const [saved, setSaved] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
@@ -229,16 +225,80 @@ export default function SettingsPage() {
           {/* Team */}
           {tab === "team" && (
             <div className="steel-panel p-6">
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center justify-between mb-4">
                 <h2 className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground">Team Members</h2>
-                <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-muted-foreground border border-border rounded hover:bg-secondary transition-colors">
+                <button
+                  onClick={() => setShowInvite(!showInvite)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-primary border border-primary/40 rounded hover:bg-primary/10 transition-colors"
+                >
                   <Plus className="w-3 h-3" />
                   Invite Member
                 </button>
               </div>
+
+              {/* Search */}
+              <div className="relative mb-4">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  value={teamSearch}
+                  onChange={(e) => setTeamSearch(e.target.value)}
+                  placeholder="Search team members…"
+                  className="pl-9 pr-8 h-9 text-sm bg-secondary border-border"
+                />
+                {teamSearch && (
+                  <button onClick={() => setTeamSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Add form */}
+              {showInvite && (
+                <div className="mb-4 p-4 bg-secondary/50 rounded border border-border space-y-3">
+                  <div>
+                    <label className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground block mb-1">Name *</label>
+                    <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Full name" className="h-8 text-sm bg-secondary border-border" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground block mb-1">Role</label>
+                      <Input value={newRole} onChange={(e) => setNewRole(e.target.value)} placeholder="e.g. Engineer" className="h-8 text-sm bg-secondary border-border" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground block mb-1">Access</label>
+                      <select
+                        value={newAccess}
+                        onChange={(e) => setNewAccess(e.target.value as "admin" | "editor" | "viewer")}
+                        className="w-full h-8 text-sm bg-secondary border border-border rounded px-2 text-foreground"
+                      >
+                        <option value="admin">Admin</option>
+                        <option value="editor">Editor</option>
+                        <option value="viewer">Viewer</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        if (!newName.trim()) return;
+                        addMember({ name: newName.trim(), role: newRole.trim(), access: newAccess });
+                        setNewName(""); setNewRole(""); setNewAccess("editor"); setShowInvite(false);
+                      }}
+                      disabled={!newName.trim()}
+                      className="px-4 py-1.5 text-xs font-medium uppercase tracking-wide bg-primary text-primary-foreground rounded disabled:opacity-40"
+                    >
+                      Add
+                    </button>
+                    <button onClick={() => setShowInvite(false)} className="px-4 py-1.5 text-xs text-muted-foreground hover:text-foreground">Cancel</button>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2">
-                {team.map((m) => (
-                  <div key={m.id} className="flex items-center gap-4 p-3 rounded bg-secondary/50">
+                {team
+                  .filter((m) => !teamSearch || m.name.toLowerCase().includes(teamSearch.toLowerCase()))
+                  .map((m) => (
+                  <div key={m.id} className="flex items-center gap-4 p-3 rounded bg-secondary/50 group">
                     <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-xs font-medium text-foreground">
                       {m.name.split(" ").map((n) => n[0]).join("")}
                     </div>
@@ -249,12 +309,15 @@ export default function SettingsPage() {
                     <span className={`text-[10px] tracking-wider uppercase ${accessColors[m.access]}`}>
                       {m.access}
                     </span>
+                    <button
+                      onClick={() => removeMember(m.id)}
+                      className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all p-1"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 ))}
               </div>
-              <p className="text-[10px] text-muted-foreground mt-4 text-center">
-                Team management requires backend integration
-              </p>
             </div>
           )}
 
