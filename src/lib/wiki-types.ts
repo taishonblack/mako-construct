@@ -40,6 +40,14 @@ export interface WorkflowContent {
 
 export type StructuredContent = SolveContent | BlockContent | WorkflowContent;
 
+export interface WikiAttachment {
+  name: string;
+  url: string;
+  type: string;
+  size: number;
+  uploaded_at: string;
+}
+
 export interface WikiArticle {
   id: string;
   title: string;
@@ -48,6 +56,7 @@ export interface WikiArticle {
   tags: string[];
   description: string;
   structured_content: StructuredContent;
+  attachments: WikiAttachment[];
   related_binder_id: string | null;
   related_route_id: string | null;
   created_by: string;

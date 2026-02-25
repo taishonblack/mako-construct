@@ -1,8 +1,11 @@
 import { useState } from "react";
-import { ArrowLeft, Pencil, Trash2, Clock, Link2, ExternalLink } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, Clock, Link2, ExternalLink, LogIn } from "lucide-react";
+import { Link } from "react-router-dom";
 import type { WikiArticle, WikiVersion } from "@/lib/wiki-types";
 import { CATEGORY_META, ARTICLE_TYPE_META, isSolveContent, isBlockContent, isWorkflowContent } from "@/lib/wiki-types";
 import { useWikiVersions, useWikiLinks, restoreWikiVersion, deleteWikiArticle } from "@/hooks/use-wiki";
+import { useOptionalAuth } from "@/contexts/AuthContext";
+import WikiFileUpload from "./WikiFileUpload";
 import { formatDistanceToNow, format } from "date-fns";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -18,12 +21,15 @@ interface Props {
 }
 
 export default function WikiArticleView({ article, onBack, onEdit, onDeleted, onRefresh }: Props) {
+  const auth = useOptionalAuth();
+  const isLoggedIn = !!auth?.user;
   const versions = useWikiVersions(article.id);
   const { links } = useWikiLinks(article.id);
   const [showVersions, setShowVersions] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const content = article.structured_content;
+  const attachments = (article.attachments as any[]) || [];
 
   async function handleRestore(v: WikiVersion) {
     setRestoring(true);
@@ -70,14 +76,23 @@ export default function WikiArticleView({ article, onBack, onEdit, onDeleted, on
             className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground border border-border rounded hover:bg-secondary transition-colors">
             <Clock className="w-3 h-3" /> History
           </button>
-          <button onClick={onEdit}
-            className="flex items-center gap-1 px-2 py-1 text-xs bg-primary text-primary-foreground rounded hover:opacity-90 transition-opacity">
-            <Pencil className="w-3 h-3" /> Edit
-          </button>
-          <button onClick={() => setConfirmDelete(true)}
-            className="p-1 text-muted-foreground hover:text-destructive transition-colors">
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
+          {isLoggedIn ? (
+            <>
+              <button onClick={onEdit}
+                className="flex items-center gap-1 px-2 py-1 text-xs bg-primary text-primary-foreground rounded hover:opacity-90 transition-opacity">
+                <Pencil className="w-3 h-3" /> Edit
+              </button>
+              <button onClick={() => setConfirmDelete(true)}
+                className="p-1 text-muted-foreground hover:text-destructive transition-colors">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </>
+          ) : (
+            <Link to="/login"
+              className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground border border-border rounded hover:bg-secondary transition-colors">
+              <LogIn className="w-3 h-3" /> Sign in to edit
+            </Link>
+          )}
         </div>
       </div>
 
@@ -213,6 +228,14 @@ export default function WikiArticleView({ article, onBack, onEdit, onDeleted, on
           </div>
         )}
       </div>
+
+      {/* Attachments */}
+      {attachments.length > 0 && (
+        <div className="mt-4">
+          <h3 className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-3">Attachments</h3>
+          <WikiFileUpload attachments={attachments} onChange={() => {}} readOnly />
+        </div>
+      )}
 
       {/* Delete confirm */}
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
