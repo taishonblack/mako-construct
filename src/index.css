@@ -111,6 +111,11 @@
     box-shadow: 0 0 12px -3px hsl(var(--crimson) / 0.35);
   }
 
+  .glow-fault-connector {
+    box-shadow: 0 0 10px 2px hsl(var(--destructive) / 0.6);
+    background: hsl(var(--destructive) / 0.8);
+  }
+
   .border-glow-red {
     border-color: hsl(var(--crimson) / 0.4);
     box-shadow: 0 0 15px -5px hsl(var(--electric-red) / 0.2), inset 0 0 15px -5px hsl(var(--electric-red) / 0.05);
