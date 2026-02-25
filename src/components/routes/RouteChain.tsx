@@ -58,7 +58,7 @@ export function RouteChain({ route, onUpdate, onRemove }: Props) {
   const fSource = field("signalSource");
 
   return (
-    <div className="rounded-lg border border-border bg-secondary/30 p-4 space-y-0">
+    <div className="rounded-lg border border-border bg-secondary/30 p-4 space-y-0 w-full max-w-full overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
@@ -248,9 +248,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[120px_1fr] items-center gap-2">
+    <div className="flex flex-col sm:grid sm:grid-cols-[120px_1fr] sm:items-center gap-1 sm:gap-2">
       <span className="text-xs text-muted-foreground">{label}</span>
-      {children}
+      <div className="min-w-0">{children}</div>
     </div>
   );
 }

@@ -4,6 +4,8 @@ import { CheckSquare, Plus, Trash2, UserPlus, CalendarClock, CheckCheck } from "
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { MobileTaskRow } from "./MobileTaskRow";
 import type { ChecklistItem, ChecklistStatus } from "@/hooks/use-binder-state";
 
 const STATUS_STYLE: Record<string, string> = {
@@ -164,6 +166,48 @@ export function ChecklistTable({
   };
 
   const hasSelection = !readOnly && selected.size > 0;
+
+  const isMobile = useIsMobile();
+
+  // Mobile: stacked task rows
+  if (isMobile) {
+    return (
+      <div className="w-full max-w-full overflow-hidden">
+        {showAddTask && !readOnly && (
+          <div className="flex justify-end mb-2 px-3">
+            <button onClick={() => setShowAdd(!showAdd)} className="flex items-center gap-1 text-[10px] tracking-wider uppercase text-primary hover:text-foreground transition-colors">
+              <Plus className="w-3 h-3" /> Add Task
+            </button>
+          </div>
+        )}
+        {showAdd && !readOnly && (
+          <div className="mx-3 mb-3 p-3 bg-secondary/50 rounded-sm border border-border space-y-2">
+            <Input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Task title…" className="h-8 text-sm" onKeyDown={(e) => e.key === "Enter" && addItem()} />
+            <div className="flex gap-2">
+              <button onClick={addItem} disabled={!newTitle.trim()} className="px-3 py-1.5 text-[10px] tracking-wider uppercase bg-primary text-primary-foreground rounded-sm disabled:opacity-40">Add</button>
+              <button onClick={() => setShowAdd(false)} className="px-3 py-1.5 text-[10px] tracking-wider uppercase text-muted-foreground hover:text-foreground">Cancel</button>
+            </div>
+          </div>
+        )}
+        <div className="w-full">
+          {items.map((t) => (
+            <MobileTaskRow
+              key={t.id}
+              item={t}
+              onUpdate={updateItem}
+              onRemove={removeItem}
+              onToggle={toggleCheckbox}
+              onAssignMe={assignMe}
+              readOnly={readOnly}
+            />
+          ))}
+        </div>
+        {items.length === 0 && (
+          <p className="text-sm text-muted-foreground text-center py-6">No checklist items.</p>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div>
