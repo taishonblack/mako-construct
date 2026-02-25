@@ -202,9 +202,9 @@ export const binderStore = {
     
     const dbRow = toDbRow(partial);
     if (dbRow.config) {
-      dbRow.config = { ...existingConfig, ...dbRow.config };
+      dbRow.config = { ...(existingConfig as Record<string, unknown>), ...(dbRow.config as Record<string, unknown>) };
     }
-    
+
     const { data, error } = await supabase
       .from("binders")
       .update(dbRow)

@@ -45,7 +45,7 @@ export const templateStore = {
       id: row.id,
       name: row.name,
       createdAt: row.created_at,
-      config: row.config || {},
+      config: (row.config || {}) as BinderTemplate["config"],
     }));
   },
 
@@ -56,7 +56,7 @@ export const templateStore = {
       .eq("id", id)
       .single();
     if (!data) return undefined;
-    return { id: data.id, name: data.name, createdAt: data.created_at, config: data.config || {} };
+    return { id: data.id, name: data.name, createdAt: data.created_at, config: (data.config || {}) as BinderTemplate["config"] };
   },
 
   async create(name: string, config: BinderTemplate["config"]): Promise<BinderTemplate | null> {
@@ -66,7 +66,7 @@ export const templateStore = {
       .select()
       .single();
     if (error) { console.error("templateStore.create", error); return null; }
-    return data ? { id: data.id, name: data.name, createdAt: data.created_at, config: data.config || {} } : null;
+    return data ? { id: data.id, name: data.name, createdAt: data.created_at, config: (data.config || {}) as BinderTemplate["config"] } : null;
   },
 
   async delete(id: string): Promise<boolean> {

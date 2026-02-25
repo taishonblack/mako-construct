@@ -191,8 +191,13 @@ export function BinderFormModal({ open, onClose, onSubmit, onDelete, initial, mo
   const [backupOpen, setBackupOpen] = useState(false);
   const [partnerOther, setPartnerOther] = useState(false);
 
-  const userTemplates = templateStore.getAll();
-  const allStaff = staffStore.getAll();
+  const [userTemplates, setUserTemplates] = useState<import("@/stores/template-store").BinderTemplate[]>([]);
+  const [allStaff, setAllStaff] = useState<import("@/stores/staff-store").StaffMember[]>([]);
+
+  useEffect(() => {
+    templateStore.getAll().then(setUserTemplates);
+    staffStore.getAll().then(setAllStaff);
+  }, [open]);
 
   useEffect(() => {
     if (open) {

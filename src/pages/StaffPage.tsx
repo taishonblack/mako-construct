@@ -1,7 +1,8 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Plus, X, Phone, Mail, Copy, Check, Pencil, Trash2, LayoutGrid, List, ArrowUpDown, ChevronDown } from "lucide-react";
-import { staffStore, type StaffMember } from "@/stores/staff-store";
+import { useStaff, type StaffMember } from "@/hooks/use-staff";
+import { staffStore } from "@/stores/staff-store";
 import { StaffListView } from "@/components/staff/StaffListView";
 import { StaffDetailDrawer } from "@/components/staff/StaffDetailDrawer";
 
@@ -123,6 +124,7 @@ function CopyButton({ text }: { text: string }) {
 }
 
 export default function StaffPage() {
+  const { staff: allStaff, loading, refresh } = useStaff();
   const [search, setSearch] = useState("");
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -131,10 +133,8 @@ export default function StaffPage() {
   const [sortMode, setSortMode] = useState<SortMode>(getInitialSort);
   const [sortOpen, setSortOpen] = useState(false);
   const [detailMember, setDetailMember] = useState<StaffMember | null>(null);
-  const [, forceUpdate] = useState(0);
   const sortRef = useRef<HTMLDivElement>(null);
 
-  // Close sort dropdown on outside click
   useEffect(() => {
     if (!sortOpen) return;
     const handler = (e: MouseEvent) => {
@@ -155,8 +155,6 @@ export default function StaffPage() {
     try { localStorage.setItem(SORT_KEY, mode); } catch {}
   };
 
-  const allStaff = useMemo(() => staffStore.getAll(), [formOpen, editingStaff]);
-
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     const result = allStaff.filter((m) => {
@@ -164,7 +162,6 @@ export default function StaffPage() {
       const matchesTag = !tagFilter || m.tags.includes(tagFilter);
       return matchesSearch && matchesTag;
     });
-    // Sort
     result.sort((a, b) => {
       if (sortMode === "name") return a.name.localeCompare(b.name);
       if (sortMode === "org") return (a.org || "").localeCompare(b.org || "") || a.name.localeCompare(b.name);
@@ -174,23 +171,31 @@ export default function StaffPage() {
     return result;
   }, [search, tagFilter, allStaff, sortMode]);
 
-  const handleCreate = (data: Omit<StaffMember, "id">) => {
-    staffStore.create(data);
-    forceUpdate((n) => n + 1);
+  const handleCreate = async (data: Omit<StaffMember, "id">) => {
+    await staffStore.create(data);
+    refresh();
   };
 
-  const handleEdit = (data: Omit<StaffMember, "id">) => {
+  const handleEdit = async (data: Omit<StaffMember, "id">) => {
     if (editingStaff) {
-      staffStore.update(editingStaff.id, data);
+      await staffStore.update(editingStaff.id, data);
       setEditingStaff(null);
-      forceUpdate((n) => n + 1);
+      refresh();
     }
   };
 
-  const handleDelete = (id: string) => {
-    staffStore.delete(id);
-    forceUpdate((n) => n + 1);
+  const handleDelete = async (id: string) => {
+    await staffStore.delete(id);
+    refresh();
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -201,7 +206,6 @@ export default function StaffPage() {
           <p className="text-sm text-muted-foreground mt-1">{allStaff.length} contacts</p>
         </div>
         <div className="flex items-center gap-2">
-          {/* View toggle */}
           <div className="flex rounded-sm border border-border overflow-hidden">
             <button onClick={() => toggleView("cards")}
               className={`p-2 transition-colors ${viewMode === "cards" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"}`}>
@@ -219,7 +223,6 @@ export default function StaffPage() {
         </div>
       </motion.div>
 
-      {/* Search + Tag Filter */}
       <div className="flex items-center gap-3 mb-6">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -236,7 +239,6 @@ export default function StaffPage() {
                 }`}>{tag}</button>
             ))}
           </div>
-          {/* Sort dropdown */}
           <div className="relative" ref={sortRef}>
             <button onClick={() => setSortOpen(!sortOpen)}
               className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] tracking-wider uppercase rounded border border-border text-muted-foreground hover:text-foreground transition-colors">
@@ -258,7 +260,6 @@ export default function StaffPage() {
         </div>
       </div>
 
-      {/* Staff content */}
       {viewMode === "cards" ? (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">

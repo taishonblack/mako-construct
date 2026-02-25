@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, Wand2, Eye, Pencil, GitCompare, FileDown } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { useBinder } from "@/hooks/use-binders";
 import { binderStore } from "@/stores/binder-store";
 import { mockBinderDetail } from "@/data/mock-binder-detail";
 import { computeReadiness } from "@/lib/readiness-engine";
@@ -15,7 +16,6 @@ import { CommandBrief } from "@/components/command/CommandBrief";
 import { ProductionDefinition } from "@/components/command/ProductionDefinition";
 import { SignalMatrix } from "@/components/command/SignalMatrix";
 import { TransportProfile } from "@/components/command/TransportProfile";
-// CommsStructure removed for NHL V1 — replaced by LQ Ports Request in EventCommandHeader
 import { ExecutionTimeline } from "@/components/command/ExecutionTimeline";
 import { IssuesChanges } from "@/components/command/IssuesChanges";
 import { DocumentArchive } from "@/components/command/DocumentArchive";
@@ -35,7 +35,8 @@ export default function BinderDetail() {
   const navigate = useNavigate();
   const binderId = id || "1";
 
-  const storeRecord = binderStore.getById(binderId);
+  const { binder: storeRecord, loading: binderLoading } = useBinder(binderId);
+
   const binder = storeRecord
     ? {
         ...mockBinderDetail,
@@ -71,7 +72,6 @@ export default function BinderDetail() {
     }
   }, [routesState.routes, syncSignalsFromRoutes]);
 
-  // Auto-scroll to hash anchor (e.g. #checklist)
   useEffect(() => {
     const hash = window.location.hash.replace("#", "");
     if (hash) {
@@ -92,18 +92,15 @@ export default function BinderDetail() {
   const [namePrompt, setNamePrompt] = useState(false);
   const [nameInput, setNameInput] = useState("");
 
-  // Draft checklist state
   const [draftChecklist, setDraftChecklist] = useState<import("@/hooks/use-binder-state").ChecklistItem[]>(() => [...state.checklist]);
   const checklistDirty = useMemo(() => JSON.stringify(draftChecklist) !== JSON.stringify(state.checklist), [draftChecklist, state.checklist]);
 
-  // Sync draft when saved state changes externally
   useEffect(() => {
     if (!checklistDirty) {
       setDraftChecklist([...state.checklist]);
     }
   }, [state.checklist]);
 
-  // beforeunload
   useEffect(() => {
     if (!checklistDirty) return;
     const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
@@ -266,6 +263,14 @@ export default function BinderDetail() {
     }
   }, [state, setIsoCount, updateEventHeader, updateSignal, updateAudioPhilosophy, update]);
 
+  if (binderLoading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="relative">
       <BinderCopilot state={state} report={report} />
@@ -279,7 +284,6 @@ export default function BinderDetail() {
         lockVersion={state.currentLock?.version}
       />
 
-      {/* Preview / Edit mode bar */}
       <div className="max-w-6xl mx-auto px-6 pt-4 flex items-center justify-between">
         <Link to="/binders"
           className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
@@ -312,7 +316,6 @@ export default function BinderDetail() {
       </div>
 
       <div className="max-w-6xl mx-auto px-6 py-6 space-y-8">
-        {/* Version selector + Compare */}
         {(state.lockHistory?.length > 0) && (
           <div className="flex items-center gap-3">
             <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground">Version</span>
@@ -331,11 +334,8 @@ export default function BinderDetail() {
             {selectedVersion !== "current" && (
               <>
                 <Button variant="outline" size="sm"
-                  onClick={() => {
-                    diffRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                  }}
-                  className="text-[10px] tracking-wider uppercase gap-1.5"
-                >
+                  onClick={() => { diffRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }}
+                  className="text-[10px] tracking-wider uppercase gap-1.5">
                   <GitCompare className="w-3 h-3" /> Compare
                 </Button>
                 {(() => {
@@ -400,11 +400,10 @@ export default function BinderDetail() {
           routes={routesState.routes}
         />
         <TransportProfile config={state.transport} returnRequired={state.returnRequired} />
-        {/* CommsStructure removed for NHL V1 — LQ Ports Request lives in EventCommandHeader */}
         <ExecutionTimeline />
         <IssuesChanges changes={state.changes} issues={state.issues} />
         <DocumentArchive docs={state.docs} onAddDoc={isReadOnly ? () => {} : addDoc} onRemoveDoc={isReadOnly ? () => {} : removeDoc} onUpdateDoc={isReadOnly ? () => {} : updateDoc} />
-        {/* Checklist section */}
+        
         <motion.section
           id="checklist"
           initial={{ opacity: 0, y: 12 }}
@@ -424,7 +423,6 @@ export default function BinderDetail() {
             </div>
           </div>
           <div className="steel-panel p-5">
-            {/* Name prompt for Assign Me */}
             {namePrompt && (
               <div className="mb-3 p-3 bg-secondary/50 rounded-sm border border-border flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">Set your name:</span>
@@ -451,7 +449,6 @@ export default function BinderDetail() {
           </div>
         </motion.section>
 
-        {/* Checklist save bar */}
         <SaveBar isDirty={checklistDirty && !isReadOnly} onSave={saveChecklist} onDiscard={discardChecklist} />
 
         <div ref={diffRef}>
