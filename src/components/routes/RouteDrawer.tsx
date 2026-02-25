@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { X, Copy, Ban, Plus, Trash2, GripVertical, Activity, ChevronUp, ChevronDown as ChevronDownSmall } from "lucide-react";
+import { X, Copy, Ban, Plus, Trash2, GripVertical, Activity, ChevronUp, ChevronDown as ChevronDownSmall, Power } from "lucide-react";
 import type { SignalRoute, HopNode, RouteHealthStatus } from "@/stores/route-store";
 import { HOP_SUBTYPES, buildDefaultLinks } from "@/stores/route-store";
 import { Input } from "@/components/ui/input";
@@ -57,6 +57,9 @@ export function RouteDrawer({ route, open, onOpenChange, onSave, onRemove, onDup
   const isMobile = useIsMobile();
   const [draft, setDraft] = useState<SignalRoute | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [confirmRemoveHop, setConfirmRemoveHop] = useState<{ linkIdx: number; hopIdx: number; label: string } | null>(null);
+  const [newlyAddedHopId, setNewlyAddedHopId] = useState<string | null>(null);
+  const hopsSectionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (route) {
@@ -65,6 +68,11 @@ export function RouteDrawer({ route, open, onOpenChange, onSave, onRemove, onDup
         health: route.health ?? { status: "healthy" as const, reason: "", lastUpdated: new Date().toISOString() },
         links: route.links ?? buildDefaultLinks(),
       };
+      // Migrate hops missing 'enabled' field
+      migrated.links = migrated.links.map(l => ({
+        ...l,
+        hops: l.hops.map(h => ({ ...h, enabled: h.enabled ?? true })),
+      }));
       setDraft(structuredClone(migrated));
     } else {
       setDraft(null);
@@ -78,6 +86,20 @@ export function RouteDrawer({ route, open, onOpenChange, onSave, onRemove, onDup
       }, 300);
     }
   }, [open, initialSection]);
+
+  // Auto-focus newly added hop name input
+  useEffect(() => {
+    if (newlyAddedHopId) {
+      setTimeout(() => {
+        const el = document.getElementById(`hop-name-${newlyAddedHopId}`) as HTMLInputElement | null;
+        if (el) {
+          el.focus();
+          el.select();
+        }
+        setNewlyAddedHopId(null);
+      }, 100);
+    }
+  }, [newlyAddedHopId]);
 
   const isDirty = useMemo(() => {
     if (!route || !draft) return false;
@@ -129,22 +151,29 @@ export function RouteDrawer({ route, open, onOpenChange, onSave, onRemove, onDup
 
   // Hop management
   const addHop = (linkIndex: number) => {
+    const hopId = `hop-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     setDraft((prev) => {
       if (!prev) return prev;
       const links = [...prev.links];
       const link = { ...links[linkIndex], hops: [...links[linkIndex].hops] };
       link.hops.push({
-        id: `hop-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        id: hopId,
         subtype: "Other",
-        label: "",
+        label: "New Hop",
         vendor: "",
         model: "",
         notes: "",
         status: "ok",
+        enabled: true,
       });
       links[linkIndex] = link;
       return { ...prev, links };
     });
+    setNewlyAddedHopId(hopId);
+    // Scroll to hops section
+    setTimeout(() => {
+      document.getElementById("route-section-hops")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
   };
 
   const updateHop = (linkIndex: number, hopIndex: number, patch: Partial<HopNode>) => {
@@ -167,6 +196,7 @@ export function RouteDrawer({ route, open, onOpenChange, onSave, onRemove, onDup
       links[linkIndex] = link;
       return { ...prev, links };
     });
+    setConfirmRemoveHop(null);
   };
 
   const reorderHop = (linkIndex: number, fromIdx: number, toIdx: number) => {
@@ -360,141 +390,170 @@ export function RouteDrawer({ route, open, onOpenChange, onSave, onRemove, onDup
           </DrawerSection>
 
           {/* Hops / Signal Chain */}
-          <DrawerSection id="hops" title={`Signal Chain Hops${totalHops > 0 ? ` (${totalHops})` : ""}`}>
+          <DrawerSection id="hops" title={`Signal Chain Hops${totalHops > 0 ? ` (${totalHops})` : ""}`} defaultOpen={totalHops > 0}>
             <p className="text-[10px] text-muted-foreground mb-3">
               Add converters, gateways, or processors between canonical stages.
             </p>
-            {draft.links?.map((link, linkIdx) => (
-              <div key={`${link.from}-${link.to}`} className="mb-3">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-                    {link.from} → {link.to}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-5 text-[10px] gap-1 text-muted-foreground hover:text-foreground"
-                    onClick={() => addHop(linkIdx)}
-                  >
-                    <Plus className="w-2.5 h-2.5" /> Add
-                  </Button>
-                </div>
-                {link.hops.length === 0 ? (
-                  <p className="text-[10px] text-muted-foreground/50 italic pl-2">No hops</p>
-                ) : (
-                  <div className="space-y-2">
-                    {link.hops.map((hop, hopIdx) => (
-                      <div
-                        key={hop.id}
-                        draggable
-                        onDragStart={(e) => {
-                          e.dataTransfer.setData("text/plain", JSON.stringify({ linkIdx, hopIdx }));
-                          e.dataTransfer.effectAllowed = "move";
-                          (e.currentTarget as HTMLElement).style.opacity = "0.5";
-                        }}
-                        onDragEnd={(e) => {
-                          (e.currentTarget as HTMLElement).style.opacity = "1";
-                        }}
-                        onDragOver={(e) => {
-                          e.preventDefault();
-                          e.dataTransfer.dropEffect = "move";
-                          (e.currentTarget as HTMLElement).classList.add("border-primary/60");
-                        }}
-                        onDragLeave={(e) => {
-                          (e.currentTarget as HTMLElement).classList.remove("border-primary/60");
-                        }}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          (e.currentTarget as HTMLElement).classList.remove("border-primary/60");
-                          try {
-                            const data = JSON.parse(e.dataTransfer.getData("text/plain"));
-                            if (data.linkIdx === linkIdx) {
-                              reorderHop(linkIdx, data.hopIdx, hopIdx);
-                            }
-                          } catch {}
-                        }}
-                        className="p-2 rounded border border-border bg-secondary/30 space-y-1.5 transition-colors"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1 min-w-0">
-                            <GripVertical className="w-3 h-3 text-muted-foreground/40 shrink-0 cursor-grab active:cursor-grabbing" />
-                            <span className="text-[10px] font-mono font-semibold truncate">{hop.label || "Unnamed"}</span>
-                          </div>
-                          <div className="flex items-center gap-0.5 shrink-0">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-5 w-5 text-muted-foreground hover:text-foreground"
-                              disabled={hopIdx === 0}
-                              onClick={() => reorderHop(linkIdx, hopIdx, hopIdx - 1)}
-                            >
-                              <ChevronUp className="w-3 h-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-5 w-5 text-muted-foreground hover:text-foreground"
-                              disabled={hopIdx === link.hops.length - 1}
-                              onClick={() => reorderHop(linkIdx, hopIdx, hopIdx + 1)}
-                            >
-                              <ChevronDownSmall className="w-3 h-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-5 w-5 text-destructive hover:text-destructive"
-                              onClick={() => removeHop(linkIdx, hopIdx)}
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-1.5">
-                          <div>
-                            <span className="text-[9px] text-muted-foreground">Type</span>
-                            <Select value={hop.subtype} onValueChange={(v) => updateHop(linkIdx, hopIdx, { subtype: v as any })}>
-                              <SelectTrigger className="h-7 text-[10px]"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                {HOP_SUBTYPES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <span className="text-[9px] text-muted-foreground">Label</span>
-                            <Input
-                              value={hop.label}
-                              onChange={(e) => updateHop(linkIdx, hopIdx, { label: e.target.value })}
-                              className="h-7 text-[10px]"
-                              placeholder="e.g. SDI→IP GW"
-                            />
-                          </div>
-                          <div>
-                            <span className="text-[9px] text-muted-foreground">Vendor</span>
-                            <Input
-                              value={hop.vendor}
-                              onChange={(e) => updateHop(linkIdx, hopIdx, { vendor: e.target.value })}
-                              className="h-7 text-[10px]"
-                            />
-                          </div>
-                          <div>
-                            <span className="text-[9px] text-muted-foreground">Status</span>
-                            <Select value={hop.status} onValueChange={(v) => updateHop(linkIdx, hopIdx, { status: v as any })}>
-                              <SelectTrigger className="h-7 text-[10px]"><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="ok">OK</SelectItem>
-                                <SelectItem value="warn">Warn</SelectItem>
-                                <SelectItem value="error">Error</SelectItem>
-                                <SelectItem value="offline">Offline</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+            <div ref={hopsSectionRef}>
+              {draft.links?.map((link, linkIdx) => (
+                <div key={`${link.from}-${link.to}`} className="mb-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                      {link.from} → {link.to}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-5 text-[10px] gap-1 text-muted-foreground hover:text-foreground"
+                      onClick={() => addHop(linkIdx)}
+                    >
+                      <Plus className="w-2.5 h-2.5" /> Add
+                    </Button>
                   </div>
-                )}
-              </div>
-            ))}
+                  {link.hops.length === 0 ? (
+                    <p className="text-[10px] text-muted-foreground/50 italic pl-2">No hops</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {link.hops.map((hop, hopIdx) => (
+                        <div
+                          key={hop.id}
+                          draggable
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData("text/plain", JSON.stringify({ linkIdx, hopIdx }));
+                            e.dataTransfer.effectAllowed = "move";
+                            (e.currentTarget as HTMLElement).style.opacity = "0.5";
+                          }}
+                          onDragEnd={(e) => {
+                            (e.currentTarget as HTMLElement).style.opacity = "1";
+                          }}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = "move";
+                            (e.currentTarget as HTMLElement).classList.add("border-primary/60");
+                          }}
+                          onDragLeave={(e) => {
+                            (e.currentTarget as HTMLElement).classList.remove("border-primary/60");
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            (e.currentTarget as HTMLElement).classList.remove("border-primary/60");
+                            try {
+                              const data = JSON.parse(e.dataTransfer.getData("text/plain"));
+                              if (data.linkIdx === linkIdx) {
+                                reorderHop(linkIdx, data.hopIdx, hopIdx);
+                              }
+                            } catch {}
+                          }}
+                          className={cn(
+                            "p-2 rounded border bg-secondary/30 space-y-1.5 transition-colors",
+                            !hop.enabled ? "opacity-50 border-border" : "border-border",
+                          )}
+                        >
+                          {/* Row 1: Drag handle + Name + Actions */}
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1 min-w-0 flex-1">
+                              <GripVertical className="w-3 h-3 text-muted-foreground/40 shrink-0 cursor-grab active:cursor-grabbing" />
+                              <Input
+                                id={`hop-name-${hop.id}`}
+                                value={hop.label}
+                                onChange={(e) => updateHop(linkIdx, hopIdx, { label: e.target.value })}
+                                className="h-6 text-[10px] font-mono font-semibold flex-1 min-w-0"
+                                placeholder="e.g. SDI→IP Converter"
+                              />
+                            </div>
+                            <div className="flex items-center gap-0.5 shrink-0">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-5 w-5 text-muted-foreground hover:text-foreground"
+                                disabled={hopIdx === 0}
+                                onClick={() => reorderHop(linkIdx, hopIdx, hopIdx - 1)}
+                              >
+                                <ChevronUp className="w-3 h-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-5 w-5 text-muted-foreground hover:text-foreground"
+                                disabled={hopIdx === link.hops.length - 1}
+                                onClick={() => reorderHop(linkIdx, hopIdx, hopIdx + 1)}
+                              >
+                                <ChevronDownSmall className="w-3 h-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-5 w-5 text-destructive hover:text-destructive"
+                                onClick={() => setConfirmRemoveHop({ linkIdx, hopIdx, label: hop.label || "Unnamed" })}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </div>
+                          {/* Row 2: Type + Status + Enabled */}
+                          <div className="grid grid-cols-[1fr_1fr_auto] gap-1.5 items-end">
+                            <div>
+                              <span className="text-[9px] text-muted-foreground">Type</span>
+                              <Select value={hop.subtype} onValueChange={(v) => updateHop(linkIdx, hopIdx, { subtype: v as any })}>
+                                <SelectTrigger className="h-7 text-[10px]"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  {HOP_SUBTYPES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <span className="text-[9px] text-muted-foreground">Status</span>
+                              <Select value={hop.status} onValueChange={(v) => updateHop(linkIdx, hopIdx, { status: v as any })}>
+                                <SelectTrigger className="h-7 text-[10px]"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="ok">OK</SelectItem>
+                                  <SelectItem value="warn">Warn</SelectItem>
+                                  <SelectItem value="error">Error</SelectItem>
+                                  <SelectItem value="offline">Offline</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="flex flex-col items-center gap-0.5 pb-0.5">
+                              <span className="text-[9px] text-muted-foreground">On</span>
+                              <Switch
+                                checked={hop.enabled}
+                                onCheckedChange={(v) => updateHop(linkIdx, hopIdx, { enabled: v })}
+                                className="scale-75"
+                              />
+                            </div>
+                          </div>
+                          {/* Row 3: Vendor + Notes (collapsed on mobile by default) */}
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <div>
+                              <span className="text-[9px] text-muted-foreground">Vendor</span>
+                              <Input
+                                value={hop.vendor}
+                                onChange={(e) => updateHop(linkIdx, hopIdx, { vendor: e.target.value })}
+                                className="h-7 text-[10px]"
+                                placeholder="e.g. AJA"
+                              />
+                            </div>
+                            <div>
+                              <span className="text-[9px] text-muted-foreground">Notes</span>
+                              <Input
+                                value={hop.notes}
+                                onChange={(e) => updateHop(linkIdx, hopIdx, { notes: e.target.value })}
+                                className="h-7 text-[10px]"
+                              />
+                            </div>
+                          </div>
+                          {!hop.enabled && (
+                            <div className="flex items-center gap-1 text-[9px] text-muted-foreground italic">
+                              <Power className="w-2.5 h-2.5" /> Bypassed
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </DrawerSection>
         </div>
       </ScrollArea>
@@ -534,6 +593,7 @@ export function RouteDrawer({ route, open, onOpenChange, onSave, onRemove, onDup
         </SheetContent>
       </Sheet>
 
+      {/* Discard changes dialog */}
       <AlertDialog open={confirmDiscard} onOpenChange={setConfirmDiscard}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -543,6 +603,27 @@ export function RouteDrawer({ route, open, onOpenChange, onSave, onRemove, onDup
           <AlertDialogFooter>
             <AlertDialogCancel>Keep editing</AlertDialogCancel>
             <AlertDialogAction onClick={handleDiscard}>Discard</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Remove hop confirm dialog */}
+      <AlertDialog open={!!confirmRemoveHop} onOpenChange={(v) => { if (!v) setConfirmRemoveHop(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove hop</AlertDialogTitle>
+            <AlertDialogDescription>
+              Remove "{confirmRemoveHop?.label}"? This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => confirmRemoveHop && removeHop(confirmRemoveHop.linkIdx, confirmRemoveHop.hopIdx)}
+            >
+              Remove
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

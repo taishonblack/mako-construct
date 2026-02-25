@@ -38,7 +38,10 @@ function migrateRoute(r: any): SignalRoute {
   return {
     ...r,
     health: r.health ?? { status: "healthy", reason: "", lastUpdated: new Date().toISOString() },
-    links: r.links ?? buildDefaultLinks(),
+    links: (r.links ?? buildDefaultLinks()).map((l: any) => ({
+      ...l,
+      hops: (l.hops || []).map((h: any) => ({ ...h, enabled: h.enabled ?? true })),
+    })),
   };
 }
 

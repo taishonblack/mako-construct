@@ -62,6 +62,7 @@ export interface HopNode {
   model: string;
   notes: string;
   status: "ok" | "warn" | "error" | "offline" | "unknown";
+  enabled: boolean;
   metrics?: NodeMetrics;
 }
 

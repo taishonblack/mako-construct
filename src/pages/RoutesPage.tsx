@@ -65,6 +65,7 @@ export default function RoutesPage() {
             model: "",
             notes: "",
             status: "ok" as const,
+            enabled: true,
           }],
         };
       }
