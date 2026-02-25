@@ -12,6 +12,7 @@ import { RouteChain } from "@/components/routes/RouteChain";
 import { TransportView } from "@/components/routes/TransportView";
 import { RouteDrawer } from "@/components/routes/RouteDrawer";
 import type { SignalRoute } from "@/stores/route-store";
+import type { NodeKind } from "@/components/routes/FlowNodeCard";
 
 export default function RoutesPage() {
   const { state, addRoute, updateRoute, removeRoute, syncRouterCrosspoints } = useRoutesStore();
@@ -19,6 +20,7 @@ export default function RoutesPage() {
   const [tab, setTab] = useState("topology");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+  const [drawerSection, setDrawerSection] = useState<string | null>(null);
   const [hiddenRoutes, setHiddenRoutes] = useState<Set<string>>(new Set());
 
   const selectedRoute = useMemo(
@@ -181,7 +183,13 @@ export default function RoutesPage() {
         </TabsContent>
 
         <TabsContent value="transport" className="mt-4">
-          <TransportView routes={state.routes} />
+          <TransportView
+            routes={state.routes}
+            onNodeClick={(routeId, section) => {
+              setSelectedRouteId(routeId);
+              setDrawerSection(section);
+            }}
+          />
         </TabsContent>
       </Tabs>
 
@@ -189,10 +197,11 @@ export default function RoutesPage() {
       <RouteDrawer
         route={selectedRoute}
         open={!!selectedRouteId}
-        onOpenChange={(open) => { if (!open) setSelectedRouteId(null); }}
+        onOpenChange={(open) => { if (!open) { setSelectedRouteId(null); setDrawerSection(null); } }}
         onSave={updateRoute}
         onRemove={removeRoute}
         onDuplicate={handleDuplicate}
+        initialSection={drawerSection}
       />
     </div>
   );
