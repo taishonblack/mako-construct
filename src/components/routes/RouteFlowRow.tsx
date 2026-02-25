@@ -79,8 +79,6 @@ function buildNodes(r: SignalRoute): { nodes: FlowNode[]; hopInsertions: Map<num
     },
   ];
 
-  // Map hops to the connector index after each canonical node
-  // Links are stored as from→to, we map them to the connector after the "from" node
   const hopInsertions = new Map<number, HopNode[]>();
   if (r.links) {
     const stageOrder = canonicalNodes.map(n => n.kind);
@@ -88,7 +86,11 @@ function buildNodes(r: SignalRoute): { nodes: FlowNode[]; hopInsertions: Map<num
       if (link.hops.length === 0) continue;
       const fromIdx = stageOrder.indexOf(link.from as NodeKind);
       if (fromIdx >= 0) {
-        hopInsertions.set(fromIdx, link.hops);
+        // Only include enabled hops in the visual chain
+        const enabledHops = link.hops.filter(h => h.enabled !== false);
+        if (enabledHops.length > 0) {
+          hopInsertions.set(fromIdx, enabledHops);
+        }
       }
     }
   }
@@ -97,7 +99,7 @@ function buildNodes(r: SignalRoute): { nodes: FlowNode[]; hopInsertions: Map<num
 }
 
 function overallHealth(nodes: FlowNode[], hops: HopNode[]): "ok" | "warn" | "error" {
-  const allStatuses = [...nodes.map(n => n.status), ...hops.map(h => h.status)];
+  const allStatuses = [...nodes.map(n => n.status), ...hops.filter(h => h.enabled !== false).map(h => h.status)];
   if (allStatuses.some((s) => s === "error" || s === "offline")) return "error";
   if (allStatuses.some((s) => s === "warn" || s === "unknown")) return "warn";
   return "ok";
@@ -129,7 +131,7 @@ function HopMiniCard({ hop, trace, metricLine, onClick }: { hop: HopNode; trace?
     >
       <span className={cn("absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full", STATUS_DOT[hop.status])} />
       <span className="text-[8px] uppercase tracking-[0.15em] text-muted-foreground font-semibold">HOP</span>
-      <span className="text-[10px] font-mono font-semibold text-foreground mt-0.5 truncate w-full">{hop.label}</span>
+      <span className="text-[10px] font-mono font-semibold text-foreground mt-0.5 truncate w-full">{hop.label || "Unnamed"}</span>
       <span className="text-[9px] text-muted-foreground truncate w-full">{hop.subtype}</span>
       {showMetric && (
         <span className={cn(
@@ -148,7 +150,7 @@ function AddHopButton({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={(e) => { e.stopPropagation(); onClick(); }}
-      className="flex items-center justify-center w-5 h-5 rounded-full border border-dashed border-muted-foreground/30 text-muted-foreground/40 hover:border-primary/50 hover:text-primary transition-colors shrink-0"
+      className="flex items-center justify-center w-5 h-5 rounded-full border border-dashed border-muted-foreground/30 text-muted-foreground/40 hover:border-primary/50 hover:text-primary transition-colors shrink-0 opacity-0 group-hover/link:opacity-100 focus:opacity-100"
       title="Add hop"
     >
       <Plus className="w-2.5 h-2.5" />
@@ -159,7 +161,15 @@ function AddHopButton({ onClick }: { onClick: () => void }) {
 export function RouteFlowRow({ route, onNodeClick, trace, onAddHop, metricsMap }: Props) {
   const isMobile = useIsMobile();
   const { nodes, hopInsertions } = useMemo(() => buildNodes(route), [route]);
-  const allHops = useMemo(() => Array.from(hopInsertions.values()).flat(), [hopInsertions]);
+  const allHops = useMemo(() => {
+    const hops: HopNode[] = [];
+    if (route.links) {
+      for (const link of route.links) {
+        hops.push(...link.hops);
+      }
+    }
+    return hops;
+  }, [route.links]);
   const health = useMemo(() => overallHealth(nodes, allHops), [nodes, allHops]);
   const chip = HEALTH_CHIP[health];
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -167,7 +177,7 @@ export function RouteFlowRow({ route, onNodeClick, trace, onAddHop, metricsMap }
 
   // Build flat display list for mobile carousel
   const flatItems = useMemo(() => {
-    const items: { type: "node" | "hop"; node?: FlowNode; hop?: HopNode; linkFrom?: string; linkTo?: string }[] = [];
+    const items: { type: "node" | "hop"; node?: FlowNode; hop?: HopNode }[] = [];
     for (let i = 0; i < nodes.length; i++) {
       items.push({ type: "node", node: nodes[i] });
       const hops = hopInsertions.get(i);
@@ -217,7 +227,7 @@ export function RouteFlowRow({ route, onNodeClick, trace, onAddHop, metricsMap }
     onNodeClick?.(route.id, sectionMap[kind]);
   };
 
-  const handleHopClick = (hop: HopNode) => {
+  const handleHopClick = () => {
     onNodeClick?.(route.id, "hops");
   };
 
@@ -241,21 +251,26 @@ export function RouteFlowRow({ route, onNodeClick, trace, onAddHop, metricsMap }
             {chip.label}
           </Badge>
         </div>
-        <div
-          ref={scrollRef}
-          className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-1 -mx-1 px-1"
-          style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}
-        >
-          {flatItems.map((item, i) => (
-            <div key={i} className="snap-start shrink-0" style={{ width: "85%" }}>
-              {item.type === "node" && item.node && (
-                <FlowNodeCard node={item.node} trace={trace} metricLine={getNodeMetricLine(item.node.kind)} onClick={() => handleNodeClick(item.node!.kind)} />
-              )}
-              {item.type === "hop" && item.hop && (
-                <HopMiniCard hop={item.hop} trace={trace} metricLine={getHopMetricLine(item.hop)} onClick={() => handleHopClick(item.hop!)} />
-              )}
-            </div>
-          ))}
+        {/* Mobile carousel with fade edges */}
+        <div className="relative">
+          <div className="absolute left-0 top-0 bottom-1 w-4 bg-gradient-to-r from-card to-transparent z-10 pointer-events-none" />
+          <div className="absolute right-0 top-0 bottom-1 w-4 bg-gradient-to-l from-card to-transparent z-10 pointer-events-none" />
+          <div
+            ref={scrollRef}
+            className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-1 -mx-1 px-1"
+            style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}
+          >
+            {flatItems.map((item, i) => (
+              <div key={i} className="snap-start shrink-0" style={{ width: "85%" }}>
+                {item.type === "node" && item.node && (
+                  <FlowNodeCard node={item.node} trace={trace} metricLine={getNodeMetricLine(item.node.kind)} onClick={() => handleNodeClick(item.node!.kind)} />
+                )}
+                {item.type === "hop" && item.hop && (
+                  <HopMiniCard hop={item.hop} trace={trace} metricLine={getHopMetricLine(item.hop)} onClick={handleHopClick} />
+                )}
+              </div>
+            ))}
+          </div>
         </div>
         <div className="flex justify-center gap-1">
           {flatItems.map((_, i) => (
@@ -282,7 +297,7 @@ export function RouteFlowRow({ route, onNodeClick, trace, onAddHop, metricsMap }
             const hops = hopInsertions.get(i);
             const link = getLinkAtIndex(i);
             return (
-              <div key={node.kind + i} className="flex items-center">
+              <div key={node.kind + i} className="flex items-center group/link">
                 <FlowNodeCard node={node} trace={trace} metricLine={getNodeMetricLine(node.kind)} onClick={() => handleNodeClick(node.kind)} />
                 {i < nodes.length - 1 && (
                   <div className="flex items-center gap-0">
@@ -292,13 +307,13 @@ export function RouteFlowRow({ route, onNodeClick, trace, onAddHop, metricsMap }
                         {hops.length <= 2 ? (
                           hops.map((hop) => (
                             <div key={hop.id} className="flex items-center">
-                              <HopMiniCard hop={hop} trace={trace} metricLine={getHopMetricLine(hop)} onClick={() => handleHopClick(hop)} />
+                              <HopMiniCard hop={hop} trace={trace} metricLine={getHopMetricLine(hop)} onClick={handleHopClick} />
                               <NodeConnector trace={trace} />
                             </div>
                           ))
                         ) : (
                           <div className="flex items-center">
-                            <HopMiniCard hop={hops[0]} trace={trace} metricLine={getHopMetricLine(hops[0])} onClick={() => handleHopClick(hops[0])} />
+                            <HopMiniCard hop={hops[0]} trace={trace} metricLine={getHopMetricLine(hops[0])} onClick={handleHopClick} />
                             <button
                               type="button"
                               onClick={() => onNodeClick?.(route.id, "hops")}
@@ -311,7 +326,7 @@ export function RouteFlowRow({ route, onNodeClick, trace, onAddHop, metricsMap }
                         )}
                       </>
                     )}
-                    {onAddHop && !hops?.length && (
+                    {onAddHop && (
                       <div className="flex items-center -mx-1">
                         <AddHopButton onClick={() => link && onAddHop(route.id, link.from, link.to)} />
                       </div>
