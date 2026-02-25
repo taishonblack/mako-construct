@@ -11,6 +11,7 @@ import {
   LogIn,
   LogOut,
   User,
+  Sparkles,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { MakoFinMark } from "@/components/MakoFinMark";
@@ -31,6 +32,7 @@ import {
 const navItems = [
   { title: "Dashboard", url: "/dashboard", icon: BarChart3 },
   { title: "Binders", url: "/binders", icon: LayoutGrid },
+  { title: "Quinn", url: "/quinn", icon: Sparkles },
   { title: "Calendar", url: "/calendar", icon: Calendar },
   { title: "Checklist", url: "/checklist", icon: CheckSquare },
   { title: "Routes", url: "/routes", icon: Route },

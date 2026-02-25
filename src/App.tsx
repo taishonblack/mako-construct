@@ -19,6 +19,7 @@ import RoutesPage from "./pages/RoutesPage";
 import StaffPage from "./pages/StaffPage";
 import ChecklistPage from "./pages/ChecklistPage";
 import MorePage from "./pages/MorePage";
+import QuinnPage from "./pages/QuinnPage";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
@@ -48,6 +49,7 @@ const App = () => (
               <Route path="/containers/:containerId" element={<ContainerDetailPage />} />
               <Route path="/calendar" element={<CalendarPage />} />
               <Route path="/checklist" element={<ChecklistPage />} />
+              <Route path="/quinn" element={<QuinnPage />} />
               <Route path="/routes" element={<RoutesPage />} />
               <Route path="/staff" element={<StaffPage />} />
               <Route path="/wiki" element={<WikiPage />} />
