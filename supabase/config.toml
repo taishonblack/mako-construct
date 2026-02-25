@@ -1,1 +1,4 @@
 project_id = "casqytdnseqiysewtkkh"
+
+[functions.extract-callsheet]
+verify_jwt = false

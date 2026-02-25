@@ -6,9 +6,12 @@ import { CommandPalette } from "@/components/CommandPalette";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { MobileHeader } from "@/components/MobileHeader";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { ImportCallSheetDrawer } from "@/components/import/ImportCallSheetDrawer";
+import { ImportMenu } from "@/components/import/ImportMenu";
 
 export function AppLayout() {
   const [cmdOpen, setCmdOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -32,13 +35,16 @@ export function AppLayout() {
           ) : (
             <header className="h-12 flex items-center border-b border-border px-4 bg-card">
               <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
-              <button
-                onClick={() => setCmdOpen(true)}
-                className="ml-auto flex items-center gap-2 px-3 py-1 text-xs text-muted-foreground border border-border rounded-md hover:text-foreground hover:border-foreground/20 transition-colors"
-              >
-                <span>Search…</span>
-                <kbd className="text-[10px] font-mono bg-secondary px-1.5 py-0.5 rounded">⌘K</kbd>
-              </button>
+              <div className="ml-auto flex items-center gap-2">
+                <ImportMenu onImport={() => setImportOpen(true)} />
+                <button
+                  onClick={() => setCmdOpen(true)}
+                  className="flex items-center gap-2 px-3 py-1 text-xs text-muted-foreground border border-border rounded-md hover:text-foreground hover:border-foreground/20 transition-colors"
+                >
+                  <span>Search…</span>
+                  <kbd className="text-[10px] font-mono bg-secondary px-1.5 py-0.5 rounded">⌘K</kbd>
+                </button>
+              </div>
             </header>
           )}
           <main className="flex-1 min-w-0 p-4 md:p-6 pb-20 md:pb-6 overflow-x-hidden">
@@ -48,6 +54,7 @@ export function AppLayout() {
       </div>
       {isMobile && <MobileBottomNav />}
       <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} />
+      <ImportCallSheetDrawer open={importOpen} onClose={() => setImportOpen(false)} />
     </SidebarProvider>
   );
 }
