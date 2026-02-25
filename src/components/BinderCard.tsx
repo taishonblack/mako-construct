@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Calendar, Radio, AlertCircle, ChevronDown } from "lucide-react";
-import type { MockBinder, BinderStatus } from "@/data/mock-binders";
+import type { BinderRecord, BinderStatus } from "@/stores/binder-store";
 
 const statusStyles: Record<BinderStatus, string> = {
   draft: "bg-muted text-muted-foreground",
@@ -26,7 +26,7 @@ function timeAgo(dateStr: string) {
   return `${Math.floor(days / 30)}mo ago`;
 }
 
-export function BinderCard({ binder }: { binder: MockBinder }) {
+export function BinderCard({ binder }: { binder: BinderRecord }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -81,7 +81,7 @@ export function BinderCard({ binder }: { binder: MockBinder }) {
           <span className="shrink-0 px-1.5 py-0.5 rounded bg-secondary text-muted-foreground uppercase tracking-wider">
             {binder.transport}
           </span>
-          <span className="shrink-0">Updated {timeAgo(binder.updatedAt)}</span>
+          <span className="shrink-0">Updated {timeAgo(binder.updatedAt || new Date().toISOString())}</span>
         </div>
       </a>
 
