@@ -17,9 +17,10 @@ interface StaffListViewProps {
   staff: StaffMember[];
   onEdit: (member: StaffMember) => void;
   onDelete: (id: string) => void;
+  onSelect?: (member: StaffMember) => void;
 }
 
-export function StaffListView({ staff, onEdit, onDelete }: StaffListViewProps) {
+export function StaffListView({ staff, onEdit, onDelete, onSelect }: StaffListViewProps) {
   return (
     <div className="steel-panel overflow-hidden">
       {/* Desktop header */}
@@ -36,7 +37,7 @@ export function StaffListView({ staff, onEdit, onDelete }: StaffListViewProps) {
           <motion.div key={member.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }}
             transition={{ duration: 0.2, delay: i * 0.02 }}>
             {/* Desktop row */}
-            <div className="hidden md:grid grid-cols-[2fr_1.5fr_1.5fr_1fr_auto] gap-3 items-center px-4 py-3 hover:bg-muted/30 transition-colors">
+            <div onClick={() => onSelect?.(member)} className="hidden md:grid grid-cols-[2fr_1.5fr_1.5fr_1fr_auto] gap-3 items-center px-4 py-3 hover:bg-muted/30 transition-colors cursor-pointer">
               <div className="min-w-0">
                 <p className="text-sm font-medium text-foreground truncate">{member.name}</p>
                 <p className="text-[11px] text-muted-foreground truncate">{member.role}{member.role && member.org ? " · " : ""}{member.org}</p>
@@ -72,7 +73,7 @@ export function StaffListView({ staff, onEdit, onDelete }: StaffListViewProps) {
             </div>
 
             {/* Mobile row */}
-            <div className="md:hidden px-4 py-3 space-y-1.5">
+            <div onClick={() => onSelect?.(member)} className="md:hidden px-4 py-3 space-y-1.5 cursor-pointer">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-sm font-medium text-foreground">{member.name}</p>
