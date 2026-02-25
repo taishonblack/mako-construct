@@ -1,12 +1,10 @@
 import { useState } from "react";
-import { Search, Plus, SlidersHorizontal, FileText } from "lucide-react";
+import { Search, Plus, SlidersHorizontal } from "lucide-react";
 import { motion } from "framer-motion";
 import { mockBinders } from "@/data/mock-binders";
 import { BinderCard } from "@/components/BinderCard";
-import { ImportCallSheetDrawer } from "@/components/import/ImportCallSheetDrawer";
 
 export default function BinderLibrary() {
-  const [importOpen, setImportOpen] = useState(false);
   const [search, setSearch] = useState("");
 
   const filtered = mockBinders.filter((b) => {
@@ -31,22 +29,13 @@ export default function BinderLibrary() {
           <h1 className="text-xl font-medium text-foreground tracking-tight">Binder Library</h1>
           <p className="text-sm text-muted-foreground mt-1">{filtered.length} binder{filtered.length !== 1 ? "s" : ""}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setImportOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 border border-border text-xs font-medium tracking-wide uppercase rounded-md text-foreground hover:border-primary/40 hover:text-primary transition-colors"
-          >
-            <FileText className="w-3.5 h-3.5" />
-            Import Call Sheet
-          </button>
-          <a
-            href="/binders/new"
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground text-xs font-medium tracking-wide uppercase rounded-md hover:glow-red transition-all duration-200"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            New Binder
-          </a>
-        </div>
+        <a
+          href="/binders/new"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground text-xs font-medium tracking-wide uppercase rounded-md hover:glow-red transition-all duration-200"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          New Binder
+        </a>
       </motion.div>
 
       {/* Search + filters */}
@@ -90,7 +79,6 @@ export default function BinderLibrary() {
           </div>
         )}
       </div>
-      <ImportCallSheetDrawer open={importOpen} onClose={() => setImportOpen(false)} />
     </div>
   );
 }
