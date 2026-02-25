@@ -1,11 +1,15 @@
 import { useState } from "react";
-import { Search, Plus, SlidersHorizontal } from "lucide-react";
+import { Search, Plus, SlidersHorizontal, FileText } from "lucide-react";
 import { motion } from "framer-motion";
+import { useOutletContext } from "react-router-dom";
 import { mockBinders } from "@/data/mock-binders";
 import { BinderCard } from "@/components/BinderCard";
+import { Button } from "@/components/ui/button";
+import type { ImportSourceType } from "@/lib/import-types";
 
 export default function BinderLibrary() {
   const [search, setSearch] = useState("");
+  const context = useOutletContext<{ openImport?: (s: ImportSourceType) => void }>();
 
   const filtered = mockBinders.filter((b) => {
     const q = search.toLowerCase();
@@ -23,19 +27,32 @@ export default function BinderLibrary() {
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="flex items-center justify-between mb-8"
+        className="flex items-center justify-between mb-8 gap-3"
       >
         <div>
           <h1 className="text-xl font-medium text-foreground tracking-tight">Binder Library</h1>
           <p className="text-sm text-muted-foreground mt-1">{filtered.length} binder{filtered.length !== 1 ? "s" : ""}</p>
         </div>
-        <a
-          href="/binders/new"
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground text-xs font-medium tracking-wide uppercase rounded-md hover:glow-red transition-all duration-200"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          New Binder
-        </a>
+        <div className="flex items-center gap-2">
+          {context?.openImport && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs gap-1.5"
+              onClick={() => context.openImport!("callsheet")}
+            >
+              <FileText className="w-3.5 h-3.5" />
+              Import Call Sheet
+            </Button>
+          )}
+          <a
+            href="/binders/new"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground text-xs font-medium tracking-wide uppercase rounded-md hover:glow-red transition-all duration-200"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            New Binder
+          </a>
+        </div>
       </motion.div>
 
       {/* Search + filters */}

@@ -73,7 +73,18 @@ export default function ChecklistPage() {
   const { binders, loading: bindersLoading } = useBinders();
   const [filter, setFilter] = useState<FilterMode>("incomplete");
   const [assigneeFilter, setAssigneeFilter] = useState<string>("");
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Default collapsed — persist expand state in localStorage
+  const [expanded, setExpanded] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem("mako-checklist-expanded");
+      return raw ? new Set(JSON.parse(raw)) : new Set<string>();
+    } catch { return new Set<string>(); }
+  });
+
+  // Persist expanded state
+  useEffect(() => {
+    localStorage.setItem("mako-checklist-expanded", JSON.stringify([...expanded]));
+  }, [expanded]);
   const { displayName, setDisplayName } = useDisplayName();
   const [namePrompt, setNamePrompt] = useState(false);
   const [nameInput, setNameInput] = useState("");
