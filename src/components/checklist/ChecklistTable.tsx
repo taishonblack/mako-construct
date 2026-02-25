@@ -4,6 +4,7 @@ import { CheckSquare, Plus, Trash2, UserPlus, CalendarClock, CheckCheck } from "
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { useIsMobile } from "@/hooks/use-mobile";
 import type { ChecklistItem, ChecklistStatus } from "@/hooks/use-binder-state";
 
 const STATUS_STYLE: Record<string, string> = {
@@ -70,6 +71,156 @@ function InlineInput({
   );
 }
 
+/* ─── Mobile task card ─── */
+function MobileTaskCard({
+  t,
+  readOnly,
+  editing,
+  setEditing,
+  toggleCheckbox,
+  updateItem,
+  removeItem,
+  assignMe,
+  statusDropdown,
+  setStatusDropdown,
+  statusRef,
+}: {
+  t: ChecklistItem;
+  readOnly?: boolean;
+  editing: EditingCell | null;
+  setEditing: (e: EditingCell | null) => void;
+  toggleCheckbox: (id: string) => void;
+  updateItem: (id: string, patch: Partial<ChecklistItem>) => void;
+  removeItem: (id: string) => void;
+  assignMe: (id: string) => void;
+  statusDropdown: string | null;
+  setStatusDropdown: (id: string | null) => void;
+  statusRef: React.RefObject<HTMLDivElement>;
+}) {
+  const isDone = t.checked || t.status === "done";
+  const isEditing = (field: string) => editing?.id === t.id && editing?.field === field;
+
+  return (
+    <div className="steel-panel p-3 space-y-2 overflow-hidden">
+      <div className="flex items-start gap-2 min-w-0">
+        {/* Checkbox */}
+        {!readOnly ? (
+          <button onClick={() => toggleCheckbox(t.id)} className="p-0.5 mt-0.5 shrink-0">
+            {isDone
+              ? <CheckSquare className="w-4 h-4 text-emerald-500" />
+              : <div className="w-4 h-4 border border-muted-foreground/50 rounded-sm" />}
+          </button>
+        ) : (
+          <div className="mt-0.5 shrink-0">
+            {isDone
+              ? <CheckSquare className="w-4 h-4 text-emerald-500" />
+              : <div className="w-4 h-4 border border-muted-foreground/50 rounded-sm" />}
+          </div>
+        )}
+
+        {/* Title */}
+        <div className="flex-1 min-w-0">
+          {!readOnly && isEditing("label") ? (
+            <InlineInput
+              value={t.label}
+              onCommit={(v) => { updateItem(t.id, { label: v || t.label }); setEditing(null); }}
+              onCancel={() => setEditing(null)}
+            />
+          ) : (
+            <span
+              className={`text-sm block break-words ${isDone ? "text-muted-foreground line-through" : "text-foreground"} ${!readOnly ? "cursor-text" : ""}`}
+              onClick={() => !readOnly && setEditing({ id: t.id, field: "label" })}
+            >
+              {t.label}
+            </span>
+          )}
+        </div>
+
+        {/* Delete */}
+        {!readOnly && (
+          <button onClick={() => removeItem(t.id)} className="text-muted-foreground hover:text-destructive shrink-0 p-0.5">
+            <Trash2 className="w-3 h-3" />
+          </button>
+        )}
+      </div>
+
+      {/* Meta row */}
+      <div className="flex items-center gap-3 flex-wrap pl-6">
+        {/* Assigned */}
+        {!readOnly && isEditing("assignedTo") ? (
+          <InlineInput
+            value={t.assignedTo}
+            onCommit={(v) => { updateItem(t.id, { assignedTo: v }); setEditing(null); }}
+            onCancel={() => setEditing(null)}
+            placeholder="Name"
+          />
+        ) : (
+          <span
+            className={`text-[11px] ${t.assignedTo ? "text-foreground" : "text-muted-foreground/60 italic"} ${!readOnly ? "cursor-text" : ""}`}
+            onClick={() => !readOnly && setEditing({ id: t.id, field: "assignedTo" })}
+          >
+            {t.assignedTo || "Unassigned"}
+          </span>
+        )}
+
+        {/* Due */}
+        {!readOnly && isEditing("dueAt") ? (
+          <InlineInput
+            value={t.dueAt}
+            onCommit={(v) => { updateItem(t.id, { dueAt: v }); setEditing(null); }}
+            onCancel={() => setEditing(null)}
+            type="datetime-local"
+          />
+        ) : (
+          <span
+            className={`text-[11px] font-mono text-muted-foreground ${!readOnly ? "cursor-text" : ""}`}
+            onClick={() => !readOnly && setEditing({ id: t.id, field: "dueAt" })}
+          >
+            {t.dueAt ? format(new Date(t.dueAt), "MMM d, HH:mm") : "No due date"}
+          </span>
+        )}
+
+        {/* Status */}
+        <div ref={statusDropdown === t.id ? statusRef : undefined} className="relative">
+          {!readOnly ? (
+            <>
+              <button onClick={() => setStatusDropdown(statusDropdown === t.id ? null : t.id)}>
+                <Badge variant="outline"
+                  className={`text-[9px] tracking-wider uppercase font-medium cursor-pointer ${STATUS_STYLE[t.status] || STATUS_STYLE.open}`}>
+                  {t.status === "in-progress" ? "In Progress" : t.status}
+                </Badge>
+              </button>
+              {statusDropdown === t.id && (
+                <div className="absolute z-20 top-full mt-1 right-0 bg-secondary border border-border rounded-sm shadow-lg py-1 min-w-[120px]">
+                  {STATUS_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => {
+                        updateItem(t.id, { status: opt.value, checked: opt.value === "done" });
+                        setStatusDropdown(null);
+                      }}
+                      className={`w-full text-left px-3 py-1.5 text-xs hover:bg-muted/50 transition-colors ${
+                        t.status === opt.value ? "text-foreground font-medium" : "text-muted-foreground"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <Badge variant="outline"
+              className={`text-[9px] tracking-wider uppercase font-medium ${STATUS_STYLE[t.status] || STATUS_STYLE.open}`}>
+              {t.status === "in-progress" ? "In Progress" : t.status}
+            </Badge>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ChecklistTable({
   items,
   onChange,
@@ -78,6 +229,7 @@ export function ChecklistTable({
   onPromptDisplayName,
   showAddTask,
 }: ChecklistTableProps) {
+  const isMobile = useIsMobile();
   const [editing, setEditing] = useState<EditingCell | null>(null);
   const [statusDropdown, setStatusDropdown] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
@@ -105,10 +257,7 @@ export function ChecklistTable({
     const item = items.find((c) => c.id === id);
     if (!item) return;
     const newDone = !(item.checked || item.status === "done");
-    updateItem(id, {
-      checked: newDone,
-      status: newDone ? "done" : "open",
-    });
+    updateItem(id, { checked: newDone, status: newDone ? "done" : "open" });
   };
 
   const removeItem = (id: string) => {
@@ -116,10 +265,7 @@ export function ChecklistTable({
   };
 
   const assignMe = (id: string) => {
-    if (!displayName) {
-      onPromptDisplayName?.();
-      return;
-    }
+    if (!displayName) { onPromptDisplayName?.(); return; }
     updateItem(id, { assignedTo: displayName });
   };
 
@@ -166,7 +312,7 @@ export function ChecklistTable({
   const hasSelection = !readOnly && selected.size > 0;
 
   return (
-    <div>
+    <div className="overflow-hidden">
       {showAddTask && !readOnly && (
         <div className="flex justify-end mb-2">
           <button
@@ -184,15 +330,15 @@ export function ChecklistTable({
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
             placeholder="Task title…"
-            className="h-8 text-sm flex-1"
+            className="h-8 text-sm flex-1 min-w-0"
             onKeyDown={(e) => e.key === "Enter" && addItem()}
           />
           <button onClick={addItem} disabled={!newTitle.trim()}
-            className="px-3 py-1.5 text-[10px] tracking-wider uppercase bg-primary text-primary-foreground rounded-sm disabled:opacity-40">
+            className="px-3 py-1.5 text-[10px] tracking-wider uppercase bg-primary text-primary-foreground rounded-sm disabled:opacity-40 shrink-0">
             Add
           </button>
           <button onClick={() => setShowAdd(false)}
-            className="px-3 py-1.5 text-[10px] tracking-wider uppercase text-muted-foreground hover:text-foreground">
+            className="px-3 py-1.5 text-[10px] tracking-wider uppercase text-muted-foreground hover:text-foreground shrink-0">
             Cancel
           </button>
         </div>
@@ -200,8 +346,8 @@ export function ChecklistTable({
 
       {/* Bulk action bar */}
       {hasSelection && (
-        <div className="flex items-center gap-3 px-3 py-2 mb-2 bg-secondary/80 border border-border rounded-sm">
-          <CheckCheck className="w-3.5 h-3.5 text-primary" />
+        <div className="flex items-center gap-2 flex-wrap px-3 py-2 mb-2 bg-secondary/80 border border-border rounded-sm">
+          <CheckCheck className="w-3.5 h-3.5 text-primary shrink-0" />
           <span className="text-[10px] tracking-wider uppercase text-muted-foreground">
             {selected.size} selected
           </span>
@@ -233,218 +379,226 @@ export function ChecklistTable({
             <CalendarClock className="w-3 h-3" /> Due today
           </button>
           <button onClick={() => setSelected(new Set())}
-            className="ml-auto text-[10px] tracking-wider uppercase text-muted-foreground hover:text-foreground transition-colors">
+            className="ml-auto text-[10px] tracking-wider uppercase text-muted-foreground hover:text-foreground transition-colors shrink-0">
             Clear
           </button>
         </div>
       )}
 
-      <Table>
-        <TableHeader>
-          <TableRow className="border-border hover:bg-transparent">
-            {!readOnly && (
-              <TableHead className="w-8 pr-0">
-                <button onClick={toggleSelectAll} className="p-0.5">
-                  {selected.size === items.length && items.length > 0
-                    ? <CheckSquare className="w-3.5 h-3.5 text-primary" />
-                    : <div className="w-3.5 h-3.5 border border-muted-foreground/50 rounded-sm hover:border-foreground transition-colors" />}
-                </button>
-              </TableHead>
-            )}
-            <TableHead className="w-8"></TableHead>
-            <TableHead className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground">Task</TableHead>
-            <TableHead className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground">Assigned To</TableHead>
-            <TableHead className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground">Due</TableHead>
-            <TableHead className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground">Status</TableHead>
-            {!readOnly && <TableHead className="w-8"></TableHead>}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {items.map((t) => {
-            const isDone = t.checked || t.status === "done";
-            const isEditing = (field: string) => editing?.id === t.id && editing?.field === field;
-            const isSelected = selected.has(t.id);
+      {/* Mobile: stacked cards */}
+      {isMobile ? (
+        <div className="space-y-2 px-1">
+          {items.map((t) => (
+            <MobileTaskCard
+              key={t.id}
+              t={t}
+              readOnly={readOnly}
+              editing={editing}
+              setEditing={setEditing}
+              toggleCheckbox={toggleCheckbox}
+              updateItem={updateItem}
+              removeItem={removeItem}
+              assignMe={assignMe}
+              statusDropdown={statusDropdown}
+              setStatusDropdown={setStatusDropdown}
+              statusRef={statusRef}
+            />
+          ))}
+        </div>
+      ) : (
+        /* Desktop: table */
+        <Table>
+          <TableHeader>
+            <TableRow className="border-border hover:bg-transparent">
+              {!readOnly && (
+                <TableHead className="w-8 pr-0">
+                  <button onClick={toggleSelectAll} className="p-0.5">
+                    {selected.size === items.length && items.length > 0
+                      ? <CheckSquare className="w-3.5 h-3.5 text-primary" />
+                      : <div className="w-3.5 h-3.5 border border-muted-foreground/50 rounded-sm hover:border-foreground transition-colors" />}
+                  </button>
+                </TableHead>
+              )}
+              <TableHead className="w-8"></TableHead>
+              <TableHead className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground">Task</TableHead>
+              <TableHead className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground">Assigned To</TableHead>
+              <TableHead className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground">Due</TableHead>
+              <TableHead className="text-[10px] tracking-[0.15em] uppercase text-muted-foreground">Status</TableHead>
+              {!readOnly && <TableHead className="w-8"></TableHead>}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {items.map((t) => {
+              const isDone = t.checked || t.status === "done";
+              const isEditing = (field: string) => editing?.id === t.id && editing?.field === field;
+              const isSelected = selected.has(t.id);
 
-            return (
-              <TableRow key={t.id} className={`border-border group ${isSelected ? "bg-primary/5" : ""}`}>
-                {/* Selection checkbox */}
-                {!readOnly && (
+              return (
+                <TableRow key={t.id} className={`border-border group ${isSelected ? "bg-primary/5" : ""}`}>
+                  {!readOnly && (
+                    <TableCell className="w-8 pr-0">
+                      <button onClick={() => toggleSelect(t.id)} className="p-0.5">
+                        {isSelected
+                          ? <CheckSquare className="w-3.5 h-3.5 text-primary" />
+                          : <div className="w-3.5 h-3.5 border border-muted-foreground/50 rounded-sm group-hover:border-foreground transition-colors" />}
+                      </button>
+                    </TableCell>
+                  )}
                   <TableCell className="w-8 pr-0">
-                    <button onClick={() => toggleSelect(t.id)} className="p-0.5">
-                      {isSelected
-                        ? <CheckSquare className="w-3.5 h-3.5 text-primary" />
-                        : <div className="w-3.5 h-3.5 border border-muted-foreground/50 rounded-sm group-hover:border-foreground transition-colors" />}
-                    </button>
-                  </TableCell>
-                )}
-                {/* Done checkbox */}
-                <TableCell className="w-8 pr-0">
-                  {!readOnly ? (
-                    <button onClick={() => toggleCheckbox(t.id)} className="p-0.5">
-                      {isDone
+                    {!readOnly ? (
+                      <button onClick={() => toggleCheckbox(t.id)} className="p-0.5">
+                        {isDone
+                          ? <CheckSquare className="w-4 h-4 text-emerald-500" />
+                          : <div className="w-4 h-4 border border-muted-foreground/50 rounded-sm group-hover:border-foreground transition-colors" />}
+                      </button>
+                    ) : (
+                      isDone
                         ? <CheckSquare className="w-4 h-4 text-emerald-500" />
-                        : <div className="w-4 h-4 border border-muted-foreground/50 rounded-sm group-hover:border-foreground transition-colors" />}
-                    </button>
-                  ) : (
-                    isDone
-                      ? <CheckSquare className="w-4 h-4 text-emerald-500" />
-                      : <div className="w-4 h-4 border border-muted-foreground/50 rounded-sm" />
-                  )}
-                </TableCell>
-
-                {/* Task title */}
-                <TableCell className={`text-sm ${isDone ? "text-muted-foreground line-through" : "text-foreground"}`}>
-                  {!readOnly && isEditing("label") ? (
-                    <InlineInput
-                      value={t.label}
-                      onCommit={(v) => { updateItem(t.id, { label: v || t.label }); setEditing(null); }}
-                      onCancel={() => setEditing(null)}
-                    />
-                  ) : (
-                    <span
-                      className={!readOnly ? "cursor-text hover:bg-secondary/60 px-1 -mx-1 py-0.5 rounded transition-colors" : ""}
-                      onClick={() => !readOnly && setEditing({ id: t.id, field: "label" })}
-                    >
-                      {t.label}
-                    </span>
-                  )}
-                </TableCell>
-
-                {/* Assigned To */}
-                <TableCell className="text-sm">
-                  {!readOnly && isEditing("assignedTo") ? (
-                    <InlineInput
-                      value={t.assignedTo}
-                      onCommit={(v) => { updateItem(t.id, { assignedTo: v }); setEditing(null); }}
-                      onCancel={() => setEditing(null)}
-                      placeholder="Name"
-                    />
-                  ) : (
-                    <div className="flex items-center gap-1.5">
-                      {t.assignedTo ? (
-                        <span
-                          className={!readOnly ? "cursor-text hover:bg-secondary/60 px-1 -mx-1 py-0.5 rounded transition-colors text-foreground" : "text-foreground"}
-                          onClick={() => !readOnly && setEditing({ id: t.id, field: "assignedTo" })}
-                        >
-                          {t.assignedTo}
-                        </span>
-                      ) : (
-                        <>
-                          <span
-                            className={`text-muted-foreground/60 italic ${!readOnly ? "cursor-text" : ""}`}
-                            onClick={() => !readOnly && setEditing({ id: t.id, field: "assignedTo" })}
-                          >
-                            Unassigned
-                          </span>
-                          {!readOnly && (
-                            <button
-                              onClick={() => assignMe(t.id)}
-                              className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 text-[9px] tracking-wider uppercase text-primary hover:text-foreground transition-all"
-                            >
-                              <UserPlus className="w-2.5 h-2.5" /> Assign me
-                            </button>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  )}
-                </TableCell>
-
-                {/* Due */}
-                <TableCell className="text-sm font-mono text-muted-foreground">
-                  {!readOnly && isEditing("dueAt") ? (
-                    <div className="flex items-center gap-1">
+                        : <div className="w-4 h-4 border border-muted-foreground/50 rounded-sm" />
+                    )}
+                  </TableCell>
+                  <TableCell className={`text-sm ${isDone ? "text-muted-foreground line-through" : "text-foreground"}`}>
+                    {!readOnly && isEditing("label") ? (
                       <InlineInput
-                        value={t.dueAt}
-                        onCommit={(v) => { updateItem(t.id, { dueAt: v }); setEditing(null); }}
+                        value={t.label}
+                        onCommit={(v) => { updateItem(t.id, { label: v || t.label }); setEditing(null); }}
                         onCancel={() => setEditing(null)}
-                        type="datetime-local"
                       />
-                      {t.dueAt && (
-                        <button
-                          onClick={() => { updateItem(t.id, { dueAt: "" }); setEditing(null); }}
-                          className="text-[9px] text-muted-foreground hover:text-destructive shrink-0"
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1.5">
+                    ) : (
                       <span
                         className={!readOnly ? "cursor-text hover:bg-secondary/60 px-1 -mx-1 py-0.5 rounded transition-colors" : ""}
-                        onClick={() => !readOnly && setEditing({ id: t.id, field: "dueAt" })}
+                        onClick={() => !readOnly && setEditing({ id: t.id, field: "label" })}
                       >
-                        {t.dueAt ? format(new Date(t.dueAt), "MMM d, HH:mm") : "—"}
+                        {t.label}
                       </span>
-                      {!readOnly && !t.dueAt && (
-                        <button
-                          onClick={() => updateItem(t.id, { dueAt: endOfDay(new Date()).toISOString() })}
-                          className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 text-[9px] tracking-wider uppercase text-primary hover:text-foreground transition-all"
-                        >
-                          <CalendarClock className="w-2.5 h-2.5" /> Due today
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </TableCell>
-
-                {/* Status */}
-                <TableCell className="relative">
-                  {!readOnly ? (
-                    <div ref={statusDropdown === t.id ? statusRef : undefined} className="relative">
-                      <button onClick={() => setStatusDropdown(statusDropdown === t.id ? null : t.id)}>
-                        <Badge variant="outline"
-                          className={`text-[9px] tracking-wider uppercase font-medium cursor-pointer ${STATUS_STYLE[t.status] || STATUS_STYLE.open}`}>
-                          {t.status === "in-progress" ? "In Progress" : t.status}
-                        </Badge>
-                      </button>
-                      {statusDropdown === t.id && (
-                        <div className="absolute z-20 top-full mt-1 left-0 bg-secondary border border-border rounded-sm shadow-lg py-1 min-w-[120px]">
-                          {STATUS_OPTIONS.map((opt) => (
-                            <button
-                              key={opt.value}
-                              onClick={() => {
-                                updateItem(t.id, {
-                                  status: opt.value,
-                                  checked: opt.value === "done",
-                                });
-                                setStatusDropdown(null);
-                              }}
-                              className={`w-full text-left px-3 py-1.5 text-xs hover:bg-muted/50 transition-colors ${
-                                t.status === opt.value ? "text-foreground font-medium" : "text-muted-foreground"
-                              }`}
-                            >
-                              {opt.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <Badge variant="outline"
-                      className={`text-[9px] tracking-wider uppercase font-medium ${STATUS_STYLE[t.status] || STATUS_STYLE.open}`}>
-                      {t.status === "in-progress" ? "In Progress" : t.status}
-                    </Badge>
-                  )}
-                </TableCell>
-
-                {/* Remove */}
-                {!readOnly && (
-                  <TableCell className="w-8">
-                    <button
-                      onClick={() => removeItem(t.id)}
-                      className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all p-0.5"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
+                    )}
                   </TableCell>
-                )}
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
+                  <TableCell className="text-sm">
+                    {!readOnly && isEditing("assignedTo") ? (
+                      <InlineInput
+                        value={t.assignedTo}
+                        onCommit={(v) => { updateItem(t.id, { assignedTo: v }); setEditing(null); }}
+                        onCancel={() => setEditing(null)}
+                        placeholder="Name"
+                      />
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        {t.assignedTo ? (
+                          <span
+                            className={!readOnly ? "cursor-text hover:bg-secondary/60 px-1 -mx-1 py-0.5 rounded transition-colors text-foreground" : "text-foreground"}
+                            onClick={() => !readOnly && setEditing({ id: t.id, field: "assignedTo" })}
+                          >
+                            {t.assignedTo}
+                          </span>
+                        ) : (
+                          <>
+                            <span
+                              className={`text-muted-foreground/60 italic ${!readOnly ? "cursor-text" : ""}`}
+                              onClick={() => !readOnly && setEditing({ id: t.id, field: "assignedTo" })}
+                            >
+                              Unassigned
+                            </span>
+                            {!readOnly && (
+                              <button
+                                onClick={() => assignMe(t.id)}
+                                className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 text-[9px] tracking-wider uppercase text-primary hover:text-foreground transition-all"
+                              >
+                                <UserPlus className="w-2.5 h-2.5" /> Assign me
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-sm font-mono text-muted-foreground">
+                    {!readOnly && isEditing("dueAt") ? (
+                      <div className="flex items-center gap-1">
+                        <InlineInput
+                          value={t.dueAt}
+                          onCommit={(v) => { updateItem(t.id, { dueAt: v }); setEditing(null); }}
+                          onCancel={() => setEditing(null)}
+                          type="datetime-local"
+                        />
+                        {t.dueAt && (
+                          <button
+                            onClick={() => { updateItem(t.id, { dueAt: "" }); setEditing(null); }}
+                            className="text-[9px] text-muted-foreground hover:text-destructive shrink-0"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={!readOnly ? "cursor-text hover:bg-secondary/60 px-1 -mx-1 py-0.5 rounded transition-colors" : ""}
+                          onClick={() => !readOnly && setEditing({ id: t.id, field: "dueAt" })}
+                        >
+                          {t.dueAt ? format(new Date(t.dueAt), "MMM d, HH:mm") : "—"}
+                        </span>
+                        {!readOnly && !t.dueAt && (
+                          <button
+                            onClick={() => updateItem(t.id, { dueAt: endOfDay(new Date()).toISOString() })}
+                            className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 text-[9px] tracking-wider uppercase text-primary hover:text-foreground transition-all"
+                          >
+                            <CalendarClock className="w-2.5 h-2.5" /> Due today
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell className="relative">
+                    {!readOnly ? (
+                      <div ref={statusDropdown === t.id ? statusRef : undefined} className="relative">
+                        <button onClick={() => setStatusDropdown(statusDropdown === t.id ? null : t.id)}>
+                          <Badge variant="outline"
+                            className={`text-[9px] tracking-wider uppercase font-medium cursor-pointer ${STATUS_STYLE[t.status] || STATUS_STYLE.open}`}>
+                            {t.status === "in-progress" ? "In Progress" : t.status}
+                          </Badge>
+                        </button>
+                        {statusDropdown === t.id && (
+                          <div className="absolute z-20 top-full mt-1 left-0 bg-secondary border border-border rounded-sm shadow-lg py-1 min-w-[120px]">
+                            {STATUS_OPTIONS.map((opt) => (
+                              <button
+                                key={opt.value}
+                                onClick={() => {
+                                  updateItem(t.id, { status: opt.value, checked: opt.value === "done" });
+                                  setStatusDropdown(null);
+                                }}
+                                className={`w-full text-left px-3 py-1.5 text-xs hover:bg-muted/50 transition-colors ${
+                                  t.status === opt.value ? "text-foreground font-medium" : "text-muted-foreground"
+                                }`}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <Badge variant="outline"
+                        className={`text-[9px] tracking-wider uppercase font-medium ${STATUS_STYLE[t.status] || STATUS_STYLE.open}`}>
+                        {t.status === "in-progress" ? "In Progress" : t.status}
+                      </Badge>
+                    )}
+                  </TableCell>
+                  {!readOnly && (
+                    <TableCell className="w-8">
+                      <button
+                        onClick={() => removeItem(t.id)}
+                        className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all p-0.5"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </TableCell>
+                  )}
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      )}
 
       {items.length === 0 && (
         <p className="text-sm text-muted-foreground text-center py-6">No checklist items.</p>

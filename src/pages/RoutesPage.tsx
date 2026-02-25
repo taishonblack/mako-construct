@@ -11,12 +11,12 @@ export default function RoutesPage() {
   const [tab, setTab] = useState("topology");
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold tracking-tight">Routes</h1>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-xs text-muted-foreground mt-1 break-words">
             Live contribution topology — Arena → Encoder → Transport → Cloud → Decoder → Production
           </p>
         </div>

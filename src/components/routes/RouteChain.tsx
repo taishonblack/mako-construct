@@ -248,9 +248,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[120px_1fr] items-center gap-2">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      {children}
+    <div className="grid grid-cols-[90px_1fr] md:grid-cols-[120px_1fr] items-center gap-2 min-w-0">
+      <span className="text-xs text-muted-foreground truncate">{label}</span>
+      <div className="min-w-0">{children}</div>
     </div>
   );
 }

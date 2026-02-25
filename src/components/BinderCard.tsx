@@ -29,11 +29,11 @@ export function BinderCard({ binder }: { binder: MockBinder }) {
   return (
     <a
       href={`/binders/${binder.id}`}
-      className="group block steel-panel p-5 hover:border-glow-red transition-all duration-300"
+      className="group block steel-panel p-5 hover:border-glow-red transition-all duration-300 w-full max-w-full overflow-hidden"
     >
       {/* Header row */}
-      <div className="flex items-start justify-between mb-3">
-        <h3 className="text-sm font-medium text-foreground leading-snug pr-3">
+      <div className="flex items-start justify-between mb-3 min-w-0">
+        <h3 className="text-sm font-medium text-foreground leading-snug pr-3 min-w-0 truncate">
           {binder.title}
         </h3>
         <span
