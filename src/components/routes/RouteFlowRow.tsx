@@ -184,7 +184,7 @@ export function RouteFlowRow({ route, onNodeClick, trace }: Props) {
         <div className="flex items-center gap-0 min-w-max">
           {nodes.map((node, i) => (
             <div key={node.kind + i} className="flex items-center">
-              <FlowNodeCard node={node} onClick={() => handleNodeClick(node.kind)} />
+              <FlowNodeCard node={node} trace={trace} onClick={() => handleNodeClick(node.kind)} />
               {i < nodes.length - 1 && <NodeConnector trace={trace} />}
             </div>
           ))}
