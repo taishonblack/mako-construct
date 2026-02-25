@@ -1,7 +1,7 @@
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useSyncExternalStore } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Filter, CheckSquare, ChevronDown, ChevronRight, ChevronsUpDown } from "lucide-react";
+import { Filter, CheckSquare, ChevronDown, ChevronRight, ChevronsUpDown, User, X } from "lucide-react";
 import { format, isToday, addDays, isBefore, isPast } from "date-fns";
 import { binderStore } from "@/stores/binder-store";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { ChecklistTable } from "@/components/checklist/ChecklistTable";
 import { SaveBar } from "@/components/checklist/SaveBar";
 import { useDisplayName } from "@/hooks/use-display-name";
+import { teamStore } from "@/stores/team-store";
 import type { ChecklistItem, ChecklistStatus } from "@/hooks/use-binder-state";
 
 interface BinderGroup {
@@ -72,6 +73,7 @@ const BINDER_STATUS_STYLE: Record<string, string> = {
 
 export default function ChecklistPage() {
   const [filter, setFilter] = useState<FilterMode>("incomplete");
+  const [assigneeFilter, setAssigneeFilter] = useState<string>("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const { displayName, setDisplayName } = useDisplayName();
   const [namePrompt, setNamePrompt] = useState(false);
@@ -157,7 +159,20 @@ export default function ChecklistPage() {
     setDrafts(d);
   }, [savedGroups]);
 
+  // Collect unique assignee names from all tasks
+  const assigneeNames = useMemo(() => {
+    const names = new Set<string>();
+    for (const g of savedGroups) {
+      const tasks = drafts[g.binderId] || g.tasks;
+      for (const t of tasks) {
+        if (t.assignedTo) names.add(t.assignedTo);
+      }
+    }
+    return Array.from(names).sort();
+  }, [savedGroups, drafts]);
+
   const filterTask = useCallback((t: ChecklistItem) => {
+    if (assigneeFilter && t.assignedTo !== assigneeFilter) return false;
     const now = new Date();
     const weekEnd = addDays(now, 7);
     if (filter === "incomplete" && (t.checked || t.status === "done")) return false;
@@ -171,7 +186,7 @@ export default function ChecklistPage() {
     }
     if (filter === "assigned") return !!t.assignedTo;
     return true;
-  }, [filter]);
+  }, [filter, assigneeFilter]);
 
   // Build visible groups using draft data
   const visibleGroups = useMemo(() => {
@@ -261,7 +276,7 @@ export default function ChecklistPage() {
       )}
 
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 md:gap-4 mb-5">
+      <div className="flex flex-wrap items-center gap-2 md:gap-4 mb-3">
         <div className="flex items-center gap-1.5 md:gap-2 flex-wrap">
           <Filter className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
           {filters.map(f => (
@@ -276,6 +291,28 @@ export default function ChecklistPage() {
           {expanded.size > 0 ? "Collapse All" : "Expand All"}
         </button>
       </div>
+
+      {/* Assignee filter row */}
+      {assigneeNames.length > 0 && (
+        <div className="flex items-center gap-1.5 md:gap-2 mb-5 flex-wrap">
+          <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+          <button onClick={() => setAssigneeFilter("")}
+            className={`px-2 md:px-2.5 py-1 text-[10px] tracking-wider uppercase rounded border transition-colors ${
+              !assigneeFilter ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground"
+            }`}>Anyone</button>
+          {assigneeNames.map(name => (
+            <button key={name} onClick={() => setAssigneeFilter(name)}
+              className={`px-2 md:px-2.5 py-1 text-[10px] tracking-wider uppercase rounded border transition-colors ${
+                assigneeFilter === name ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground"
+              }`}>{name}</button>
+          ))}
+          {assigneeFilter && (
+            <button onClick={() => setAssigneeFilter("")} className="ml-1 p-0.5 text-muted-foreground hover:text-foreground transition-colors">
+              <X className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Binder groups */}
       <div className="space-y-4">
