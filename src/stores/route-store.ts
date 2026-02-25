@@ -121,7 +121,10 @@ export function useRoutesStore() {
       ...prev,
       routers: prev.routers.map((r) => (r.id === id ? { ...r, ...patch } : r)),
     }));
-    await supabase.from("routers").update(patch).eq("id", id);
+    const { crosspoints, ...rest } = patch as any;
+    const dbPatch: any = { ...rest };
+    if (crosspoints !== undefined) dbPatch.crosspoints = crosspoints;
+    await supabase.from("routers").update(dbPatch).eq("id", id);
   }, []);
 
   const syncRouterCrosspoints = useCallback(() => {

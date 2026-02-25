@@ -1,24 +1,34 @@
-import { useSyncExternalStore, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { teamStore, type TeamMember } from "@/stores/team-store";
 
+export type { TeamMember };
+
 export function useTeam() {
-  const members = useSyncExternalStore(
-    teamStore.subscribe,
-    teamStore.getAll,
-    teamStore.getAll,
-  );
+  const [members, setMembers] = useState<TeamMember[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const addMember = useCallback((data: Omit<TeamMember, "id">) => {
-    return teamStore.create(data);
+  const refresh = useCallback(async () => {
+    const data = await teamStore.getAll();
+    setMembers(data);
+    setLoading(false);
   }, []);
 
-  const updateMember = useCallback((id: string, partial: Partial<TeamMember>) => {
-    return teamStore.update(id, partial);
-  }, []);
+  useEffect(() => { refresh(); }, [refresh]);
 
-  const removeMember = useCallback((id: string) => {
-    return teamStore.remove(id);
-  }, []);
+  const addMember = useCallback(async (data: Omit<TeamMember, "id">) => {
+    await teamStore.create(data);
+    refresh();
+  }, [refresh]);
 
-  return { members, addMember, updateMember, removeMember };
+  const updateMember = useCallback(async (id: string, partial: Partial<TeamMember>) => {
+    await teamStore.update(id, partial);
+    refresh();
+  }, [refresh]);
+
+  const removeMember = useCallback(async (id: string) => {
+    await teamStore.remove(id);
+    refresh();
+  }, [refresh]);
+
+  return { members, loading, addMember, updateMember, removeMember };
 }

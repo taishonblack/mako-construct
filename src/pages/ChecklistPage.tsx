@@ -1,15 +1,14 @@
-import { useState, useMemo, useCallback, useEffect, useSyncExternalStore } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Filter, CheckSquare, ChevronDown, ChevronRight, ChevronsUpDown, User, X } from "lucide-react";
 import { format, isToday, addDays, isBefore, isPast } from "date-fns";
-import { binderStore } from "@/stores/binder-store";
+import { useBinders } from "@/hooks/use-binders";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { ChecklistTable } from "@/components/checklist/ChecklistTable";
 import { SaveBar } from "@/components/checklist/SaveBar";
 import { useDisplayName } from "@/hooks/use-display-name";
-import { teamStore } from "@/stores/team-store";
 import type { ChecklistItem, ChecklistStatus } from "@/hooks/use-binder-state";
 
 interface BinderGroup {
@@ -21,8 +20,7 @@ interface BinderGroup {
   counts: { open: number; dueToday: number; overdue: number; unassigned: number };
 }
 
-function loadGroups(): BinderGroup[] {
-  const binders = binderStore.getAll();
+function loadGroupsFromBinders(binders: { id: string; title: string; eventDate: string; status: string }[]): BinderGroup[] {
   const groups: BinderGroup[] = [];
   for (const b of binders) {
     try {
@@ -72,6 +70,7 @@ const BINDER_STATUS_STYLE: Record<string, string> = {
 };
 
 export default function ChecklistPage() {
+  const { binders, loading: bindersLoading } = useBinders();
   const [filter, setFilter] = useState<FilterMode>("incomplete");
   const [assigneeFilter, setAssigneeFilter] = useState<string>("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -79,36 +78,29 @@ export default function ChecklistPage() {
   const [namePrompt, setNamePrompt] = useState(false);
   const [nameInput, setNameInput] = useState("");
 
-  // Saved state from localStorage — savedVersion triggers reload after save
   const [savedVersion, bumpVersion] = useState(0);
-  const savedGroups = useMemo(() => loadGroups(), [savedVersion]);
+  const savedGroups = useMemo(() => loadGroupsFromBinders(binders), [binders, savedVersion]);
 
-  // Draft state per binder
-  const [drafts, setDrafts] = useState<Record<string, ChecklistItem[]>>(() => {
-    const d: Record<string, ChecklistItem[]> = {};
-    for (const g of loadGroups()) {
-      d[g.binderId] = [...g.tasks];
-    }
-    return d;
-  });
+  const [drafts, setDrafts] = useState<Record<string, ChecklistItem[]>>({});
 
-  // Refresh drafts when saved groups change (after save)
+  // Initialize drafts when binders load
   useEffect(() => {
-    setDrafts((prev) => {
-      const next: Record<string, ChecklistItem[]> = {};
-      for (const g of savedGroups) {
-        // Only update if no local draft changes exist
-        if (!prev[g.binderId] || JSON.stringify(prev[g.binderId]) === JSON.stringify(g.tasks)) {
-          next[g.binderId] = [...g.tasks];
-        } else {
-          next[g.binderId] = prev[g.binderId];
+    if (binders.length > 0) {
+      const groups = loadGroupsFromBinders(binders);
+      setDrafts((prev) => {
+        const next: Record<string, ChecklistItem[]> = {};
+        for (const g of groups) {
+          if (!prev[g.binderId] || JSON.stringify(prev[g.binderId]) === JSON.stringify(g.tasks)) {
+            next[g.binderId] = [...g.tasks];
+          } else {
+            next[g.binderId] = prev[g.binderId];
+          }
         }
-      }
-      return next;
-    });
-  }, [savedGroups]);
+        return next;
+      });
+    }
+  }, [binders, savedVersion]);
 
-  // Dirty tracking
   const dirtyBinders = useMemo(() => {
     const dirty = new Set<string>();
     for (const g of savedGroups) {
@@ -122,7 +114,6 @@ export default function ChecklistPage() {
 
   const isDirty = dirtyBinders.size > 0;
 
-  // beforeunload
   useEffect(() => {
     if (!isDirty) return;
     const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
@@ -135,7 +126,6 @@ export default function ChecklistPage() {
   }, []);
 
   const saveAll = useCallback(() => {
-    // Write all dirty binder checklists to localStorage
     for (const [binderId, draftItems] of Object.entries(drafts)) {
       try {
         const raw = localStorage.getItem(`mako-binder-${binderId}`);
@@ -147,7 +137,6 @@ export default function ChecklistPage() {
         }
       } catch { /* ignore */ }
     }
-    // Bump version to reload savedGroups from localStorage
     bumpVersion((n) => n + 1);
   }, [drafts]);
 
@@ -159,7 +148,6 @@ export default function ChecklistPage() {
     setDrafts(d);
   }, [savedGroups]);
 
-  // Collect unique assignee names from all tasks
   const assigneeNames = useMemo(() => {
     const names = new Set<string>();
     for (const g of savedGroups) {
@@ -188,7 +176,6 @@ export default function ChecklistPage() {
     return true;
   }, [filter, assigneeFilter]);
 
-  // Build visible groups using draft data
   const visibleGroups = useMemo(() => {
     return savedGroups
       .filter(g => g.binderStatus !== "archived")
@@ -245,6 +232,14 @@ export default function ChecklistPage() {
     setNamePrompt(false);
   };
 
+  if (bindersLoading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="pb-16">
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="mb-6">
@@ -254,28 +249,16 @@ export default function ChecklistPage() {
         </p>
       </motion.div>
 
-      {/* Display name prompt */}
       {namePrompt && (
         <div className="mb-4 p-3 bg-secondary/50 rounded-sm border border-border flex items-center gap-2">
           <span className="text-xs text-muted-foreground">Set your name for assignments:</span>
-          <Input
-            value={nameInput}
-            onChange={(e) => setNameInput(e.target.value)}
-            placeholder="Your name…"
-            className="h-8 text-sm max-w-48"
-            onKeyDown={(e) => e.key === "Enter" && handleSaveName()}
-            autoFocus
-          />
-          <button onClick={handleSaveName} className="px-3 py-1.5 text-[10px] tracking-wider uppercase bg-primary text-primary-foreground rounded-sm">
-            Save Name
-          </button>
-          <button onClick={() => setNamePrompt(false)} className="px-3 py-1.5 text-[10px] tracking-wider uppercase text-muted-foreground hover:text-foreground">
-            Cancel
-          </button>
+          <Input value={nameInput} onChange={(e) => setNameInput(e.target.value)} placeholder="Your name…"
+            className="h-8 text-sm max-w-48" onKeyDown={(e) => e.key === "Enter" && handleSaveName()} autoFocus />
+          <button onClick={handleSaveName} className="px-3 py-1.5 text-[10px] tracking-wider uppercase bg-primary text-primary-foreground rounded-sm">Save Name</button>
+          <button onClick={() => setNamePrompt(false)} className="px-3 py-1.5 text-[10px] tracking-wider uppercase text-muted-foreground hover:text-foreground">Cancel</button>
         </div>
       )}
 
-      {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2 md:gap-4 mb-3">
         <div className="flex items-center gap-1.5 md:gap-2 flex-wrap">
           <Filter className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
@@ -292,7 +275,6 @@ export default function ChecklistPage() {
         </button>
       </div>
 
-      {/* Assignee filter row */}
       <div className="flex items-center gap-1.5 md:gap-2 mb-5 flex-wrap">
         <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
         {displayName && (
@@ -318,7 +300,6 @@ export default function ChecklistPage() {
         )}
       </div>
 
-      {/* Binder groups */}
       <div className="space-y-4">
         <AnimatePresence initial={false}>
           {visibleGroups.length > 0 ? visibleGroups.map(g => {
@@ -327,7 +308,6 @@ export default function ChecklistPage() {
             return (
               <motion.div key={g.binderId} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                 className={`steel-panel overflow-hidden ${dirty ? "ring-1 ring-primary/30" : ""}`}>
-                {/* Binder header */}
                 <button onClick={() => toggleExpand(g.binderId)}
                   className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors text-left">
                   {isOpen ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
@@ -340,12 +320,10 @@ export default function ChecklistPage() {
                       <Badge variant="outline" className={`text-[9px] tracking-wider uppercase font-medium ${BINDER_STATUS_STYLE[g.binderStatus] || BINDER_STATUS_STYLE.draft}`}>
                         {g.binderStatus}
                       </Badge>
-                      {dirty && (
-                        <span className="text-[9px] tracking-wider uppercase text-primary">● modified</span>
-                      )}
+                      {dirty && <span className="text-[9px] tracking-wider uppercase text-primary">● modified</span>}
                     </div>
                     <p className="text-[11px] text-muted-foreground mt-0.5">
-                      {format(new Date(g.eventDate), "MMM d, yyyy")}
+                      {g.eventDate ? format(new Date(g.eventDate), "MMM d, yyyy") : "No date"}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 md:gap-3 text-[10px] tracking-wider uppercase shrink-0 flex-wrap">
@@ -355,8 +333,6 @@ export default function ChecklistPage() {
                     {g.counts.unassigned > 0 && <span className="text-muted-foreground/60 hidden md:inline">{g.counts.unassigned} unassigned</span>}
                   </div>
                 </button>
-
-                {/* Task table */}
                 <AnimatePresence initial={false}>
                   {isOpen && (
                     <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }}>
@@ -383,9 +359,7 @@ export default function ChecklistPage() {
         </AnimatePresence>
       </div>
 
-      {/* Save bar */}
       <SaveBar isDirty={isDirty} onSave={saveAll} onDiscard={discardAll} />
-
     </div>
   );
 }

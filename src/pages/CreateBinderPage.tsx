@@ -43,8 +43,8 @@ export default function CreateBinderPage() {
     });
     return items;
   }, [seedChecklist, customItems]);
-  const handleCreate = (data: BinderFormData) => {
-    const record = binderStore.create({
+  const handleCreate = async (data: BinderFormData) => {
+    const record = await binderStore.create({
       title: data.title,
       league: "NHL",
       containerId: data.containerId,
@@ -81,7 +81,6 @@ export default function CreateBinderPage() {
       autoAllocate: data.autoAllocate,
       gameType: data.gameType || "Regular Season",
       season: data.season || "2025–26",
-      // New V1 fields
       controlRoom: data.controlRoom,
       rehearsalDate: data.rehearsalDate,
       broadcastFeed: data.broadcastFeed,
@@ -96,6 +95,8 @@ export default function CreateBinderPage() {
       lqRequired: data.lqRequired,
       lqPorts: data.lqPorts,
     });
+
+    if (!record) return;
 
     // Generate signals
     const customNames = data.signalNamingMode === "custom"
