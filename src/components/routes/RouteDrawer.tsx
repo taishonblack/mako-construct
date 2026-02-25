@@ -32,6 +32,7 @@ interface Props {
   onSave: (id: string, patch: Partial<SignalRoute>) => void;
   onRemove: (id: string) => void;
   onDuplicate?: (route: SignalRoute) => void;
+  initialSection?: string | null;
 }
 
 // Jump nav sections
@@ -44,7 +45,7 @@ const SECTIONS = [
   { id: "alias", label: "Alias" },
 ] as const;
 
-export function RouteDrawer({ route, open, onOpenChange, onSave, onRemove, onDuplicate }: Props) {
+export function RouteDrawer({ route, open, onOpenChange, onSave, onRemove, onDuplicate, initialSection }: Props) {
   const isMobile = useIsMobile();
   const [draft, setDraft] = useState<SignalRoute | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
@@ -54,6 +55,15 @@ export function RouteDrawer({ route, open, onOpenChange, onSave, onRemove, onDup
     if (route) setDraft(structuredClone(route));
     else setDraft(null);
   }, [route]);
+
+  // Auto-scroll to section when opened from transport view
+  useEffect(() => {
+    if (open && initialSection) {
+      setTimeout(() => {
+        document.getElementById(`route-section-${initialSection}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 300);
+    }
+  }, [open, initialSection]);
 
   const isDirty = useMemo(() => {
     if (!route || !draft) return false;
