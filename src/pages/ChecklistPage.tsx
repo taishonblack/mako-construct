@@ -6,11 +6,9 @@ import { format, isToday, addDays, isBefore, isPast } from "date-fns";
 import { binderStore } from "@/stores/binder-store";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChecklistTable } from "@/components/checklist/ChecklistTable";
 import { SaveBar } from "@/components/checklist/SaveBar";
 import { useDisplayName } from "@/hooks/use-display-name";
-import { useIsMobile } from "@/hooks/use-mobile";
 import type { ChecklistItem, ChecklistStatus } from "@/hooks/use-binder-state";
 
 interface BinderGroup {
@@ -232,10 +230,8 @@ export default function ChecklistPage() {
     setNamePrompt(false);
   };
 
-  const isMobile = useIsMobile();
-
   return (
-    <div className="pb-16 w-full max-w-full overflow-x-hidden">
+    <div className="pb-16">
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="mb-6">
         <h1 className="text-xl font-medium text-foreground tracking-tight">Task Queue</h1>
         <p className="text-sm text-muted-foreground mt-1">
@@ -265,31 +261,17 @@ export default function ChecklistPage() {
       )}
 
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-2 md:gap-4 mb-5 min-w-0">
-        {isMobile ? (
-          <Select value={filter} onValueChange={(v) => setFilter(v as FilterMode)}>
-            <SelectTrigger className="w-[120px] shrink-0 h-9 text-xs bg-secondary border-border">
-              <Filter className="w-3 h-3 mr-1.5 text-muted-foreground" />
-              <SelectValue placeholder="Filter" />
-            </SelectTrigger>
-            <SelectContent className="bg-popover border-border z-50">
-              {filters.map(f => (
-                <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : (
-          <div className="flex items-center gap-2">
-            <Filter className="w-3.5 h-3.5 text-muted-foreground" />
-            {filters.map(f => (
-              <button key={f.value} onClick={() => setFilter(f.value)}
-                className={`px-2.5 py-1 text-[10px] tracking-wider uppercase rounded border transition-colors ${
-                  filter === f.value ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground"
-                }`}>{f.label}</button>
-            ))}
-          </div>
-        )}
-        <button onClick={toggleAll} className="ml-auto flex items-center gap-1.5 px-2.5 py-1 text-[10px] tracking-wider uppercase rounded border border-border text-muted-foreground hover:text-foreground transition-colors shrink-0">
+      <div className="flex flex-wrap items-center gap-4 mb-5">
+        <div className="flex items-center gap-2">
+          <Filter className="w-3.5 h-3.5 text-muted-foreground" />
+          {filters.map(f => (
+            <button key={f.value} onClick={() => setFilter(f.value)}
+              className={`px-2.5 py-1 text-[10px] tracking-wider uppercase rounded border transition-colors ${
+                filter === f.value ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground"
+              }`}>{f.label}</button>
+          ))}
+        </div>
+        <button onClick={toggleAll} className="ml-auto flex items-center gap-1.5 px-2.5 py-1 text-[10px] tracking-wider uppercase rounded border border-border text-muted-foreground hover:text-foreground transition-colors">
           <ChevronsUpDown className="w-3 h-3" />
           {collapsed.size === visibleGroups.length ? "Expand All" : "Collapse All"}
         </button>
@@ -325,11 +307,11 @@ export default function ChecklistPage() {
                       {format(new Date(g.eventDate), "MMM d, yyyy")}
                     </p>
                   </div>
-                  <div className="flex items-center gap-3 text-[10px] tracking-wider uppercase shrink-0 flex-wrap">
+                  <div className="flex items-center gap-3 text-[10px] tracking-wider uppercase shrink-0">
                     <span className="text-muted-foreground">{g.counts.open} open</span>
                     {g.counts.dueToday > 0 && <span className="text-primary">{g.counts.dueToday} today</span>}
-                    {!isMobile && g.counts.overdue > 0 && <span className="text-destructive">{g.counts.overdue} overdue</span>}
-                    {!isMobile && g.counts.unassigned > 0 && <span className="text-muted-foreground/60">{g.counts.unassigned} unassigned</span>}
+                    {g.counts.overdue > 0 && <span className="text-destructive">{g.counts.overdue} overdue</span>}
+                    {g.counts.unassigned > 0 && <span className="text-muted-foreground/60">{g.counts.unassigned} unassigned</span>}
                   </div>
                 </button>
 

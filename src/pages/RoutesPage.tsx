@@ -11,7 +11,7 @@ export default function RoutesPage() {
   const [tab, setTab] = useState("topology");
 
   return (
-    <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-6 w-full max-w-full md:max-w-6xl overflow-x-hidden">
+    <div className="p-6 max-w-6xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

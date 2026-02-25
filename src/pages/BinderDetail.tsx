@@ -8,7 +8,6 @@ import { mockBinderDetail } from "@/data/mock-binder-detail";
 import { computeReadiness } from "@/lib/readiness-engine";
 import { useBinderState } from "@/hooks/use-binder-state";
 import { useRoutesStore } from "@/stores/route-store";
-import { useIsMobile } from "@/hooks/use-mobile";
 
 import { CommandHeader } from "@/components/command/CommandHeader";
 import { EventCommandHeader } from "@/components/command/EventCommandHeader";
@@ -30,11 +29,10 @@ import { BinderCopilot } from "@/components/command/BinderCopilot";
 import { DocToBinderAssist, type DetectedField } from "@/components/command/DocToBinderAssist";
 import { AudioPhilosophy } from "@/components/command/AudioPhilosophy";
 import { PdfExport } from "@/components/command/PdfExport";
-import { MobileBinderLayout } from "@/components/mobile/MobileBinderLayout";
+
 export default function BinderDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const isMobile = useIsMobile();
   const binderId = id || "1";
 
   const storeRecord = binderStore.getById(binderId);
@@ -267,101 +265,6 @@ export default function BinderDetail() {
       update("changes", [...newChanges, ...state.changes]);
     }
   }, [state, setIsoCount, updateEventHeader, updateSignal, updateAudioPhilosophy, update]);
-
-  if (isMobile) {
-    return (
-      <div className="relative">
-        <MobileBinderLayout
-          binder={binder}
-          state={state}
-          report={report}
-          routes={routesState.routes}
-          previewMode={previewMode}
-          isLocked={isLocked}
-          isReadOnly={isReadOnly}
-          draftChecklist={draftChecklist}
-          checklistDirty={checklistDirty}
-          displayName={displayName}
-          onToggleMode={() => setPreviewMode(!previewMode)}
-          onEdit={() => setEditOpen(true)}
-          onSetDraftChecklist={setDraftChecklist}
-          onSaveChecklist={saveChecklist}
-          onDiscardChecklist={discardChecklist}
-          onPromptDisplayName={() => { setNamePrompt(true); setNameInput(displayName); }}
-          onUpdateAudioPhilosophy={updateAudioPhilosophy}
-          onAddDoc={addDoc}
-          onRemoveDoc={removeDoc}
-          onUpdateDoc={updateDoc}
-        />
-        <BinderFormModal
-          open={editOpen}
-          onClose={() => setEditOpen(false)}
-          onSubmit={handleEditSubmit}
-          onDelete={handleDelete}
-          mode="edit"
-          oldIsoCount={state.isoCount}
-          initial={{
-            title: binder.title, league: "NHL",
-            containerId: storeRecord?.containerId || "",
-            gameType: storeRecord?.gameType || "Regular Season",
-            season: storeRecord?.season || "2025–26",
-            eventDate: state.eventDate, eventTime: state.eventTime || "19:00",
-            timezone: state.timezone || "America/New_York",
-            venue: state.venue,
-            homeTeam: state.homeTeam || storeRecord?.homeTeam || "",
-            awayTeam: state.awayTeam || storeRecord?.awayTeam || "",
-            siteType: state.siteType || storeRecord?.siteType || "Arena",
-            studioLocation: storeRecord?.studioLocation || "",
-            showType: state.showType,
-            customShowType: storeRecord?.customShowType || "",
-            partner: state.partner, status: binder.status, isoCount: state.isoCount,
-            returnRequired: state.returnRequired, commercials: state.commercials,
-            customCommercials: storeRecord?.customCommercials || "",
-            primaryTransport: storeRecord?.primaryTransport || binder.transport,
-            customPrimaryTransport: storeRecord?.customPrimaryTransport || "",
-            backupTransport: storeRecord?.backupTransport || binder.backupTransport,
-            customBackupTransport: storeRecord?.customBackupTransport || "",
-            notes: storeRecord?.notes || "",
-            signalNamingMode: storeRecord?.signalNamingMode || "iso",
-            canonicalSignals: storeRecord?.canonicalSignals || [],
-            customSignalNames: storeRecord?.customSignalNames || "",
-            encoderInputsPerUnit: state.topology?.encoderInputsPerUnit || storeRecord?.encoderInputsPerUnit || 2,
-            encoderCount: state.topology?.encoderCount || storeRecord?.encoderCount || 6,
-            decoderOutputsPerUnit: state.topology?.decoderOutputsPerUnit || storeRecord?.decoderOutputsPerUnit || 4,
-            decoderCount: state.topology?.decoderCount || storeRecord?.decoderCount || 6,
-            autoAllocate: storeRecord?.autoAllocate ?? true,
-            srtPrimaryHost: "", srtPrimaryPort: "", srtPrimaryMode: "caller", srtPrimaryPassphrase: "",
-            mpegPrimaryMulticast: "", mpegPrimaryPort: "",
-            srtBackupHost: "", srtBackupPort: "", srtBackupMode: "caller", srtBackupPassphrase: "",
-            mpegBackupMulticast: "", mpegBackupPort: "",
-            saveAsTemplate: false, templateName: "",
-            controlRoom: storeRecord?.controlRoom || "23",
-            rehearsalDate: storeRecord?.rehearsalDate || "",
-            broadcastFeed: storeRecord?.broadcastFeed || "",
-            onsiteTechManager: storeRecord?.onsiteTechManager || "",
-            returnFeedEndpoints: storeRecord?.returnFeedEndpoints || [],
-            encoders: storeRecord?.encoders || [{ id: "enc-1", brand: "Videon", model: "", outputsPerUnit: 4, unitCount: 2, notes: "" }],
-            decoders: storeRecord?.decoders || [{ id: "dec-1", brand: "Haivision", model: "", outputsPerUnit: 2, unitCount: 6, notes: "" }],
-            outboundHost: storeRecord?.outboundHost || "",
-            outboundPort: storeRecord?.outboundPort || "",
-            inboundHost: storeRecord?.inboundHost || "",
-            inboundPort: storeRecord?.inboundPort || "",
-            backupOutboundHost: "",
-            backupOutboundPort: "",
-            backupInboundHost: "",
-            backupInboundPort: "",
-            lqRequired: storeRecord?.lqRequired ?? false,
-            lqPorts: storeRecord?.lqPorts || [
-              { letter: "E", label: "Truck AD", notes: "" },
-              { letter: "F", label: "Truck Production", notes: "" },
-              { letter: "G", label: "Cam Ops", notes: "" },
-              { letter: "H", label: "TBD", notes: "" },
-            ],
-          }}
-        />
-      </div>
-    );
-  }
 
   return (
     <div className="relative">
