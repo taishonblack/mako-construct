@@ -6,13 +6,13 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useRoutesStore } from "@/stores/route-store";
+import { useRoutesStore, buildDefaultLinks } from "@/stores/route-store";
+import type { SignalRoute, HopNode } from "@/stores/route-store";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { RouteChain } from "@/components/routes/RouteChain";
 import { ShowDayCard } from "@/components/routes/ShowDayCard";
 import { TransportView } from "@/components/routes/TransportView";
 import { RouteDrawer } from "@/components/routes/RouteDrawer";
-import type { SignalRoute } from "@/stores/route-store";
 import type { NodeKind } from "@/components/routes/FlowNodeCard";
 
 type ViewMode = "engineering" | "showday";
@@ -48,8 +48,32 @@ export default function RoutesPage() {
 
   const handleDuplicate = useCallback((route: SignalRoute) => {
     addRoute();
-    // The new route is added at the end — we could improve this later
   }, [addRoute]);
+
+  const handleAddHop = useCallback((routeId: string, linkFrom: string, linkTo: string) => {
+    const route = state.routes.find(r => r.id === routeId);
+    if (!route) return;
+    const links = (route.links ?? buildDefaultLinks()).map(l => {
+      if (l.from === linkFrom && l.to === linkTo) {
+        return {
+          ...l,
+          hops: [...l.hops, {
+            id: `hop-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            subtype: "Other" as const,
+            label: "",
+            vendor: "",
+            model: "",
+            notes: "",
+            status: "ok" as const,
+          }],
+        };
+      }
+      return l;
+    });
+    updateRoute(routeId, { links });
+    setSelectedRouteId(routeId);
+    setDrawerSection("hops");
+  }, [state.routes, updateRoute]);
 
   return (
     <div className="max-w-6xl mx-auto space-y-4">
@@ -62,7 +86,6 @@ export default function RoutesPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {/* Show Day toggle */}
           <div className="flex border border-border rounded-md">
             <Button
               variant={mode === "engineering" ? "secondary" : "ghost"}
@@ -94,7 +117,7 @@ export default function RoutesPage() {
         </div>
       </div>
 
-      {/* Show Day mode — minimal view */}
+      {/* Show Day mode */}
       {mode === "showday" ? (
         <div className="space-y-2">
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3">
@@ -102,16 +125,11 @@ export default function RoutesPage() {
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
             {visibleRoutes.map((route) => (
-              <ShowDayCard
-                key={route.id}
-                route={route}
-                onClick={() => setSelectedRouteId(route.id)}
-              />
+              <ShowDayCard key={route.id} route={route} onClick={() => setSelectedRouteId(route.id)} />
             ))}
           </div>
         </div>
       ) : (
-        /* Engineering mode — full tabs */
         <Tabs value={tab} onValueChange={setTab}>
           <div className="flex items-center justify-between gap-2">
             <TabsList className="bg-muted/50">
@@ -136,33 +154,19 @@ export default function RoutesPage() {
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2 px-1">Route Visibility</p>
                     {state.routes.map((r) => (
                       <label key={r.id} className="flex items-center gap-2 px-1 py-1.5 rounded hover:bg-secondary/50 cursor-pointer">
-                        <Checkbox
-                          checked={!hiddenRoutes.has(r.id)}
-                          onCheckedChange={() => toggleVisibility(r.id)}
-                        />
+                        <Checkbox checked={!hiddenRoutes.has(r.id)} onCheckedChange={() => toggleVisibility(r.id)} />
                         <span className="text-xs font-mono">{r.routeName}</span>
                         <span className="text-[10px] text-muted-foreground ml-auto">{r.alias.productionName}</span>
                       </label>
                     ))}
                   </PopoverContent>
                 </Popover>
-
                 {!isMobile && (
                   <div className="flex border border-border rounded-md">
-                    <Button
-                      variant={viewMode === "grid" ? "secondary" : "ghost"}
-                      size="icon"
-                      className="h-8 w-8 rounded-r-none"
-                      onClick={() => setViewMode("grid")}
-                    >
+                    <Button variant={viewMode === "grid" ? "secondary" : "ghost"} size="icon" className="h-8 w-8 rounded-r-none" onClick={() => setViewMode("grid")}>
                       <LayoutGrid className="w-3.5 h-3.5" />
                     </Button>
-                    <Button
-                      variant={viewMode === "list" ? "secondary" : "ghost"}
-                      size="icon"
-                      className="h-8 w-8 rounded-l-none"
-                      onClick={() => setViewMode("list")}
-                    >
+                    <Button variant={viewMode === "list" ? "secondary" : "ghost"} size="icon" className="h-8 w-8 rounded-l-none" onClick={() => setViewMode("list")}>
                       <List className="w-3.5 h-3.5" />
                     </Button>
                   </div>
@@ -181,12 +185,7 @@ export default function RoutesPage() {
             ) : viewMode === "grid" || isMobile ? (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                 {visibleRoutes.map((route) => (
-                  <RouteChain
-                    key={route.id}
-                    route={route}
-                    isSelected={selectedRouteId === route.id}
-                    onSelect={setSelectedRouteId}
-                  />
+                  <RouteChain key={route.id} route={route} isSelected={selectedRouteId === route.id} onSelect={setSelectedRouteId} />
                 ))}
               </div>
             ) : (
@@ -203,16 +202,10 @@ export default function RoutesPage() {
                   </TableHeader>
                   <TableBody>
                     {visibleRoutes.map((r) => (
-                      <TableRow
-                        key={r.id}
-                        className="cursor-pointer hover:bg-secondary/50"
-                        onClick={() => setSelectedRouteId(r.id)}
-                      >
+                      <TableRow key={r.id} className="cursor-pointer hover:bg-secondary/50" onClick={() => setSelectedRouteId(r.id)}>
                         <TableCell className="text-xs font-mono font-semibold">{r.routeName}</TableCell>
                         <TableCell className="text-xs font-mono">{r.encoder.brand} {r.encoder.deviceName}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="text-[10px] font-mono">{r.transport.type || "—"}</Badge>
-                        </TableCell>
+                        <TableCell><Badge variant="outline" className="text-[10px] font-mono">{r.transport.type || "—"}</Badge></TableCell>
                         <TableCell className="text-xs font-mono">{r.decoder.brand} {r.decoder.deviceName}</TableCell>
                         <TableCell className="text-xs font-semibold">{r.alias.productionName || "—"}</TableCell>
                       </TableRow>
@@ -230,12 +223,12 @@ export default function RoutesPage() {
                 setSelectedRouteId(routeId);
                 setDrawerSection(section);
               }}
+              onAddHop={handleAddHop}
             />
           </TabsContent>
         </Tabs>
       )}
 
-      {/* Route Drawer */}
       <RouteDrawer
         route={selectedRoute}
         open={!!selectedRouteId}

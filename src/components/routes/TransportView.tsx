@@ -12,16 +12,31 @@ type HealthFilter = "all" | "ok" | "warn" | "error";
 
 interface Props {
   routes: SignalRoute[];
-  onNodeClick?: (routeId: string, section: NodeKind) => void;
+  onNodeClick?: (routeId: string, section: NodeKind | string) => void;
+  onAddHop?: (routeId: string, linkFrom: string, linkTo: string) => void;
 }
 
 function computeRouteHealth(r: SignalRoute): "ok" | "warn" | "error" {
+  // Use manual health status if set
+  if (r.health) {
+    if (r.health.status === "down") return "error";
+    if (r.health.status === "warn") return "warn";
+  }
   const has = (v: string | undefined | null) => !!v && v.trim() !== "";
   const problems: string[] = [];
   if (!has(r.transport.type)) problems.push("transport");
   if (!has(r.encoder.deviceName)) problems.push("encoder");
   if (!has(r.decoder.deviceName)) problems.push("decoder");
   if (!has(r.alias.productionName)) problems.push("alias");
+  // Check hop health
+  if (r.links) {
+    for (const link of r.links) {
+      for (const hop of link.hops) {
+        if (hop.status === "error" || hop.status === "offline") return "error";
+        if (hop.status === "warn") problems.push("hop");
+      }
+    }
+  }
   if (problems.length >= 2) return "error";
   if (problems.length >= 1) return "warn";
   return "ok";
@@ -34,7 +49,7 @@ const FILTER_OPTIONS: { value: HealthFilter; label: string; cls: string }[] = [
   { value: "error", label: "Down", cls: "text-red-400" },
 ];
 
-export function TransportView({ routes, onNodeClick }: Props) {
+export function TransportView({ routes, onNodeClick, onAddHop }: Props) {
   const [healthFilter, setHealthFilter] = useState<HealthFilter>("all");
   const [traceMode, setTraceMode] = useState(false);
 
@@ -66,9 +81,8 @@ export function TransportView({ routes, onNodeClick }: Props) {
 
   return (
     <div className="space-y-3">
-      {/* Toolbar: health filters + trace toggle */}
+      {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        {/* Health filter chips */}
         <div className="flex items-center gap-1">
           <Filter className="w-3 h-3 text-muted-foreground mr-1" />
           {FILTER_OPTIONS.map((opt) => {
@@ -95,7 +109,6 @@ export function TransportView({ routes, onNodeClick }: Props) {
           })}
         </div>
 
-        {/* Trace toggle */}
         <label className="flex items-center gap-2 cursor-pointer">
           <Zap className={cn("w-3.5 h-3.5 transition-colors", traceMode ? "text-primary" : "text-muted-foreground")} />
           <span className="text-[11px] text-muted-foreground">Trace</span>
@@ -119,6 +132,7 @@ export function TransportView({ routes, onNodeClick }: Props) {
             route={route}
             onNodeClick={onNodeClick}
             trace={traceMode}
+            onAddHop={onAddHop}
           />
         ))
       )}

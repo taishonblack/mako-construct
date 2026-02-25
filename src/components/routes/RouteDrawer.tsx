@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { X, Copy, Ban } from "lucide-react";
-import type { SignalRoute } from "@/stores/route-store";
+import { X, Copy, Ban, Plus, Trash2, GripVertical, Activity } from "lucide-react";
+import type { SignalRoute, HopNode, RouteHealthStatus } from "@/stores/route-store";
+import { HOP_SUBTYPES, buildDefaultLinks } from "@/stores/route-store";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,28 +36,41 @@ interface Props {
   initialSection?: string | null;
 }
 
-// Jump nav sections
 const SECTIONS = [
+  { id: "health", label: "Health" },
   { id: "source", label: "Source" },
   { id: "encoder", label: "Encoder" },
   { id: "transport", label: "Transport" },
   { id: "decoder", label: "Decoder" },
   { id: "router", label: "Router" },
   { id: "alias", label: "Alias" },
+  { id: "hops", label: "Hops" },
 ] as const;
+
+const HEALTH_PILL: Record<RouteHealthStatus, { label: string; dot: string; cls: string }> = {
+  healthy: { label: "Healthy", dot: "bg-emerald-500", cls: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
+  warn: { label: "Degraded", dot: "bg-amber-400", cls: "bg-amber-400/15 text-amber-400 border-amber-400/30" },
+  down: { label: "Down", dot: "bg-red-500", cls: "bg-red-500/15 text-red-400 border-red-500/30" },
+};
 
 export function RouteDrawer({ route, open, onOpenChange, onSave, onRemove, onDuplicate, initialSection }: Props) {
   const isMobile = useIsMobile();
   const [draft, setDraft] = useState<SignalRoute | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
 
-  // Reset draft when route changes
   useEffect(() => {
-    if (route) setDraft(structuredClone(route));
-    else setDraft(null);
+    if (route) {
+      const migrated = {
+        ...route,
+        health: route.health ?? { status: "healthy" as const, reason: "", lastUpdated: new Date().toISOString() },
+        links: route.links ?? buildDefaultLinks(),
+      };
+      setDraft(structuredClone(migrated));
+    } else {
+      setDraft(null);
+    }
   }, [route]);
 
-  // Auto-scroll to section when opened from transport view
   useEffect(() => {
     if (open && initialSection) {
       setTimeout(() => {
@@ -71,11 +85,8 @@ export function RouteDrawer({ route, open, onOpenChange, onSave, onRemove, onDup
   }, [route, draft]);
 
   const handleClose = useCallback(() => {
-    if (isDirty) {
-      setConfirmDiscard(true);
-    } else {
-      onOpenChange(false);
-    }
+    if (isDirty) setConfirmDiscard(true);
+    else onOpenChange(false);
   }, [isDirty, onOpenChange]);
 
   const handleSave = useCallback(() => {
@@ -92,14 +103,13 @@ export function RouteDrawer({ route, open, onOpenChange, onSave, onRemove, onDup
 
   if (!draft) return null;
 
-  // Field updaters
   const setField = <T extends keyof SignalRoute>(section: T) =>
     (key: string, value: any) => {
       setDraft((prev) => {
         if (!prev) return prev;
         const current = prev[section];
-        if (typeof current === "object" && current !== null) {
-          return { ...prev, [section]: { ...current, [key]: value } };
+        if (typeof current === "object" && current !== null && !Array.isArray(current)) {
+          return { ...prev, [section]: { ...(current as object), [key]: value } };
         }
         return { ...prev, [section]: value };
       });
@@ -111,10 +121,56 @@ export function RouteDrawer({ route, open, onOpenChange, onSave, onRemove, onDup
   const fDecoder = setField("decoder");
   const fRouter = setField("routerMapping");
   const fAlias = setField("alias");
+  const fHealth = setField("health");
 
   const scrollToSection = (id: string) => {
     document.getElementById(`route-section-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
+
+  // Hop management
+  const addHop = (linkIndex: number) => {
+    setDraft((prev) => {
+      if (!prev) return prev;
+      const links = [...prev.links];
+      const link = { ...links[linkIndex], hops: [...links[linkIndex].hops] };
+      link.hops.push({
+        id: `hop-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        subtype: "Other",
+        label: "",
+        vendor: "",
+        model: "",
+        notes: "",
+        status: "ok",
+      });
+      links[linkIndex] = link;
+      return { ...prev, links };
+    });
+  };
+
+  const updateHop = (linkIndex: number, hopIndex: number, patch: Partial<HopNode>) => {
+    setDraft((prev) => {
+      if (!prev) return prev;
+      const links = [...prev.links];
+      const link = { ...links[linkIndex], hops: [...links[linkIndex].hops] };
+      link.hops[hopIndex] = { ...link.hops[hopIndex], ...patch };
+      links[linkIndex] = link;
+      return { ...prev, links };
+    });
+  };
+
+  const removeHop = (linkIndex: number, hopIndex: number) => {
+    setDraft((prev) => {
+      if (!prev) return prev;
+      const links = [...prev.links];
+      const link = { ...links[linkIndex], hops: [...links[linkIndex].hops] };
+      link.hops.splice(hopIndex, 1);
+      links[linkIndex] = link;
+      return { ...prev, links };
+    });
+  };
+
+  const healthPill = HEALTH_PILL[draft.health?.status ?? "healthy"];
+  const totalHops = draft.links?.reduce((sum, l) => sum + l.hops.length, 0) ?? 0;
 
   const content = (
     <div className="flex flex-col h-full">
@@ -135,11 +191,13 @@ export function RouteDrawer({ route, open, onOpenChange, onSave, onRemove, onDup
             {isDirty && (
               <Badge variant="outline" className="text-[10px] border-destructive/40 text-destructive">Unsaved</Badge>
             )}
-            <Badge variant="outline" className="text-[10px] font-mono">CR-{draft.routerMapping.router || "?"}</Badge>
+            <Badge variant="outline" className={cn("text-[10px] border", healthPill.cls)}>
+              <span className={cn("w-1.5 h-1.5 rounded-full mr-1", healthPill.dot)} />
+              {healthPill.label}
+            </Badge>
           </div>
         </div>
 
-        {/* Jump nav */}
         {!isMobile && (
           <div className="flex gap-1 flex-wrap">
             {SECTIONS.map((s) => (
@@ -150,6 +208,9 @@ export function RouteDrawer({ route, open, onOpenChange, onSave, onRemove, onDup
                 className="text-[10px] px-2 py-0.5 rounded bg-secondary text-muted-foreground hover:text-foreground transition-colors"
               >
                 {s.label}
+                {s.id === "hops" && totalHops > 0 && (
+                  <span className="ml-1 text-primary">{totalHops}</span>
+                )}
               </button>
             ))}
           </div>
@@ -159,6 +220,42 @@ export function RouteDrawer({ route, open, onOpenChange, onSave, onRemove, onDup
       {/* Scrollable sections */}
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-1">
+
+          {/* Route Health */}
+          <DrawerSection id="health" title="Route Health" defaultOpen>
+            <div className="flex items-center gap-3 mb-2">
+              <Activity className="w-4 h-4 text-muted-foreground" />
+              <Badge variant="outline" className={cn("text-xs border", healthPill.cls)}>
+                <span className={cn("w-2 h-2 rounded-full mr-1.5", healthPill.dot)} />
+                {healthPill.label}
+              </Badge>
+              <span className="text-[10px] text-muted-foreground">
+                {draft.health?.lastUpdated ? new Date(draft.health.lastUpdated).toLocaleTimeString() : "—"}
+              </span>
+            </div>
+            <Row label="Status">
+              <Select value={draft.health?.status ?? "healthy"} onValueChange={(v) => {
+                fHealth("status", v);
+                fHealth("lastUpdated", new Date().toISOString());
+              }}>
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="healthy">Healthy</SelectItem>
+                  <SelectItem value="warn">Degraded</SelectItem>
+                  <SelectItem value="down">Down</SelectItem>
+                </SelectContent>
+              </Select>
+            </Row>
+            <Row label="Reason">
+              <Input
+                value={draft.health?.reason ?? ""}
+                onChange={(e) => fHealth("reason", e.target.value)}
+                className="h-8 text-xs"
+                placeholder="e.g. Packet loss on transport"
+              />
+            </Row>
+          </DrawerSection>
+
           {/* Signal Source */}
           <DrawerSection id="source" title="Signal Source" defaultOpen>
             <Row label="Location">
@@ -174,24 +271,12 @@ export function RouteDrawer({ route, open, onOpenChange, onSave, onRemove, onDup
 
           {/* Encoder */}
           <DrawerSection id="encoder" title="Encoder">
-            <Row label="Brand">
-              <Input value={draft.encoder.brand} onChange={(e) => fEncoder("brand", e.target.value)} className="h-8 text-xs" />
-            </Row>
-            <Row label="Model">
-              <Input value={draft.encoder.model} onChange={(e) => fEncoder("model", e.target.value)} className="h-8 text-xs" />
-            </Row>
-            <Row label="Device">
-              <Input value={draft.encoder.deviceName} onChange={(e) => fEncoder("deviceName", e.target.value)} className="h-8 text-xs" />
-            </Row>
-            <Row label="Input Port">
-              <Input type="number" value={draft.encoder.inputPort} onChange={(e) => fEncoder("inputPort", parseInt(e.target.value) || 1)} className="h-8 text-xs w-20" />
-            </Row>
-            <Row label="Local IP">
-              <Input value={draft.encoder.localIp} onChange={(e) => fEncoder("localIp", e.target.value)} className="h-8 text-xs" placeholder="10.0.0.x" />
-            </Row>
-            <Row label="Notes">
-              <Input value={draft.encoder.notes} onChange={(e) => fEncoder("notes", e.target.value)} className="h-8 text-xs" />
-            </Row>
+            <Row label="Brand"><Input value={draft.encoder.brand} onChange={(e) => fEncoder("brand", e.target.value)} className="h-8 text-xs" /></Row>
+            <Row label="Model"><Input value={draft.encoder.model} onChange={(e) => fEncoder("model", e.target.value)} className="h-8 text-xs" /></Row>
+            <Row label="Device"><Input value={draft.encoder.deviceName} onChange={(e) => fEncoder("deviceName", e.target.value)} className="h-8 text-xs" /></Row>
+            <Row label="Input Port"><Input type="number" value={draft.encoder.inputPort} onChange={(e) => fEncoder("inputPort", parseInt(e.target.value) || 1)} className="h-8 text-xs w-20" /></Row>
+            <Row label="Local IP"><Input value={draft.encoder.localIp} onChange={(e) => fEncoder("localIp", e.target.value)} className="h-8 text-xs" placeholder="10.0.0.x" /></Row>
+            <Row label="Notes"><Input value={draft.encoder.notes} onChange={(e) => fEncoder("notes", e.target.value)} className="h-8 text-xs" /></Row>
           </DrawerSection>
 
           {/* Transport */}
@@ -199,9 +284,7 @@ export function RouteDrawer({ route, open, onOpenChange, onSave, onRemove, onDup
             <Row label="Type">
               <Select value={draft.transport.type} onValueChange={(v) => fTransport("type", v)}>
                 <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select" /></SelectTrigger>
-                <SelectContent>
-                  {TRANSPORT_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                </SelectContent>
+                <SelectContent>{TRANSPORT_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
               </Select>
             </Row>
             {(draft.transport.type === "SRT Public" || draft.transport.type === "SRT Private") && (
@@ -252,7 +335,6 @@ export function RouteDrawer({ route, open, onOpenChange, onSave, onRemove, onDup
             <Row label="Output XP"><Input value={draft.routerMapping.outputCrosspoint} onChange={(e) => fRouter("outputCrosspoint", e.target.value)} className="h-8 text-xs w-20" /></Row>
             <Row label="Mon Wall"><Input value={draft.routerMapping.monitorWallDest} onChange={(e) => fRouter("monitorWallDest", e.target.value)} className="h-8 text-xs" /></Row>
             <Row label="EVS Ch"><Input value={draft.routerMapping.evsRecordChannel} onChange={(e) => fRouter("evsRecordChannel", e.target.value)} className="h-8 text-xs" /></Row>
-            {/* Mini routing diagram */}
             <div className="mt-2 p-2 rounded bg-secondary/50 text-[10px] font-mono text-muted-foreground text-center">
               {draft.decoder.deviceName} → Router {draft.routerMapping.router} → {draft.alias.productionName || "?"}
             </div>
@@ -264,11 +346,93 @@ export function RouteDrawer({ route, open, onOpenChange, onSave, onRemove, onDup
             <Row label="ISO Name"><Input value={draft.alias.productionName} onChange={(e) => fAlias("productionName", e.target.value)} className="h-8 text-sm font-semibold" /></Row>
           </DrawerSection>
 
-          {/* Health placeholder */}
-          <div className="mt-4 p-3 rounded border border-border bg-secondary/20">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Route Health</span>
-            <p className="text-[10px] text-muted-foreground mt-1 italic">Latency, bitrate, packet loss — coming soon</p>
-          </div>
+          {/* Hops / Signal Chain */}
+          <DrawerSection id="hops" title={`Signal Chain Hops${totalHops > 0 ? ` (${totalHops})` : ""}`}>
+            <p className="text-[10px] text-muted-foreground mb-3">
+              Add converters, gateways, or processors between canonical stages.
+            </p>
+            {draft.links?.map((link, linkIdx) => (
+              <div key={`${link.from}-${link.to}`} className="mb-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                    {link.from} → {link.to}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-5 text-[10px] gap-1 text-muted-foreground hover:text-foreground"
+                    onClick={() => addHop(linkIdx)}
+                  >
+                    <Plus className="w-2.5 h-2.5" /> Add
+                  </Button>
+                </div>
+                {link.hops.length === 0 ? (
+                  <p className="text-[10px] text-muted-foreground/50 italic pl-2">No hops</p>
+                ) : (
+                  <div className="space-y-2">
+                    {link.hops.map((hop, hopIdx) => (
+                      <div key={hop.id} className="p-2 rounded border border-border bg-secondary/30 space-y-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1 min-w-0">
+                            <GripVertical className="w-3 h-3 text-muted-foreground/40 shrink-0" />
+                            <span className="text-[10px] font-mono font-semibold truncate">{hop.label || "Unnamed"}</span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 text-destructive hover:text-destructive"
+                            onClick={() => removeHop(linkIdx, hopIdx)}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <div>
+                            <span className="text-[9px] text-muted-foreground">Type</span>
+                            <Select value={hop.subtype} onValueChange={(v) => updateHop(linkIdx, hopIdx, { subtype: v as any })}>
+                              <SelectTrigger className="h-7 text-[10px]"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {HOP_SUBTYPES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <span className="text-[9px] text-muted-foreground">Label</span>
+                            <Input
+                              value={hop.label}
+                              onChange={(e) => updateHop(linkIdx, hopIdx, { label: e.target.value })}
+                              className="h-7 text-[10px]"
+                              placeholder="e.g. SDI→IP GW"
+                            />
+                          </div>
+                          <div>
+                            <span className="text-[9px] text-muted-foreground">Vendor</span>
+                            <Input
+                              value={hop.vendor}
+                              onChange={(e) => updateHop(linkIdx, hopIdx, { vendor: e.target.value })}
+                              className="h-7 text-[10px]"
+                            />
+                          </div>
+                          <div>
+                            <span className="text-[9px] text-muted-foreground">Status</span>
+                            <Select value={hop.status} onValueChange={(v) => updateHop(linkIdx, hopIdx, { status: v as any })}>
+                              <SelectTrigger className="h-7 text-[10px]"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="ok">OK</SelectItem>
+                                <SelectItem value="warn">Warn</SelectItem>
+                                <SelectItem value="error">Error</SelectItem>
+                                <SelectItem value="offline">Offline</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </DrawerSection>
         </div>
       </ScrollArea>
 
