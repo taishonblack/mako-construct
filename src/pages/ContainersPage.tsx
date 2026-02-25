@@ -2,9 +2,8 @@ import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Search, ChevronRight, ChevronDown, X, Plus, SlidersHorizontal, Radio, AlertCircle } from "lucide-react";
-import { format, isToday, isBefore, addDays, isAfter, parseISO } from "date-fns";
-import { binderStore } from "@/stores/binder-store";
-import type { BinderStatus } from "@/stores/binder-store";
+import { format, isToday, isBefore, addDays, isAfter } from "date-fns";
+import { useBinders, type BinderRecord, type BinderStatus } from "@/hooks/use-binders";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
@@ -25,7 +24,7 @@ const statusColor: Record<string, string> = {
   completed: "text-emerald-500", archived: "text-muted-foreground",
 };
 
-function BinderRow({ binder, readiness, index }: { binder: ReturnType<typeof binderStore.getAll>[number]; readiness: string; index: number }) {
+function BinderRow({ binder, readiness, index }: { binder: BinderRecord; readiness: string; index: number }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -50,13 +49,9 @@ function BinderRow({ binder, readiness, index }: { binder: ReturnType<typeof bin
           </div>
         </div>
         <span className="text-xs text-muted-foreground shrink-0">{binder.partner}</span>
-        <span className={`text-[10px] tracking-wider uppercase shrink-0 ${statusColor[binder.status]}`}>
-          {binder.status}
-        </span>
+        <span className={`text-[10px] tracking-wider uppercase shrink-0 ${statusColor[binder.status]}`}>{binder.status}</span>
         <span className="text-xs font-mono text-muted-foreground shrink-0">{binder.isoCount} ISOs</span>
-        {binder.openIssues > 0 && (
-          <span className="text-[10px] text-destructive shrink-0">{binder.openIssues} issues</span>
-        )}
+        {binder.openIssues > 0 && <span className="text-[10px] text-destructive shrink-0">{binder.openIssues} issues</span>}
         <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
       </Link>
 
@@ -65,51 +60,27 @@ function BinderRow({ binder, readiness, index }: { binder: ReturnType<typeof bin
         <Link to={`/binders/${binder.id}`} className="block p-4">
           <div className="flex items-start gap-2 min-w-0 mb-2">
             <div className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${readinessDot[readiness]}`} />
-            <h3 className="text-sm font-medium text-foreground leading-snug min-w-0 flex-1 truncate">
-              {binder.title}
-            </h3>
-            <span className={`shrink-0 text-[10px] tracking-wider uppercase ${statusColor[binder.status]}`}>
-              {binder.status}
-            </span>
+            <h3 className="text-sm font-medium text-foreground leading-snug min-w-0 flex-1 truncate">{binder.title}</h3>
+            <span className={`shrink-0 text-[10px] tracking-wider uppercase ${statusColor[binder.status]}`}>{binder.status}</span>
           </div>
           <div className="flex items-center justify-between min-w-0 text-xs text-muted-foreground pl-4">
             <span>{format(new Date(binder.eventDate), "EEE, MMM d")} · {binder.eventTime || "19:00"}</span>
           </div>
         </Link>
-
-        {/* Expand toggle */}
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
-          className="flex items-center justify-center w-full py-2 border-t border-border text-muted-foreground hover:text-foreground transition-colors"
-          aria-label={expanded ? "Collapse details" : "Expand details"}
-        >
+        <button type="button" onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
+          className="flex items-center justify-center w-full py-2 border-t border-border text-muted-foreground hover:text-foreground transition-colors">
           <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`} />
         </button>
-
-        {/* Expanded details */}
         {expanded && (
           <div className="px-4 pb-4 space-y-2 text-xs text-muted-foreground border-t border-border pt-3">
             <div className="flex items-center justify-between min-w-0">
               <span className="truncate min-w-0 flex-1">{binder.partner}</span>
-              {binder.controlRoom && (
-                <span className="shrink-0 px-1.5 py-0.5 rounded bg-secondary text-[10px] font-mono">
-                  CR-{binder.controlRoom}
-                </span>
-              )}
+              {binder.controlRoom && <span className="shrink-0 px-1.5 py-0.5 rounded bg-secondary text-[10px] font-mono">CR-{binder.controlRoom}</span>}
             </div>
             <div className="truncate">{binder.venue}</div>
             <div className="flex items-center gap-4">
-              <span className="flex items-center gap-1.5">
-                <Radio className="w-3 h-3" />
-                {binder.isoCount} ISOs
-              </span>
-              {binder.openIssues > 0 && (
-                <span className="flex items-center gap-1.5 text-destructive">
-                  <AlertCircle className="w-3 h-3" />
-                  {binder.openIssues} issue{binder.openIssues !== 1 ? "s" : ""}
-                </span>
-              )}
+              <span className="flex items-center gap-1.5"><Radio className="w-3 h-3" />{binder.isoCount} ISOs</span>
+              {binder.openIssues > 0 && <span className="flex items-center gap-1.5 text-destructive"><AlertCircle className="w-3 h-3" />{binder.openIssues} issue{binder.openIssues !== 1 ? "s" : ""}</span>}
             </div>
           </div>
         )}
@@ -128,9 +99,8 @@ export default function ContainersPage() {
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
 
-  const allBinders = useMemo(() => binderStore.getAll(), []);
+  const { binders: allBinders } = useBinders();
 
-  // Extract unique values for filter dropdowns
   const uniquePartners = useMemo(() => [...new Set(allBinders.map(b => b.partner))].sort(), [allBinders]);
   const uniqueArenas = useMemo(() => [...new Set(allBinders.map(b => b.venue))].sort(), [allBinders]);
   const uniqueCRs = useMemo(() => [...new Set(allBinders.map(b => b.controlRoom).filter(Boolean))].sort(), [allBinders]);
@@ -139,12 +109,9 @@ export default function ContainersPage() {
     const q = search.toLowerCase();
     const now = new Date();
     const weekEnd = addDays(now, 7);
-
     return allBinders.filter((b) => {
       const matchesSearch = !q || b.title.toLowerCase().includes(q) || b.partner.toLowerCase().includes(q) || b.venue.toLowerCase().includes(q);
       if (!matchesSearch) return false;
-
-      // Tab filter
       switch (tab) {
         case "today": if (!isToday(new Date(b.eventDate))) return false; break;
         case "week": { const d = new Date(b.eventDate); if (!(d >= now && isBefore(d, weekEnd))) return false; break; }
@@ -153,20 +120,11 @@ export default function ContainersPage() {
         case "archived": if (b.status !== "archived") return false; break;
         case "drafts": if (b.status !== "draft") return false; break;
       }
-
-      // Additional filters
       if (crFilter && b.controlRoom !== crFilter) return false;
       if (partnerFilter && b.partner !== partnerFilter) return false;
       if (arenaFilter && b.venue !== arenaFilter) return false;
-      if (dateFrom) {
-        const ed = new Date(b.eventDate);
-        if (isBefore(ed, dateFrom)) return false;
-      }
-      if (dateTo) {
-        const ed = new Date(b.eventDate);
-        if (isAfter(ed, dateTo)) return false;
-      }
-
+      if (dateFrom && isBefore(new Date(b.eventDate), dateFrom)) return false;
+      if (dateTo && isAfter(new Date(b.eventDate), dateTo)) return false;
       return true;
     });
   }, [search, tab, allBinders, crFilter, partnerFilter, arenaFilter, dateFrom, dateTo]);
@@ -199,7 +157,6 @@ export default function ContainersPage() {
         </Link>
       </motion.div>
 
-      {/* Search + Filter Tabs */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.1 }} className="mb-6 space-y-3">
         <div className="flex items-center gap-2">
@@ -212,13 +169,11 @@ export default function ContainersPage() {
           <button onClick={() => setShowFilters(!showFilters)}
             className={cn("flex items-center gap-1.5 px-3 py-2 text-xs border rounded-sm transition-colors",
               hasActiveFilters ? "border-primary/40 bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground")}>
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-            Filters
+            <SlidersHorizontal className="w-3.5 h-3.5" /> Filters
             {hasActiveFilters && <span className="w-1.5 h-1.5 rounded-full bg-primary" />}
           </button>
         </div>
 
-        {/* Advanced filters */}
         {showFilters && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
             className="flex flex-wrap items-end gap-3 p-3 bg-secondary/50 border border-border rounded-sm">
@@ -273,9 +228,7 @@ export default function ContainersPage() {
             </div>
             {hasActiveFilters && (
               <button onClick={() => { setCrFilter(""); setPartnerFilter(""); setArenaFilter(""); setDateFrom(undefined); setDateTo(undefined); }}
-                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors px-2 py-1.5">
-                Clear All
-              </button>
+                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors px-2 py-1.5">Clear All</button>
             )}
           </motion.div>
         )}
@@ -285,26 +238,20 @@ export default function ContainersPage() {
             <button key={t.value} onClick={() => setTab(t.value)}
               className={`px-2.5 py-1 text-[10px] tracking-wider uppercase rounded border transition-colors ${
                 tab === t.value ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground"
-              }`}>
-              {t.label} <span className="font-mono ml-0.5">{t.count}</span>
-            </button>
+              }`}>{t.label} <span className="font-mono ml-0.5">{t.count}</span></button>
           ))}
         </div>
       </motion.div>
 
-      {/* Binder list */}
       <div className="space-y-2">
         {filtered.length === 0 && (
           <div className="steel-panel px-6 py-12 text-center">
             <p className="text-sm text-muted-foreground">No binders match your search.</p>
           </div>
         )}
-        {filtered.map((binder, i) => {
-          const readiness = inferReadiness(binder);
-          return (
-            <BinderRow key={binder.id} binder={binder} readiness={readiness} index={i} />
-          );
-        })}
+        {filtered.map((binder, i) => (
+          <BinderRow key={binder.id} binder={binder} readiness={inferReadiness(binder)} index={i} />
+        ))}
       </div>
     </div>
   );

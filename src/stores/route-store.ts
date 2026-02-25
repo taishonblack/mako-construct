@@ -1,12 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import type { SignalRoute, RoutesState, RouterCrosspoint, RouterConfig } from "./route-types";
 import { buildDefaultLinks } from "./route-types";
 
 // Re-export types for convenience
 export type { SignalRoute, RoutesState, RouterConfig, RouterCrosspoint, HopNode, RouteLink, RouteHealth, RouteHealthStatus, HopSubtype, NodeMetrics } from "./route-types";
 export { HOP_SUBTYPES, CANONICAL_STAGES, buildDefaultLinks } from "./route-types";
-
-const STORAGE_KEY = "mako-routes";
 
 function createDefaultRoute(index: number): SignalRoute {
   const n = index + 1;
@@ -33,7 +32,6 @@ function createDefaultRoute(index: number): SignalRoute {
   };
 }
 
-/** Migrate old routes that lack health/links fields */
 function migrateRoute(r: any): SignalRoute {
   return {
     ...r,
@@ -45,57 +43,85 @@ function migrateRoute(r: any): SignalRoute {
   };
 }
 
-function buildDefaultState(): RoutesState {
-  return {
-    routes: Array.from({ length: 4 }, (_, i) => createDefaultRoute(i)),
-    routers: [
-      { id: "router-cr23", name: "Control Room 23 Router", model: "EQX 32x32", brand: "Evertz", ip: "10.0.23.1", crosspoints: [] },
-      { id: "router-cr26", name: "Control Room 26 Router", model: "Ultrix FR5", brand: "Ross", ip: "10.0.26.1", crosspoints: [] },
-    ],
-  };
-}
-
 export function useRoutesStore() {
-  const [state, setState] = useState<RoutesState>(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        return { ...parsed, routes: (parsed.routes || []).map(migrateRoute) };
-      } catch { /* ignore */ }
-    }
-    return buildDefaultState();
-  });
+  const [state, setState] = useState<RoutesState>({ routes: [], routers: [] });
+  const [loading, setLoading] = useState(true);
 
+  // Load from Cloud on mount
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [state]);
+    async function load() {
+      const [routesRes, routersRes] = await Promise.all([
+        supabase.from("routes").select("*").order("created_at"),
+        supabase.from("routers").select("*").order("name"),
+      ]);
 
-  const addRoute = useCallback(() => {
-    setState((prev) => ({
-      ...prev,
-      routes: [...prev.routes, createDefaultRoute(prev.routes.length)],
-    }));
+      let routes: SignalRoute[] = (routesRes.data || []).map((row: any) => migrateRoute({ id: row.id, ...row.route_data }));
+      let routers: RouterConfig[] = (routersRes.data || []).map((row: any) => ({
+        id: row.id,
+        name: row.name,
+        model: row.model,
+        brand: row.brand,
+        ip: row.ip,
+        crosspoints: row.crosspoints || [],
+      }));
+
+      // Seed defaults if empty
+      if (routes.length === 0) {
+        routes = Array.from({ length: 4 }, (_, i) => createDefaultRoute(i));
+      for (const r of routes) {
+          const { id, ...routeData } = r;
+          await supabase.from("routes").insert({ id, route_name: r.routeName, route_data: routeData as any }).select();
+        }
+      }
+      if (routers.length === 0) {
+        routers = [
+          { id: "router-cr23", name: "Control Room 23 Router", model: "EQX 32x32", brand: "Evertz", ip: "10.0.23.1", crosspoints: [] },
+          { id: "router-cr26", name: "Control Room 26 Router", model: "Ultrix FR5", brand: "Ross", ip: "10.0.26.1", crosspoints: [] },
+        ];
+        for (const r of routers) {
+          await supabase.from("routers").insert({ id: r.id, name: r.name, model: r.model, brand: r.brand, ip: r.ip, crosspoints: r.crosspoints as any }).select();
+        }
+      }
+
+      setState({ routes, routers });
+      setLoading(false);
+    }
+    load();
   }, []);
 
-  const updateRoute = useCallback((id: string, patch: Partial<SignalRoute>) => {
-    setState((prev) => ({
-      ...prev,
-      routes: prev.routes.map((r) =>
+  const addRoute = useCallback(async () => {
+    const newRoute = createDefaultRoute(state.routes.length);
+    setState((prev) => ({ ...prev, routes: [...prev.routes, newRoute] }));
+    const { id, ...routeData } = newRoute;
+    await supabase.from("routes").insert({ id, route_name: newRoute.routeName, route_data: routeData as any });
+  }, [state.routes.length]);
+
+  const updateRoute = useCallback(async (id: string, patch: Partial<SignalRoute>) => {
+    setState((prev) => {
+      const updated = prev.routes.map((r) =>
         r.id === id ? { ...r, ...patch, updatedAt: new Date().toISOString() } : r
-      ),
-    }));
+      );
+      // Persist async
+      const full = updated.find((r) => r.id === id);
+      if (full) {
+        const { id: _id, ...routeData } = full;
+        supabase.from("routes").update({ route_name: full.routeName, route_data: routeData as any }).eq("id", id).then();
+      }
+      return { ...prev, routes: updated };
+    });
   }, []);
 
-  const removeRoute = useCallback((id: string) => {
+  const removeRoute = useCallback(async (id: string) => {
     setState((prev) => ({ ...prev, routes: prev.routes.filter((r) => r.id !== id) }));
+    await supabase.from("routes").delete().eq("id", id);
   }, []);
 
-  const updateRouter = useCallback((id: string, patch: Partial<RouterConfig>) => {
+  const updateRouter = useCallback(async (id: string, patch: Partial<RouterConfig>) => {
     setState((prev) => ({
       ...prev,
       routers: prev.routers.map((r) => (r.id === id ? { ...r, ...patch } : r)),
     }));
+    await supabase.from("routers").update(patch).eq("id", id);
   }, []);
 
   const syncRouterCrosspoints = useCallback(() => {
@@ -112,16 +138,18 @@ export function useRoutesStore() {
         if (route.routerMapping.router === "23") cr23Points.push(point);
         else if (route.routerMapping.router === "26") cr26Points.push(point);
       }
-      return {
-        ...prev,
-        routers: prev.routers.map((r) => {
-          if (r.id === "router-cr23") return { ...r, crosspoints: cr23Points };
-          if (r.id === "router-cr26") return { ...r, crosspoints: cr26Points };
-          return r;
-        }),
-      };
+      const newRouters = prev.routers.map((r) => {
+        if (r.id === "router-cr23") return { ...r, crosspoints: cr23Points };
+        if (r.id === "router-cr26") return { ...r, crosspoints: cr26Points };
+        return r;
+      });
+      // Persist
+      for (const r of newRouters) {
+        supabase.from("routers").update({ crosspoints: r.crosspoints as any }).eq("id", r.id).then();
+      }
+      return { ...prev, routers: newRouters };
     });
   }, []);
 
-  return { state, addRoute, updateRoute, removeRoute, updateRouter, syncRouterCrosspoints };
+  return { state, loading, addRoute, updateRoute, removeRoute, updateRouter, syncRouterCrosspoints };
 }

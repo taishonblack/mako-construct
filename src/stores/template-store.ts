@@ -1,3 +1,5 @@
+import { supabase } from "@/integrations/supabase/client";
+
 export interface BinderTemplate {
   id: string;
   name: string;
@@ -27,55 +29,52 @@ export interface BinderTemplate {
     timezone?: string;
     gameType?: string;
     season?: string;
-    // Comms defaults
     commsDefaults?: boolean;
-    // Checklist defaults
     checklistDefaults?: boolean;
   };
 }
 
-const STORE_KEY = "mako-binder-templates";
-
-function load(): BinderTemplate[] {
-  try {
-    const raw = localStorage.getItem(STORE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch { /* ignore */ }
-  return [];
-}
-
-function save(templates: BinderTemplate[]) {
-  localStorage.setItem(STORE_KEY, JSON.stringify(templates));
-}
-
 export const templateStore = {
-  getAll(): BinderTemplate[] {
-    return load();
+  async getAll(): Promise<BinderTemplate[]> {
+    const { data, error } = await supabase
+      .from("binder_templates")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) { console.error("templateStore.getAll", error); return []; }
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      createdAt: row.created_at,
+      config: row.config || {},
+    }));
   },
 
-  getById(id: string): BinderTemplate | undefined {
-    return load().find((t) => t.id === id);
+  async getById(id: string): Promise<BinderTemplate | undefined> {
+    const { data } = await supabase
+      .from("binder_templates")
+      .select("*")
+      .eq("id", id)
+      .single();
+    if (!data) return undefined;
+    return { id: data.id, name: data.name, createdAt: data.created_at, config: data.config || {} };
   },
 
-  create(name: string, config: BinderTemplate["config"]): BinderTemplate {
-    const all = load();
-    const template: BinderTemplate = {
-      id: String(Date.now()),
-      name,
-      createdAt: new Date().toISOString(),
-      config,
-    };
-    all.push(template);
-    save(all);
-    return template;
+  async create(name: string, config: BinderTemplate["config"]): Promise<BinderTemplate | null> {
+    const { data, error } = await supabase
+      .from("binder_templates")
+      .insert({ name, config })
+      .select()
+      .single();
+    if (error) { console.error("templateStore.create", error); return null; }
+    return data ? { id: data.id, name: data.name, createdAt: data.created_at, config: data.config || {} } : null;
   },
 
-  delete(id: string): boolean {
-    const all = load();
-    const idx = all.findIndex((t) => t.id === id);
-    if (idx === -1) return false;
-    all.splice(idx, 1);
-    save(all);
+  async delete(id: string): Promise<boolean> {
+    const { error } = await supabase
+      .from("binder_templates")
+      .delete()
+      .eq("id", id);
+    if (error) { console.error("templateStore.delete", error); return false; }
     return true;
   },
 };

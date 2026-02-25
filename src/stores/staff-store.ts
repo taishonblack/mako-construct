@@ -1,3 +1,5 @@
+import { supabase } from "@/integrations/supabase/client";
+
 export interface StaffMember {
   id: string;
   name: string;
@@ -6,73 +8,86 @@ export interface StaffMember {
   phone: string;
   email: string;
   notes: string;
-  tags: string[]; // "NHL" | "Partner" | "Vendor" | "Truck" | "Transmission"
+  tags: string[];
 }
 
-const STORE_KEY = "mako-staff-v1";
-
-function load(): StaffMember[] {
-  try {
-    const raw = localStorage.getItem(STORE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch { /* ignore */ }
-  return seedStaff();
-}
-
-function save(members: StaffMember[]) {
-  localStorage.setItem(STORE_KEY, JSON.stringify(members));
-}
-
-function seedStaff(): StaffMember[] {
-  const seed: StaffMember[] = [
-    { id: "staff-1", name: "Mike Torres", org: "NHL", role: "Tech Manager", phone: "212-555-0101", email: "mtorres@nhl.com", notes: "CR-23 lead", tags: ["NHL", "Transmission"] },
-    { id: "staff-2", name: "Sarah Chen", org: "NHL", role: "Producer", phone: "212-555-0102", email: "schen@nhl.com", notes: "", tags: ["NHL"] },
-    { id: "staff-3", name: "Dave Martin", org: "ESPN", role: "Technical Director", phone: "860-555-0201", email: "dmartin@espn.com", notes: "ESPN Bristol", tags: ["Partner"] },
-    { id: "staff-4", name: "Lisa Park", org: "SportsNet CA", role: "Coordinator", phone: "416-555-0301", email: "lpark@sportsnet.ca", notes: "", tags: ["Partner"] },
-    { id: "staff-5", name: "James Wu", org: "Bitfire", role: "Remote Ops Lead", phone: "310-555-0401", email: "jwu@bitfire.tv", notes: "Bitfire remote call support", tags: ["Vendor"] },
-    { id: "staff-6", name: "Rachel Adams", org: "NHL", role: "Audio A1", phone: "212-555-0103", email: "radams@nhl.com", notes: "CR-26 audio", tags: ["NHL", "Truck"] },
-    { id: "staff-7", name: "Tom Baxter", org: "Beyond Sports", role: "Animation Lead", phone: "415-555-0501", email: "tbaxter@beyondsports.com", notes: "", tags: ["Vendor"] },
-  ];
-  save(seed);
-  return seed;
+function mapRow(row: any): StaffMember {
+  return {
+    id: row.id,
+    name: row.name,
+    org: row.org || "",
+    role: row.role || "",
+    phone: row.phone || "",
+    email: row.email || "",
+    notes: row.notes || "",
+    tags: row.tags || [],
+  };
 }
 
 export const staffStore = {
-  getAll(): StaffMember[] {
-    return load();
+  async getAll(): Promise<StaffMember[]> {
+    const { data, error } = await supabase
+      .from("staff_contacts")
+      .select("*")
+      .order("name");
+    if (error) { console.error("staffStore.getAll", error); return []; }
+    return (data || []).map(mapRow);
   },
 
-  getById(id: string): StaffMember | undefined {
-    return load().find((m) => m.id === id);
+  async getById(id: string): Promise<StaffMember | undefined> {
+    const { data } = await supabase
+      .from("staff_contacts")
+      .select("*")
+      .eq("id", id)
+      .single();
+    return data ? mapRow(data) : undefined;
   },
 
-  create(data: Omit<StaffMember, "id">): StaffMember {
-    const all = load();
-    const member: StaffMember = { ...data, id: `staff-${Date.now()}` };
-    all.push(member);
-    save(all);
-    return member;
+  async create(member: Omit<StaffMember, "id">): Promise<StaffMember | null> {
+    const { data, error } = await supabase
+      .from("staff_contacts")
+      .insert({
+        name: member.name,
+        org: member.org,
+        role: member.role,
+        phone: member.phone,
+        email: member.email,
+        notes: member.notes,
+        tags: member.tags,
+      })
+      .select()
+      .single();
+    if (error) { console.error("staffStore.create", error); return null; }
+    return data ? mapRow(data) : null;
   },
 
-  update(id: string, partial: Partial<StaffMember>): StaffMember | undefined {
-    const all = load();
-    const idx = all.findIndex((m) => m.id === id);
-    if (idx === -1) return undefined;
-    all[idx] = { ...all[idx], ...partial };
-    save(all);
-    return all[idx];
+  async update(id: string, partial: Partial<StaffMember>): Promise<StaffMember | null> {
+    const { id: _, ...patch } = partial as any;
+    const { data, error } = await supabase
+      .from("staff_contacts")
+      .update(patch)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) { console.error("staffStore.update", error); return null; }
+    return data ? mapRow(data) : null;
   },
 
-  delete(id: string): boolean {
-    const all = load();
-    const idx = all.findIndex((m) => m.id === id);
-    if (idx === -1) return false;
-    all.splice(idx, 1);
-    save(all);
+  async delete(id: string): Promise<boolean> {
+    const { error } = await supabase
+      .from("staff_contacts")
+      .delete()
+      .eq("id", id);
+    if (error) { console.error("staffStore.delete", error); return false; }
     return true;
   },
 
-  getByTag(tag: string): StaffMember[] {
-    return load().filter((m) => m.tags.includes(tag));
+  async getByTag(tag: string): Promise<StaffMember[]> {
+    const { data } = await supabase
+      .from("staff_contacts")
+      .select("*")
+      .contains("tags", [tag])
+      .order("name");
+    return (data || []).map(mapRow);
   },
 };

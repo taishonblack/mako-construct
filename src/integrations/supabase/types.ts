@@ -14,6 +14,84 @@ export type Database = {
   }
   public: {
     Tables: {
+      binder_templates: {
+        Row: {
+          config: Json
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      binders: {
+        Row: {
+          config: Json
+          container_id: string
+          created_at: string
+          created_by: string | null
+          event_date: string
+          id: string
+          iso_count: number
+          league: string
+          open_issues: number
+          partner: string
+          status: string
+          title: string
+          transport: string
+          updated_at: string
+          venue: string
+        }
+        Insert: {
+          config?: Json
+          container_id?: string
+          created_at?: string
+          created_by?: string | null
+          event_date?: string
+          id?: string
+          iso_count?: number
+          league?: string
+          open_issues?: number
+          partner?: string
+          status?: string
+          title: string
+          transport?: string
+          updated_at?: string
+          venue?: string
+        }
+        Update: {
+          config?: Json
+          container_id?: string
+          created_at?: string
+          created_by?: string | null
+          event_date?: string
+          id?: string
+          iso_count?: number
+          league?: string
+          open_issues?: number
+          partner?: string
+          status?: string
+          title?: string
+          transport?: string
+          updated_at?: string
+          venue?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -44,6 +122,135 @@ export type Database = {
           role_title?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      routers: {
+        Row: {
+          brand: string
+          created_at: string
+          crosspoints: Json
+          id: string
+          ip: string
+          model: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          brand?: string
+          created_at?: string
+          crosspoints?: Json
+          id?: string
+          ip?: string
+          model?: string
+          name?: string
+          updated_at?: string
+        }
+        Update: {
+          brand?: string
+          created_at?: string
+          crosspoints?: Json
+          id?: string
+          ip?: string
+          model?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      routes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          route_data: Json
+          route_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          route_data?: Json
+          route_name?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          route_data?: Json
+          route_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      staff_contacts: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          email: string
+          id: string
+          name: string
+          notes: string
+          org: string
+          phone: string
+          role: string
+          tags: string[]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          email?: string
+          id?: string
+          name: string
+          notes?: string
+          org?: string
+          phone?: string
+          role?: string
+          tags?: string[]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          email?: string
+          id?: string
+          name?: string
+          notes?: string
+          org?: string
+          phone?: string
+          role?: string
+          tags?: string[]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      team_members: {
+        Row: {
+          access: string
+          created_at: string
+          id: string
+          name: string
+          role: string
+          updated_at: string
+        }
+        Insert: {
+          access?: string
+          created_at?: string
+          id?: string
+          name: string
+          role?: string
+          updated_at?: string
+        }
+        Update: {
+          access?: string
+          created_at?: string
+          id?: string
+          name?: string
+          role?: string
+          updated_at?: string
         }
         Relationships: []
       }
