@@ -3,7 +3,7 @@ import type { SignalRoute, RoutesState, RouterCrosspoint, RouterConfig } from ".
 import { buildDefaultLinks } from "./route-types";
 
 // Re-export types for convenience
-export type { SignalRoute, RoutesState, RouterConfig, RouterCrosspoint, HopNode, RouteLink, RouteHealth, RouteHealthStatus, HopSubtype } from "./route-types";
+export type { SignalRoute, RoutesState, RouterConfig, RouterCrosspoint, HopNode, RouteLink, RouteHealth, RouteHealthStatus, HopSubtype, NodeMetrics } from "./route-types";
 export { HOP_SUBTYPES, CANONICAL_STAGES, buildDefaultLinks } from "./route-types";
 
 const STORAGE_KEY = "mako-routes";

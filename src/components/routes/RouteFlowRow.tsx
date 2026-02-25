@@ -1,18 +1,21 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import { Plus } from "lucide-react";
-import type { SignalRoute, HopNode } from "@/stores/route-store";
+import type { SignalRoute, HopNode, NodeMetrics } from "@/stores/route-store";
 import type { FlowNode, NodeKind } from "./FlowNodeCard";
 import { FlowNodeCard } from "./FlowNodeCard";
 import { NodeConnector } from "./NodeConnector";
 import { Badge } from "@/components/ui/badge";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
+import { formatMetricLine } from "@/hooks/use-simulated-metrics";
+import type { NodeHealthStatus } from "@/hooks/use-simulated-metrics";
 
 interface Props {
   route: SignalRoute;
   onNodeClick?: (routeId: string, section: NodeKind | string) => void;
   trace?: boolean;
   onAddHop?: (routeId: string, linkFrom: string, linkTo: string) => void;
+  metricsMap?: Record<string, NodeMetrics>;
 }
 
 function buildNodes(r: SignalRoute): { nodes: FlowNode[]; hopInsertions: Map<number, HopNode[]> } {
@@ -106,11 +109,12 @@ const HEALTH_CHIP: Record<string, { label: string; cls: string }> = {
   error: { label: "Down", cls: "bg-red-500/15 text-red-400 border-red-500/30" },
 };
 
-function HopMiniCard({ hop, trace, onClick }: { hop: HopNode; trace?: boolean; onClick?: () => void }) {
+function HopMiniCard({ hop, trace, metricLine, onClick }: { hop: HopNode; trace?: boolean; metricLine?: string | null; onClick?: () => void }) {
   const STATUS_DOT: Record<string, string> = {
     ok: "bg-emerald-500", warn: "bg-amber-400", error: "bg-red-500",
     offline: "bg-muted-foreground/40", unknown: "bg-muted-foreground/20",
   };
+  const showMetric = metricLine && (hop.status === "warn" || hop.status === "error");
   return (
     <button
       type="button"
@@ -118,13 +122,23 @@ function HopMiniCard({ hop, trace, onClick }: { hop: HopNode; trace?: boolean; o
       className={cn(
         "relative flex flex-col items-start text-left rounded border bg-secondary/60 p-2 min-w-[120px] max-w-[150px] shrink-0 transition-all duration-200",
         "hover:border-primary/50 cursor-pointer",
-        trace ? "glow-trace-node border-primary/30" : "border-border"
+        trace ? "glow-trace-node border-primary/30" : "border-border",
+        hop.status === "error" && "border-red-500/40",
+        hop.status === "warn" && "border-amber-400/30"
       )}
     >
       <span className={cn("absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full", STATUS_DOT[hop.status])} />
       <span className="text-[8px] uppercase tracking-[0.15em] text-muted-foreground font-semibold">HOP</span>
       <span className="text-[10px] font-mono font-semibold text-foreground mt-0.5 truncate w-full">{hop.label}</span>
       <span className="text-[9px] text-muted-foreground truncate w-full">{hop.subtype}</span>
+      {showMetric && (
+        <span className={cn(
+          "text-[8px] font-mono mt-0.5 truncate w-full",
+          hop.status === "error" ? "text-red-400" : "text-amber-400"
+        )}>
+          {metricLine}
+        </span>
+      )}
     </button>
   );
 }
@@ -142,7 +156,7 @@ function AddHopButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-export function RouteFlowRow({ route, onNodeClick, trace, onAddHop }: Props) {
+export function RouteFlowRow({ route, onNodeClick, trace, onAddHop, metricsMap }: Props) {
   const isMobile = useIsMobile();
   const { nodes, hopInsertions } = useMemo(() => buildNodes(route), [route]);
   const allHops = useMemo(() => Array.from(hopInsertions.values()).flat(), [hopInsertions]);
@@ -177,6 +191,23 @@ export function RouteFlowRow({ route, onNodeClick, trace, onAddHop }: Props) {
     el.addEventListener("scroll", handleScroll, { passive: true });
     return () => el.removeEventListener("scroll", handleScroll);
   }, [isMobile, flatItems.length]);
+
+  const getNodeMetricLine = (kind: NodeKind) => {
+    if (!metricsMap) return null;
+    const key = `${route.id}-${kind}`;
+    const m = metricsMap[key];
+    if (!m) return null;
+    const node = nodes.find(n => n.kind === kind);
+    if (!node) return null;
+    return formatMetricLine(m, node.status as NodeHealthStatus);
+  };
+
+  const getHopMetricLine = (hop: HopNode) => {
+    if (!metricsMap) return null;
+    const m = metricsMap[`${route.id}-hop-${hop.id}`];
+    if (!m) return null;
+    return formatMetricLine(m, hop.status as NodeHealthStatus);
+  };
 
   const handleNodeClick = (kind: NodeKind) => {
     const sectionMap: Record<NodeKind, string> = {
@@ -218,10 +249,10 @@ export function RouteFlowRow({ route, onNodeClick, trace, onAddHop }: Props) {
           {flatItems.map((item, i) => (
             <div key={i} className="snap-start shrink-0" style={{ width: "85%" }}>
               {item.type === "node" && item.node && (
-                <FlowNodeCard node={item.node} trace={trace} onClick={() => handleNodeClick(item.node!.kind)} />
+                <FlowNodeCard node={item.node} trace={trace} metricLine={getNodeMetricLine(item.node.kind)} onClick={() => handleNodeClick(item.node!.kind)} />
               )}
               {item.type === "hop" && item.hop && (
-                <HopMiniCard hop={item.hop} trace={trace} onClick={() => handleHopClick(item.hop!)} />
+                <HopMiniCard hop={item.hop} trace={trace} metricLine={getHopMetricLine(item.hop)} onClick={() => handleHopClick(item.hop!)} />
               )}
             </div>
           ))}
@@ -252,7 +283,7 @@ export function RouteFlowRow({ route, onNodeClick, trace, onAddHop }: Props) {
             const link = getLinkAtIndex(i);
             return (
               <div key={node.kind + i} className="flex items-center">
-                <FlowNodeCard node={node} trace={trace} onClick={() => handleNodeClick(node.kind)} />
+                <FlowNodeCard node={node} trace={trace} metricLine={getNodeMetricLine(node.kind)} onClick={() => handleNodeClick(node.kind)} />
                 {i < nodes.length - 1 && (
                   <div className="flex items-center gap-0">
                     <NodeConnector trace={trace} />
@@ -261,13 +292,13 @@ export function RouteFlowRow({ route, onNodeClick, trace, onAddHop }: Props) {
                         {hops.length <= 2 ? (
                           hops.map((hop) => (
                             <div key={hop.id} className="flex items-center">
-                              <HopMiniCard hop={hop} trace={trace} onClick={() => handleHopClick(hop)} />
+                              <HopMiniCard hop={hop} trace={trace} metricLine={getHopMetricLine(hop)} onClick={() => handleHopClick(hop)} />
                               <NodeConnector trace={trace} />
                             </div>
                           ))
                         ) : (
                           <div className="flex items-center">
-                            <HopMiniCard hop={hops[0]} trace={trace} onClick={() => handleHopClick(hops[0])} />
+                            <HopMiniCard hop={hops[0]} trace={trace} metricLine={getHopMetricLine(hops[0])} onClick={() => handleHopClick(hops[0])} />
                             <button
                               type="button"
                               onClick={() => onNodeClick?.(route.id, "hops")}

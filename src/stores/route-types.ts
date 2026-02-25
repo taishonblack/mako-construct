@@ -48,6 +48,12 @@ export interface ProductionAlias {
 
 export type HopSubtype = "SDI↔IP" | "Fiber" | "FrameSync" | "Embed/Deembed" | "DA" | "Scaler" | "Other";
 
+export interface NodeMetrics {
+  latencyMs: number;
+  packetLossPct: number;
+  bitrateKbps: number;
+}
+
 export interface HopNode {
   id: string;
   subtype: HopSubtype;
@@ -56,6 +62,7 @@ export interface HopNode {
   model: string;
   notes: string;
   status: "ok" | "warn" | "error" | "offline" | "unknown";
+  metrics?: NodeMetrics;
 }
 
 export type RouteHealthStatus = "healthy" | "warn" | "down";
