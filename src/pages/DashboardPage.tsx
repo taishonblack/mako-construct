@@ -3,10 +3,8 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { AlertTriangle, CheckCircle, ChevronRight, Zap, Clock } from "lucide-react";
 import { format, isToday, isBefore, addDays } from "date-fns";
-import { binderStore } from "@/stores/binder-store";
-import {
-  PieChart, Pie, Cell, ResponsiveContainer,
-} from "recharts";
+import { useBinders } from "@/hooks/use-binders";
+import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 
 function inferReadiness(binder: { openIssues: number }): "ready" | "risk" | "blocked" {
   if (binder.openIssues >= 5) return "blocked";
@@ -14,12 +12,8 @@ function inferReadiness(binder: { openIssues: number }): "ready" | "risk" | "blo
   return "ready";
 }
 
-const readinessDot: Record<string, string> = {
-  ready: "bg-emerald-400", risk: "bg-amber-400", blocked: "bg-crimson",
-};
-const readinessLabel: Record<string, string> = {
-  ready: "text-emerald-400", risk: "text-amber-400", blocked: "text-crimson",
-};
+const readinessDot: Record<string, string> = { ready: "bg-emerald-400", risk: "bg-amber-400", blocked: "bg-crimson" };
+const readinessLabel: Record<string, string> = { ready: "text-emerald-400", risk: "text-amber-400", blocked: "text-crimson" };
 
 function StatCard({ label, value, alert, sub }: { label: string; value: string | number; alert?: boolean; sub?: string }) {
   return (
@@ -31,43 +25,17 @@ function StatCard({ label, value, alert, sub }: { label: string; value: string |
   );
 }
 
-interface ChecklistTaskAgg {
-  id: string; label: string; checked: boolean;
-  binderId: string; binderTitle: string; eventDate: string;
-}
-
-function loadUpcomingChecklist(): ChecklistTaskAgg[] {
-  const binders = binderStore.getAll().filter((b) => b.status === "active");
-  const tasks: ChecklistTaskAgg[] = [];
-  for (const binder of binders) {
-    try {
-      const raw = localStorage.getItem(`mako-binder-${binder.id}`);
-      if (!raw) continue;
-      const state = JSON.parse(raw);
-      if (!state.checklist) continue;
-      for (const item of state.checklist) {
-        if (!item.checked) {
-          tasks.push({ id: `${binder.id}-${item.id}`, label: item.label, checked: false,
-            binderId: binder.id, binderTitle: binder.title, eventDate: binder.eventDate });
-        }
-      }
-    } catch { /* ignore */ }
-  }
-  return tasks.sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime()).slice(0, 8);
-}
+interface ChecklistTaskAgg { id: string; label: string; checked: boolean; binderId: string; binderTitle: string; eventDate: string; }
 
 export default function DashboardPage() {
-  const allBinders = useMemo(() => binderStore.getAll(), []);
+  const { binders: allBinders } = useBinders();
   const now = new Date();
   const weekEnd = addDays(now, 7);
 
   const draftCount = allBinders.filter((b) => b.status === "draft").length;
   const activeCount = allBinders.filter((b) => b.status === "active").length;
   const todayCount = allBinders.filter((b) => isToday(new Date(b.eventDate))).length;
-  const weekCount = allBinders.filter((b) => {
-    const d = new Date(b.eventDate);
-    return d >= now && isBefore(d, weekEnd);
-  }).length;
+  const weekCount = allBinders.filter((b) => { const d = new Date(b.eventDate); return d >= now && isBefore(d, weekEnd); }).length;
 
   const readinessBreakdown = useMemo(() => {
     const counts = { ready: 0, risk: 0, blocked: 0 };
@@ -83,16 +51,29 @@ export default function DashboardPage() {
 
   const recentlyChanged = useMemo(() =>
     [...allBinders]
-      .filter((b) => {
-        const updated = new Date(b.updatedAt);
-        const twoDaysAgo = addDays(now, -2);
-        return updated >= twoDaysAgo;
-      })
+      .filter((b) => new Date(b.updatedAt) >= addDays(now, -2))
       .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
       .slice(0, 8),
   [allBinders]);
 
-  const upcomingChecklist = useMemo(() => loadUpcomingChecklist(), []);
+  // Load checklist tasks from localStorage (still used for binder state)
+  const upcomingChecklist = useMemo(() => {
+    const tasks: ChecklistTaskAgg[] = [];
+    for (const binder of allBinders.filter((b) => b.status === "active")) {
+      try {
+        const raw = localStorage.getItem(`mako-binder-${binder.id}`);
+        if (!raw) continue;
+        const state = JSON.parse(raw);
+        if (!state.checklist) continue;
+        for (const item of state.checklist) {
+          if (!item.checked) {
+            tasks.push({ id: `${binder.id}-${item.id}`, label: item.label, checked: false, binderId: binder.id, binderTitle: binder.title, eventDate: binder.eventDate });
+          }
+        }
+      } catch { /* ignore */ }
+    }
+    return tasks.sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime()).slice(0, 8);
+  }, [allBinders]);
 
   return (
     <div>
@@ -101,7 +82,6 @@ export default function DashboardPage() {
         <p className="text-sm text-muted-foreground mt-1">NHL production operations overview</p>
       </motion.div>
 
-      {/* Top stats */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.1 }} className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
         <StatCard label="Drafts" value={draftCount} sub="your private binders" />
@@ -111,18 +91,15 @@ export default function DashboardPage() {
       </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {/* Readiness chart */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.2 }} className="steel-panel p-5">
           <h2 className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-4">Readiness Breakdown</h2>
           <div className="flex items-center gap-6">
             <div className="w-32 h-32">
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={30} outerRadius={55} dataKey="value" strokeWidth={0}>
-                    {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                  </Pie>
-                </PieChart>
+                <PieChart><Pie data={pieData} cx="50%" cy="50%" innerRadius={30} outerRadius={55} dataKey="value" strokeWidth={0}>
+                  {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                </Pie></PieChart>
               </ResponsiveContainer>
             </div>
             <div className="space-y-3">
@@ -133,88 +110,57 @@ export default function DashboardPage() {
           </div>
         </motion.div>
 
-        {/* Upcoming Checklist Tasks */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.25 }} className="steel-panel p-5 lg:col-span-2">
           <h2 className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-4">Upcoming Checklist Tasks</h2>
           {upcomingChecklist.length > 0 ? (
             <div className="space-y-2">
               {upcomingChecklist.map((task) => (
-                <Link key={task.id} to={`/binders/${task.binderId}`}
-                  className="flex items-center gap-3 p-2.5 rounded bg-secondary/50 hover:bg-secondary transition-colors">
+                <Link key={task.id} to={`/binders/${task.binderId}`} className="flex items-center gap-3 p-2.5 rounded bg-secondary/50 hover:bg-secondary transition-colors">
                   <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-foreground">{task.label}</p>
-                    <p className="text-[10px] text-muted-foreground truncate">{task.binderTitle}</p>
-                  </div>
-                  <span className="text-[10px] font-mono text-muted-foreground shrink-0">
-                    {format(new Date(task.eventDate), "MMM d")}
-                  </span>
+                  <div className="flex-1 min-w-0"><p className="text-sm text-foreground">{task.label}</p><p className="text-[10px] text-muted-foreground truncate">{task.binderTitle}</p></div>
+                  <span className="text-[10px] font-mono text-muted-foreground shrink-0">{format(new Date(task.eventDate), "MMM d")}</span>
                 </Link>
               ))}
             </div>
           ) : (
-            <div className="flex items-center gap-2 text-sm text-emerald-400 py-4 justify-center">
-              <CheckCircle className="w-4 h-4" /> All tasks complete
-            </div>
+            <div className="flex items-center gap-2 text-sm text-emerald-400 py-4 justify-center"><CheckCircle className="w-4 h-4" /> All tasks complete</div>
           )}
         </motion.div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Attention Required */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.3 }} className="steel-panel p-5">
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.3 }} className="steel-panel p-5">
           <h2 className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-4">Attention Required</h2>
           <div className="space-y-2">
-            {allBinders
-              .filter((b) => b.openIssues > 0 && (b.status === "active" || b.status === "draft"))
-              .sort((a, b) => b.openIssues - a.openIssues)
-              .slice(0, 6)
-              .map((binder) => {
-                const readiness = inferReadiness(binder);
-                return (
-                  <Link key={binder.id} to={`/binders/${binder.id}`}
-                    className="flex items-center gap-3 p-3 rounded bg-secondary/50 hover:bg-secondary transition-colors">
-                    <AlertTriangle className={`w-3.5 h-3.5 shrink-0 ${readinessLabel[readiness]}`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-foreground truncate">{binder.title}</p>
-                      <p className="text-[10px] text-muted-foreground">{binder.partner}</p>
-                    </div>
-                    <span className="text-xs text-crimson font-mono shrink-0">{binder.openIssues} issues</span>
-                    <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                  </Link>
-                );
-              })}
+            {allBinders.filter((b) => b.openIssues > 0 && (b.status === "active" || b.status === "draft")).sort((a, b) => b.openIssues - a.openIssues).slice(0, 6).map((binder) => {
+              const readiness = inferReadiness(binder);
+              return (
+                <Link key={binder.id} to={`/binders/${binder.id}`} className="flex items-center gap-3 p-3 rounded bg-secondary/50 hover:bg-secondary transition-colors">
+                  <AlertTriangle className={`w-3.5 h-3.5 shrink-0 ${readinessLabel[readiness]}`} />
+                  <div className="flex-1 min-w-0"><p className="text-sm text-foreground truncate">{binder.title}</p><p className="text-[10px] text-muted-foreground">{binder.partner}</p></div>
+                  <span className="text-xs text-crimson font-mono shrink-0">{binder.openIssues} issues</span>
+                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                </Link>
+              );
+            })}
             {allBinders.filter((b) => b.openIssues > 0).length === 0 && (
-              <div className="flex items-center gap-2 text-sm text-emerald-400 py-4 justify-center">
-                <CheckCircle className="w-4 h-4" /> All clear — no blocking issues
-              </div>
+              <div className="flex items-center gap-2 text-sm text-emerald-400 py-4 justify-center"><CheckCircle className="w-4 h-4" /> All clear — no blocking issues</div>
             )}
           </div>
         </motion.div>
 
-        {/* Recently Changed */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.35 }} className="steel-panel p-5">
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.35 }} className="steel-panel p-5">
           <h2 className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-4">Recently Changed</h2>
           <div className="space-y-2">
             {recentlyChanged.map((binder) => (
-              <Link key={binder.id} to={`/binders/${binder.id}`}
-                className="flex items-start gap-3 p-3 rounded bg-secondary/50 hover:bg-secondary transition-colors">
+              <Link key={binder.id} to={`/binders/${binder.id}`} className="flex items-start gap-3 p-3 rounded bg-secondary/50 hover:bg-secondary transition-colors">
                 <Zap className="w-3.5 h-3.5 text-crimson shrink-0 mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-foreground truncate">{binder.title}</p>
-                  <p className="text-[10px] text-muted-foreground">{binder.partner} · {binder.venue}</p>
-                </div>
-                <span className="text-[10px] font-mono text-muted-foreground shrink-0">
-                  {format(new Date(binder.updatedAt), "MMM d HH:mm")}
-                </span>
+                <div className="flex-1 min-w-0"><p className="text-sm text-foreground truncate">{binder.title}</p><p className="text-[10px] text-muted-foreground">{binder.partner} · {binder.venue}</p></div>
+                <span className="text-[10px] font-mono text-muted-foreground shrink-0">{format(new Date(binder.updatedAt), "MMM d HH:mm")}</span>
               </Link>
             ))}
-            {recentlyChanged.length === 0 && (
-              <p className="text-sm text-muted-foreground py-4 text-center">No recent changes</p>
-            )}
+            {recentlyChanged.length === 0 && (<p className="text-sm text-muted-foreground py-4 text-center">No recent changes</p>)}
           </div>
         </motion.div>
       </div>

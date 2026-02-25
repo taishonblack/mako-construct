@@ -1,3 +1,5 @@
+import { supabase } from "@/integrations/supabase/client";
+
 export interface TeamMember {
   id: string;
   name: string;
@@ -5,44 +7,19 @@ export interface TeamMember {
   access: "admin" | "editor" | "viewer";
 }
 
-const STORE_KEY = "mako-team-v1";
+function mapRow(row: any): TeamMember {
+  return {
+    id: row.id,
+    name: row.name,
+    role: row.role || "",
+    access: (row.access as TeamMember["access"]) || "editor",
+  };
+}
 
 type Listener = () => void;
 const listeners = new Set<Listener>();
-let cached: TeamMember[] | null = null;
 
-function emit() {
-  cached = null;
-  listeners.forEach((fn) => fn());
-}
-
-function load(): TeamMember[] {
-  if (cached) return cached;
-  try {
-    const raw = localStorage.getItem(STORE_KEY);
-    if (raw) { cached = JSON.parse(raw); return cached!; }
-  } catch { /* ignore */ }
-  const initial = seed();
-  return initial;
-}
-
-function save(members: TeamMember[]) {
-  cached = members;
-  localStorage.setItem(STORE_KEY, JSON.stringify(members));
-  emit();
-}
-
-function seed(): TeamMember[] {
-  const initial: TeamMember[] = [
-    { id: "tm-1", name: "Alex Rivera", role: "Director of Operations", access: "admin" },
-    { id: "tm-2", name: "Jordan Kim", role: "Senior Technical Manager", access: "admin" },
-    { id: "tm-3", name: "Morgan Ellis", role: "Signal Engineer", access: "editor" },
-    { id: "tm-4", name: "Casey Novak", role: "Transport Specialist", access: "editor" },
-    { id: "tm-5", name: "Taylor Brooks", role: "Production Coordinator", access: "viewer" },
-  ];
-  save(initial);
-  return initial;
-}
+function emit() { listeners.forEach((fn) => fn()); }
 
 export const teamStore = {
   subscribe(fn: Listener) {
@@ -50,37 +27,46 @@ export const teamStore = {
     return () => { listeners.delete(fn); };
   },
 
-  getAll(): TeamMember[] {
-    return load();
+  async getAll(): Promise<TeamMember[]> {
+    const { data, error } = await supabase
+      .from("team_members")
+      .select("*")
+      .order("name");
+    if (error) { console.error("teamStore.getAll", error); return []; }
+    return (data || []).map(mapRow);
   },
 
-  getById(id: string): TeamMember | undefined {
-    return load().find((m) => m.id === id);
+  async create(member: Omit<TeamMember, "id">): Promise<TeamMember | null> {
+    const { data, error } = await supabase
+      .from("team_members")
+      .insert({ name: member.name, role: member.role, access: member.access })
+      .select()
+      .single();
+    if (error) { console.error("teamStore.create", error); return null; }
+    emit();
+    return data ? mapRow(data) : null;
   },
 
-  create(data: Omit<TeamMember, "id">): TeamMember {
-    const all = load();
-    const member: TeamMember = { ...data, id: `tm-${Date.now()}` };
-    all.push(member);
-    save(all);
-    return member;
+  async update(id: string, partial: Partial<TeamMember>): Promise<TeamMember | null> {
+    const { id: _, ...patch } = partial as any;
+    const { data, error } = await supabase
+      .from("team_members")
+      .update(patch)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) { console.error("teamStore.update", error); return null; }
+    emit();
+    return data ? mapRow(data) : null;
   },
 
-  update(id: string, partial: Partial<TeamMember>): TeamMember | undefined {
-    const all = load();
-    const idx = all.findIndex((m) => m.id === id);
-    if (idx === -1) return undefined;
-    all[idx] = { ...all[idx], ...partial };
-    save(all);
-    return all[idx];
-  },
-
-  remove(id: string): boolean {
-    const all = load();
-    const idx = all.findIndex((m) => m.id === id);
-    if (idx === -1) return false;
-    all.splice(idx, 1);
-    save(all);
+  async remove(id: string): Promise<boolean> {
+    const { error } = await supabase
+      .from("team_members")
+      .delete()
+      .eq("id", id);
+    if (error) { console.error("teamStore.remove", error); return false; }
+    emit();
     return true;
   },
 };
