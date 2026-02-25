@@ -1,17 +1,29 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Plus, X, Phone, Mail, Copy, Check, Pencil, Trash2, LayoutGrid, List } from "lucide-react";
+import { Search, Plus, X, Phone, Mail, Copy, Check, Pencil, Trash2, LayoutGrid, List, ArrowUpDown, ChevronDown } from "lucide-react";
 import { staffStore, type StaffMember } from "@/stores/staff-store";
 import { StaffListView } from "@/components/staff/StaffListView";
+import { StaffDetailDrawer } from "@/components/staff/StaffDetailDrawer";
 
 type ViewMode = "cards" | "list";
+type SortMode = "name" | "org" | "tag";
 
 const STORAGE_KEY = "mako-staff-view";
+const SORT_KEY = "mako-staff-sort";
 function getInitialView(): ViewMode {
   try { const v = localStorage.getItem(STORAGE_KEY); return v === "list" ? "list" : "cards"; } catch { return "cards"; }
 }
+function getInitialSort(): SortMode {
+  try { const v = localStorage.getItem(SORT_KEY); return (v === "org" || v === "tag") ? v : "name"; } catch { return "name"; }
+}
 
 const TAGS = ["NHL", "Partner", "Vendor", "Truck", "Transmission"];
+
+const SORT_OPTIONS: { value: SortMode; label: string }[] = [
+  { value: "name", label: "Name A–Z" },
+  { value: "org", label: "Organization" },
+  { value: "tag", label: "Tag" },
+];
 
 function StaffFormModal({ open, onClose, onSubmit, initial, mode }: {
   open: boolean; onClose: () => void; onSubmit: (data: Omit<StaffMember, "id">) => void;
@@ -116,23 +128,51 @@ export default function StaffPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>(getInitialView);
+  const [sortMode, setSortMode] = useState<SortMode>(getInitialSort);
+  const [sortOpen, setSortOpen] = useState(false);
+  const [detailMember, setDetailMember] = useState<StaffMember | null>(null);
   const [, forceUpdate] = useState(0);
+  const sortRef = useRef<HTMLDivElement>(null);
+
+  // Close sort dropdown on outside click
+  useEffect(() => {
+    if (!sortOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (sortRef.current && !sortRef.current.contains(e.target as Node)) setSortOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [sortOpen]);
 
   const toggleView = (mode: ViewMode) => {
     setViewMode(mode);
     try { localStorage.setItem(STORAGE_KEY, mode); } catch {}
   };
 
+  const changeSort = (mode: SortMode) => {
+    setSortMode(mode);
+    setSortOpen(false);
+    try { localStorage.setItem(SORT_KEY, mode); } catch {}
+  };
+
   const allStaff = useMemo(() => staffStore.getAll(), [formOpen, editingStaff]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return allStaff.filter((m) => {
+    const result = allStaff.filter((m) => {
       const matchesSearch = !q || m.name.toLowerCase().includes(q) || m.org.toLowerCase().includes(q) || m.role.toLowerCase().includes(q);
       const matchesTag = !tagFilter || m.tags.includes(tagFilter);
       return matchesSearch && matchesTag;
     });
-  }, [search, tagFilter, allStaff]);
+    // Sort
+    result.sort((a, b) => {
+      if (sortMode === "name") return a.name.localeCompare(b.name);
+      if (sortMode === "org") return (a.org || "").localeCompare(b.org || "") || a.name.localeCompare(b.name);
+      if (sortMode === "tag") return (a.tags[0] || "zzz").localeCompare(b.tags[0] || "zzz") || a.name.localeCompare(b.name);
+      return 0;
+    });
+    return result;
+  }, [search, tagFilter, allStaff, sortMode]);
 
   const handleCreate = (data: Omit<StaffMember, "id">) => {
     staffStore.create(data);
@@ -187,13 +227,34 @@ export default function StaffPage() {
             className="w-full pl-9 pr-8 py-2 text-sm bg-secondary border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-crimson transition-colors" />
           {search && <button onClick={() => setSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X className="w-3.5 h-3.5" /></button>}
         </div>
-        <div className="flex gap-1">
-          {TAGS.map((tag) => (
-            <button key={tag} onClick={() => setTagFilter(tagFilter === tag ? null : tag)}
-              className={`px-2 py-1 text-[10px] tracking-wider uppercase rounded border transition-colors ${
-                tagFilter === tag ? "border-crimson bg-crimson/10 text-crimson" : "border-border text-muted-foreground hover:text-foreground"
-              }`}>{tag}</button>
-          ))}
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1 flex-wrap">
+            {TAGS.map((tag) => (
+              <button key={tag} onClick={() => setTagFilter(tagFilter === tag ? null : tag)}
+                className={`px-2 py-1 text-[10px] tracking-wider uppercase rounded border transition-colors ${
+                  tagFilter === tag ? "border-crimson bg-crimson/10 text-crimson" : "border-border text-muted-foreground hover:text-foreground"
+                }`}>{tag}</button>
+            ))}
+          </div>
+          {/* Sort dropdown */}
+          <div className="relative" ref={sortRef}>
+            <button onClick={() => setSortOpen(!sortOpen)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] tracking-wider uppercase rounded border border-border text-muted-foreground hover:text-foreground transition-colors">
+              <ArrowUpDown className="w-3 h-3" />
+              {SORT_OPTIONS.find(s => s.value === sortMode)?.label}
+              <ChevronDown className={`w-3 h-3 transition-transform ${sortOpen ? "rotate-180" : ""}`} />
+            </button>
+            {sortOpen && (
+              <div className="absolute right-0 top-full mt-1 z-50 bg-popover border border-border rounded-md shadow-lg py-1 min-w-[140px]">
+                {SORT_OPTIONS.map(opt => (
+                  <button key={opt.value} onClick={() => changeSort(opt.value)}
+                    className={`w-full text-left px-3 py-2 text-xs transition-colors ${
+                      sortMode === opt.value ? "text-primary bg-primary/10" : "text-foreground hover:bg-muted"
+                    }`}>{opt.label}</button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -243,7 +304,7 @@ export default function StaffPage() {
           )}
         </>
       ) : (
-        <StaffListView staff={filtered} onEdit={setEditingStaff} onDelete={handleDelete} />
+        <StaffListView staff={filtered} onEdit={setEditingStaff} onDelete={handleDelete} onSelect={setDetailMember} />
       )}
 
       <StaffFormModal open={formOpen} onClose={() => setFormOpen(false)} onSubmit={handleCreate} mode="create" />
@@ -251,6 +312,12 @@ export default function StaffPage() {
         <StaffFormModal open={true} onClose={() => setEditingStaff(null)} onSubmit={handleEdit}
           initial={editingStaff} mode="edit" />
       )}
+      <StaffDetailDrawer
+        member={detailMember}
+        onClose={() => setDetailMember(null)}
+        onEdit={(m) => { setDetailMember(null); setEditingStaff(m); }}
+        onDelete={handleDelete}
+      />
     </div>
   );
 }
