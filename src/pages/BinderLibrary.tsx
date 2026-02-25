@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Plus, SlidersHorizontal, FileText } from "lucide-react";
+import { Search, Plus, SlidersHorizontal, FileText, MessageSquare } from "lucide-react";
 import { motion } from "framer-motion";
 import { useOutletContext } from "react-router-dom";
 import { mockBinders } from "@/data/mock-binders";
@@ -45,6 +45,13 @@ export default function BinderLibrary() {
               Import Call Sheet
             </Button>
           )}
+          <a
+            href="/binders/new?mode=quinn"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-secondary text-foreground text-xs font-medium tracking-wide uppercase rounded-md border border-border hover:border-primary hover:text-primary transition-all duration-200"
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+            Create with Quinn
+          </a>
           <a
             href="/binders/new"
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground text-xs font-medium tracking-wide uppercase rounded-md hover:glow-red transition-all duration-200"
