@@ -7,9 +7,96 @@ import { buildDefaultLinks } from "./route-types";
 export type { SignalRoute, RoutesState, RouterConfig, RouterCrosspoint, HopNode, RouteLink, RouteHealth, RouteHealthStatus, HopSubtype, NodeMetrics } from "./route-types";
 export { HOP_SUBTYPES, CANONICAL_STAGES, buildDefaultLinks } from "./route-types";
 
+// NYR @ BOS seed route definitions
+const SEED_ROUTES: Partial<SignalRoute>[] = [
+  {
+    routeName: "TX 1.1",
+    signalSource: { location: "TD Garden — Center Ice", venue: "TD Garden, Boston", signalName: "Center Court Wide" },
+    encoder: { brand: "Haivision", model: "Makito X4", deviceName: "ENC-01", inputPort: 1, localIp: "10.0.23.101", notes: "Primary game camera" },
+    transport: { type: "SRT Private", srtAddress: "srt://ingest.mako.tv:9001", port: "9001", mode: "caller", passphrase: "nyr-bos-g1-tx1", multicastIp: "", cloudRelayName: "MAKO-East-1" },
+    decoder: { brand: "Haivision", model: "Makito X4 RX", deviceName: "DEC-01", outputPort: 1, frameSync: true, localIp: "10.0.26.101" },
+    routerMapping: { router: "23", inputCrosspoint: "1", outputCrosspoint: "1", monitorWallDest: "MW-01", evsRecordChannel: "EVS-A1" },
+    alias: { engineeringName: "Haivision 1.1", productionName: "ISO-1 Center" },
+    health: { status: "healthy", reason: "", lastUpdated: new Date().toISOString() },
+  },
+  {
+    routeName: "TX 2.1",
+    signalSource: { location: "TD Garden — Slash Left", venue: "TD Garden, Boston", signalName: "Slash Left" },
+    encoder: { brand: "Haivision", model: "Makito X4", deviceName: "ENC-02", inputPort: 1, localIp: "10.0.23.102", notes: "" },
+    transport: { type: "SRT Private", srtAddress: "srt://ingest.mako.tv:9002", port: "9002", mode: "caller", passphrase: "nyr-bos-g1-tx2", multicastIp: "", cloudRelayName: "MAKO-East-1" },
+    decoder: { brand: "Haivision", model: "Makito X4 RX", deviceName: "DEC-02", outputPort: 2, frameSync: true, localIp: "10.0.26.102" },
+    routerMapping: { router: "23", inputCrosspoint: "2", outputCrosspoint: "2", monitorWallDest: "MW-02", evsRecordChannel: "EVS-A2" },
+    alias: { engineeringName: "Haivision 2.1", productionName: "ISO-2 Slash L" },
+    health: { status: "healthy", reason: "", lastUpdated: new Date().toISOString() },
+  },
+  {
+    routeName: "TX 3.1",
+    signalSource: { location: "TD Garden — Slash Right", venue: "TD Garden, Boston", signalName: "Slash Right" },
+    encoder: { brand: "Haivision", model: "Makito X4", deviceName: "ENC-03", inputPort: 1, localIp: "10.0.23.103", notes: "" },
+    transport: { type: "SRT Private", srtAddress: "srt://ingest.mako.tv:9003", port: "9003", mode: "caller", passphrase: "nyr-bos-g1-tx3", multicastIp: "", cloudRelayName: "MAKO-East-1" },
+    decoder: { brand: "Haivision", model: "Makito X4 RX", deviceName: "DEC-03", outputPort: 3, frameSync: false, localIp: "10.0.26.103" },
+    routerMapping: { router: "23", inputCrosspoint: "3", outputCrosspoint: "3", monitorWallDest: "MW-03", evsRecordChannel: "EVS-A3" },
+    alias: { engineeringName: "Haivision 3.1", productionName: "ISO-3 Slash R" },
+    health: { status: "warn", reason: "Elevated packet loss on transport leg", lastUpdated: new Date().toISOString() },
+  },
+  {
+    routeName: "TX 4.1",
+    signalSource: { location: "TD Garden — High Home", venue: "TD Garden, Boston", signalName: "High Home" },
+    encoder: { brand: "Haivision", model: "Makito X4", deviceName: "ENC-04", inputPort: 1, localIp: "10.0.23.104", notes: "Backup encoder on standby" },
+    transport: { type: "SRT Private", srtAddress: "srt://ingest.mako.tv:9004", port: "9004", mode: "caller", passphrase: "nyr-bos-g1-tx4", multicastIp: "", cloudRelayName: "MAKO-East-1" },
+    decoder: { brand: "Haivision", model: "Makito X4 RX", deviceName: "DEC-04", outputPort: 4, frameSync: true, localIp: "10.0.26.104" },
+    routerMapping: { router: "23", inputCrosspoint: "4", outputCrosspoint: "4", monitorWallDest: "MW-04", evsRecordChannel: "EVS-A4" },
+    alias: { engineeringName: "Haivision 4.1", productionName: "ISO-4 High Home" },
+    health: { status: "healthy", reason: "", lastUpdated: new Date().toISOString() },
+  },
+  {
+    routeName: "TX 5.1",
+    signalSource: { location: "TD Garden — Baseline Left", venue: "TD Garden, Boston", signalName: "Baseline Left" },
+    encoder: { brand: "Videon", model: "EdgeCaster", deviceName: "ENC-05", inputPort: 1, localIp: "10.0.23.105", notes: "" },
+    transport: { type: "SRT Public", srtAddress: "srt://relay.mako.tv:9005", port: "9005", mode: "caller", passphrase: "nyr-bos-g1-tx5", multicastIp: "", cloudRelayName: "MAKO-East-2" },
+    decoder: { brand: "Haivision", model: "Makito X4 RX", deviceName: "DEC-05", outputPort: 5, frameSync: false, localIp: "10.0.26.105" },
+    routerMapping: { router: "23", inputCrosspoint: "5", outputCrosspoint: "5", monitorWallDest: "MW-05", evsRecordChannel: "" },
+    alias: { engineeringName: "Videon 5.1", productionName: "ISO-5 Baseline L" },
+    health: { status: "healthy", reason: "", lastUpdated: new Date().toISOString() },
+  },
+  {
+    routeName: "TX 6.1",
+    signalSource: { location: "TD Garden — Handheld 1", venue: "TD Garden, Boston", signalName: "Handheld Left" },
+    encoder: { brand: "Videon", model: "EdgeCaster", deviceName: "ENC-06", inputPort: 1, localIp: "10.0.23.106", notes: "" },
+    transport: { type: "SRT Public", srtAddress: "srt://relay.mako.tv:9006", port: "9006", mode: "caller", passphrase: "", multicastIp: "", cloudRelayName: "MAKO-East-2" },
+    decoder: { brand: "Haivision", model: "Makito X4 RX", deviceName: "DEC-06", outputPort: 6, frameSync: false, localIp: "10.0.26.106" },
+    routerMapping: { router: "23", inputCrosspoint: "6", outputCrosspoint: "6", monitorWallDest: "", evsRecordChannel: "" },
+    alias: { engineeringName: "Videon 6.1", productionName: "ISO-6 HH1" },
+    health: { status: "down", reason: "Encoder offline — no heartbeat since pre-show", lastUpdated: new Date().toISOString() },
+  },
+];
+
 function createDefaultRoute(index: number): SignalRoute {
   const n = index + 1;
   const pad = (v: number) => String(v).padStart(2, "0");
+  const seed = SEED_ROUTES[index];
+  if (seed) {
+    return {
+      id: `route-seed-${n}`,
+      routeName: seed.routeName!,
+      signalSource: seed.signalSource!,
+      audioMapping: [
+        { channel: 1, label: "Clean" },
+        { channel: 2, label: "Clean" },
+        { channel: 3, label: "Nats" },
+        { channel: 4, label: "Nats" },
+      ],
+      encoder: seed.encoder!,
+      transport: seed.transport!,
+      decoder: seed.decoder!,
+      routerMapping: seed.routerMapping!,
+      alias: seed.alias!,
+      health: seed.health!,
+      links: buildDefaultLinks(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+  }
   return {
     id: `route-${Date.now()}-${n}`,
     routeName: `TX ${n}.1`,
@@ -67,8 +154,8 @@ export function useRoutesStore() {
 
       // Seed defaults if empty
       if (routes.length === 0) {
-        routes = Array.from({ length: 4 }, (_, i) => createDefaultRoute(i));
-      for (const r of routes) {
+        routes = Array.from({ length: SEED_ROUTES.length }, (_, i) => createDefaultRoute(i));
+        for (const r of routes) {
           const { id, ...routeData } = r;
           await supabase.from("routes").insert({ id, route_name: r.routeName, route_data: routeData as any }).select();
         }

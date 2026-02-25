@@ -47,14 +47,21 @@ export interface LockState {
   unlockReason?: string;
 }
 
+const today = new Date().toISOString().slice(0, 10);
+const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+const dayAfter = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
+
 const defaultChecklist: ChecklistItem[] = [
-  { id: "ck1", label: "Confirm ISO count", checked: false, assignedTo: "", dueAt: "", createdAt: new Date().toISOString(), status: "open", notes: "" },
-  { id: "ck2", label: "Encoder allocation verified", checked: false, assignedTo: "", dueAt: "", createdAt: new Date().toISOString(), status: "open", notes: "" },
-  { id: "ck3", label: "Decoder mapping verified", checked: false, assignedTo: "", dueAt: "", createdAt: new Date().toISOString(), status: "open", notes: "" },
-  { id: "ck4", label: "Transport primary tested", checked: false, assignedTo: "", dueAt: "", createdAt: new Date().toISOString(), status: "open", notes: "" },
-  { id: "ck5", label: "Return feed request sent to partner", checked: false, assignedTo: "", dueAt: "", createdAt: new Date().toISOString(), status: "open", notes: "" },
-  { id: "ck6", label: "Comms confirmed", checked: false, assignedTo: "", dueAt: "", createdAt: new Date().toISOString(), status: "open", notes: "" },
-  { id: "ck7", label: "Release confirmed", checked: false, assignedTo: "", dueAt: "", createdAt: new Date().toISOString(), status: "open", notes: "" },
+  { id: "ck1", label: "Confirm ISO count with TNT producer", checked: true, assignedTo: "Mike Torres", dueAt: today + "T12:00:00", createdAt: new Date().toISOString(), status: "done", notes: "Confirmed 18 ISOs — Jenna approved" },
+  { id: "ck2", label: "Encoder allocation — Makito X4 (6 units)", checked: true, assignedTo: "Sarah Kim", dueAt: today + "T14:00:00", createdAt: new Date().toISOString(), status: "done", notes: "ENC-01 through ENC-06 assigned, all firmware v4.2.1" },
+  { id: "ck3", label: "Decoder mapping verified — CR-23", checked: false, assignedTo: "Sarah Kim", dueAt: tomorrow + "T10:00:00", createdAt: new Date().toISOString(), status: "in-progress", notes: "DEC-01 to DEC-04 verified, DEC-05/06 pending fiber patch" },
+  { id: "ck4", label: "SRT transport primary test — all 6 paths", checked: false, assignedTo: "Alex Nguyen", dueAt: tomorrow + "T14:00:00", createdAt: new Date().toISOString(), status: "open", notes: "TX 3.1 showing elevated packet loss — investigating" },
+  { id: "ck5", label: "Return feed request sent to TNT", checked: false, assignedTo: "Mike Torres", dueAt: today + "T16:00:00", createdAt: new Date().toISOString(), status: "open", notes: "" },
+  { id: "ck6", label: "Comms confirmed — PL channels + LQ links", checked: false, assignedTo: "Dave Kowalski", dueAt: tomorrow + "T09:00:00", createdAt: new Date().toISOString(), status: "open", notes: "Need LQ-3 credentials from TNT" },
+  { id: "ck7", label: "Graphics package loaded and tested", checked: false, assignedTo: "Marcus Cole", dueAt: tomorrow + "T15:00:00", createdAt: new Date().toISOString(), status: "open", notes: "" },
+  { id: "ck8", label: "Venue fiber patch confirmed with TD Garden", checked: false, assignedTo: "Pat Sullivan", dueAt: dayAfter + "T08:00:00", createdAt: new Date().toISOString(), status: "open", notes: "Pat confirmed 12 fiber pairs available" },
+  { id: "ck9", label: "Full signal chain test — end-to-end", checked: false, assignedTo: "Sarah Kim", dueAt: dayAfter + "T12:00:00", createdAt: new Date().toISOString(), status: "open", notes: "" },
+  { id: "ck10", label: "Release authorization from producer", checked: false, assignedTo: "Mike Torres", dueAt: dayAfter + "T17:00:00", createdAt: new Date().toISOString(), status: "open", notes: "" },
 ];
 
 export interface BinderState {
@@ -86,6 +93,8 @@ export interface BinderState {
 }
 
 const STORAGE_KEY = "mako-binder-";
+const SEED_VERSION_KEY = "mako-binder-seed-v";
+const CURRENT_SEED_VERSION = "2"; // Bump to force re-seed with new mock data
 
 function buildDefaultTopology(): TopologyConfig {
   const encCount = 6;
@@ -148,6 +157,13 @@ function buildInitialState(_id: string): BinderState {
 
 export function useBinderState(binderId: string) {
   const [state, setState] = useState<BinderState>(() => {
+    // Check seed version — if outdated, clear stale data to get new defaults
+    const seedVersion = localStorage.getItem(SEED_VERSION_KEY + binderId);
+    if (seedVersion !== CURRENT_SEED_VERSION) {
+      localStorage.removeItem(STORAGE_KEY + binderId);
+      localStorage.setItem(SEED_VERSION_KEY + binderId, CURRENT_SEED_VERSION);
+    }
+
     const stored = localStorage.getItem(STORAGE_KEY + binderId);
     if (stored) {
       try {
@@ -162,11 +178,9 @@ export function useBinderState(binderId: string) {
         if (!parsed.lockHistory) parsed.lockHistory = [];
         if (!parsed.eventHeader) parsed.eventHeader = { ...DEFAULT_EVENT_HEADER };
         if (!parsed.audioPhilosophy) parsed.audioPhilosophy = { ...DEFAULT_AUDIO_PHILOSOPHY };
-        // Migrate checklist items to new format
         if (parsed.checklist) {
           parsed.checklist = migrateChecklist(parsed.checklist);
         }
-        // Ensure signals have txName/rxName/linkedRouteId
         if (parsed.signals) {
           parsed.signals = parsed.signals.map((s: Signal) => ({
             ...s,
