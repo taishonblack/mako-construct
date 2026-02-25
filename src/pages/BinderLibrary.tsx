@@ -1,15 +1,16 @@
 import { useState } from "react";
 import { Search, Plus, SlidersHorizontal, FileText } from "lucide-react";
 import { motion } from "framer-motion";
-import { mockBinders } from "@/data/mock-binders";
+import { useBinders } from "@/hooks/use-binders";
 import { BinderCard } from "@/components/BinderCard";
 import { ImportCallSheetDrawer } from "@/components/import/ImportCallSheetDrawer";
 
 export default function BinderLibrary() {
   const [importOpen, setImportOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const { binders, loading } = useBinders();
 
-  const filtered = mockBinders.filter((b) => {
+  const filtered = binders.filter((b) => {
     const q = search.toLowerCase();
     return (
       b.title.toLowerCase().includes(q) ||
@@ -29,7 +30,9 @@ export default function BinderLibrary() {
       >
         <div>
           <h1 className="text-xl font-medium text-foreground tracking-tight">Binder Library</h1>
-          <p className="text-sm text-muted-foreground mt-1">{filtered.length} binder{filtered.length !== 1 ? "s" : ""}</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {loading ? "Loading…" : `${filtered.length} binder${filtered.length !== 1 ? "s" : ""}`}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -84,9 +87,11 @@ export default function BinderLibrary() {
             <BinderCard binder={binder} />
           </motion.div>
         ))}
-        {filtered.length === 0 && (
+        {!loading && filtered.length === 0 && (
           <div className="col-span-full text-center py-16">
-            <p className="text-sm text-muted-foreground">No binders match "{search}"</p>
+            <p className="text-sm text-muted-foreground">
+              {search ? `No binders match "${search}"` : "No binders yet. Create one to get started."}
+            </p>
           </div>
         )}
       </div>
