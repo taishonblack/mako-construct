@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { WikiArticle, WikiVersion, WikiLink, WikiCategory, WikiArticleType, StructuredContent } from "@/lib/wiki-types";
 import { defaultContentForType } from "@/lib/wiki-types";
 import { getDisplayName } from "@/hooks/use-display-name";
+import { seedWikiIfEmpty } from "@/data/seed-wiki";
 
 /** Get the best available author name: profile display_name > localStorage > 'System' */
 async function getAuthorName(): Promise<string> {
@@ -21,6 +22,7 @@ export function useWikiArticles(category?: WikiCategory | null) {
 
   const refetch = useCallback(async () => {
     setLoading(true);
+    await seedWikiIfEmpty();
     let q = supabase.from("wiki_articles").select("*").order("updated_at", { ascending: false });
     if (category) q = q.eq("category", category);
     const { data } = await q;
