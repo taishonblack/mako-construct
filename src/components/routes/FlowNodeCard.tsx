@@ -32,18 +32,20 @@ const KIND_LABEL: Record<NodeKind, string> = {
 interface Props {
   node: FlowNode;
   isActive?: boolean;
+  trace?: boolean;
   onClick?: () => void;
 }
 
-export function FlowNodeCard({ node, isActive, onClick }: Props) {
+export function FlowNodeCard({ node, isActive, trace, onClick }: Props) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "relative flex flex-col items-start text-left rounded-md border bg-card p-3 min-w-[180px] max-w-[220px] shrink-0 transition-all duration-150",
+        "relative flex flex-col items-start text-left rounded-md border bg-card p-3 min-w-[180px] max-w-[220px] shrink-0 transition-all duration-200",
         "hover:border-primary/50 hover:bg-secondary/40 cursor-pointer",
         isActive ? "border-primary/60 glow-red-subtle" : "border-border",
+        trace && node.status !== "offline" && node.primary !== "—" ? "glow-trace-node border-primary/30" : "",
         !node.primary || node.primary === "—" ? "opacity-50" : ""
       )}
     >
