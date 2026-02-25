@@ -1,12 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Send } from "lucide-react";
+import { Send, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -15,6 +13,7 @@ import { parseQuinnInput, getMissingFields } from "@/lib/quinn-parser";
 import { getNextQuestion, getSkipText, hasMinimumFields, getIntroMessage, type QuinnState, type AskCounts, type QuestionResult } from "@/lib/quinn-engine";
 import { binderDraftStore, type BinderDraft, type QuinnMessage, EMPTY_DRAFT } from "@/stores/binder-draft-store";
 import { QuinnPreviewPanel } from "./QuinnPreviewPanel";
+import { supabase } from "@/integrations/supabase/client";
 
 import type { BinderFormData } from "@/components/command/BinderFormModal";
 
@@ -24,6 +23,39 @@ interface Props {
 }
 
 function msgId() { return `qm-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`; }
+
+// ── AI extraction via edge function ──
+async function callQuinnAI(
+  userMessages: { role: string; content: string }[],
+  draft: Partial<BinderDraft>
+): Promise<{
+  reply: string;
+  fields: Record<string, any>;
+  confidence: Record<string, "high" | "medium" | "low">;
+  quickReplies?: string[];
+} | null> {
+  try {
+    const { data, error } = await supabase.functions.invoke("quinn-chat", {
+      body: { messages: userMessages, draft },
+    });
+    if (error) {
+      console.error("Quinn AI error:", error);
+      return null;
+    }
+    if (data?.error) {
+      if (data.error.includes("Rate limit")) toast.error("Quinn is rate-limited. Using local parsing.");
+      else if (data.error.includes("credits")) toast.error("AI credits exhausted. Using local parsing.");
+      else console.warn("Quinn AI:", data.error);
+      return null;
+    }
+    // Extract fields from response
+    const { reply, confidence, quickReplies, ...fields } = data;
+    return { reply: reply || "", fields, confidence: confidence || {}, quickReplies };
+  } catch (e) {
+    console.error("Quinn AI fetch failed:", e);
+    return null;
+  }
+}
 
 function buildFormData(draft: BinderDraft): BinderFormData {
   return {
@@ -41,55 +73,23 @@ function buildFormData(draft: BinderDraft): BinderFormData {
     partner: draft.partner || "ESPN",
     status: (draft.status as any) || "draft",
     isoCount: draft.isoCount || 12,
-    returnRequired: false,
-    returnFeedEndpoints: [],
-    signalNamingMode: "iso",
-    canonicalSignals: [],
-    customSignalNames: "",
+    returnRequired: false, returnFeedEndpoints: [],
+    signalNamingMode: "iso", canonicalSignals: [], customSignalNames: "",
     encoders: [{ id: "enc-1", brand: "Videon", model: "", outputsPerUnit: 4, unitCount: 2, notes: "" }],
     decoders: [{ id: "dec-1", brand: "Haivision", model: "", outputsPerUnit: 2, unitCount: 6, notes: "" }],
-    primaryTransport: "SRT",
-    outboundHost: "",
-    outboundPort: "",
-    inboundHost: "",
-    inboundPort: "",
-    backupTransport: "",
-    backupOutboundHost: "",
-    backupOutboundPort: "",
-    backupInboundHost: "",
-    backupInboundPort: "",
-    notes: draft.notes,
-    saveAsTemplate: false,
-    templateName: "",
-    league: "NHL",
-    containerId: "",
-    showType: "Standard",
-    customShowType: "",
-    siteType: "Arena",
-    studioLocation: "",
-    commercials: "local-insert",
-    customCommercials: "",
-    customPrimaryTransport: "",
-    customBackupTransport: "",
-    gameType: "Regular Season",
-    season: "2025–26",
-    encoderInputsPerUnit: 2,
-    encoderCount: 6,
-    decoderOutputsPerUnit: 4,
-    decoderCount: 6,
+    primaryTransport: "SRT", outboundHost: "", outboundPort: "", inboundHost: "", inboundPort: "",
+    backupTransport: "", backupOutboundHost: "", backupOutboundPort: "", backupInboundHost: "", backupInboundPort: "",
+    notes: draft.notes, saveAsTemplate: false, templateName: "",
+    league: "NHL", containerId: "", showType: "Standard", customShowType: "",
+    siteType: "Arena", studioLocation: "", commercials: "local-insert",
+    customCommercials: "", customPrimaryTransport: "", customBackupTransport: "",
+    gameType: "Regular Season", season: "2025–26",
+    encoderInputsPerUnit: 2, encoderCount: 6, decoderOutputsPerUnit: 4, decoderCount: 6,
     autoAllocate: true,
-    srtPrimaryHost: "",
-    srtPrimaryPort: "",
-    srtPrimaryMode: "caller",
-    srtPrimaryPassphrase: "",
-    mpegPrimaryMulticast: "",
-    mpegPrimaryPort: "",
-    srtBackupHost: "",
-    srtBackupPort: "",
-    srtBackupMode: "caller",
-    srtBackupPassphrase: "",
-    mpegBackupMulticast: "",
-    mpegBackupPort: "",
+    srtPrimaryHost: "", srtPrimaryPort: "", srtPrimaryMode: "caller", srtPrimaryPassphrase: "",
+    mpegPrimaryMulticast: "", mpegPrimaryPort: "",
+    srtBackupHost: "", srtBackupPort: "", srtBackupMode: "caller", srtBackupPassphrase: "",
+    mpegBackupMulticast: "", mpegBackupPort: "",
     lqRequired: false,
     lqPorts: [
       { letter: "E", label: "Truck AD", notes: "" },
@@ -114,6 +114,7 @@ export default function QuinnBinderAssistant({ onSubmit, onClose }: Props) {
   const [skippedFields, setSkippedFields] = useState<string[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState<QuestionResult | null>(null);
   const [creating, setCreating] = useState(false);
+  const [thinking, setThinking] = useState(false);
   const [mobileTab, setMobileTab] = useState<string>("chat");
 
   // Persist
@@ -125,7 +126,7 @@ export default function QuinnBinderAssistant({ onSubmit, onClose }: Props) {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, thinking]);
 
   // Init with greeting
   useEffect(() => {
@@ -143,7 +144,28 @@ export default function QuinnBinderAssistant({ onSubmit, onClose }: Props) {
     setMessages(prev => [...prev, { id: msgId(), role: "quinn", text, quickReplies, timestamp: Date.now() }]);
   }, []);
 
-  const applyParsed = useCallback((text: string) => {
+  const applyFieldsFromAI = useCallback((fields: Record<string, any>, confidence: Record<string, string>) => {
+    setDraft(prev => {
+      const next = { ...prev };
+      const conf = { ...prev.fieldConfidence };
+      const fieldKeys = ["binderTitle", "homeTeam", "awayTeam", "gameDate", "gameTime", "timezone", "controlRoom", "venue", "broadcastFeed", "status", "onsiteTechManager", "notes"];
+      for (const key of fieldKeys) {
+        if (fields[key] && !prev.lockedFields.includes(key)) {
+          (next as any)[key] = fields[key];
+          conf[key] = (confidence[key] as any) || "high";
+        }
+      }
+      // Auto-derive title
+      if (!next.binderTitle && next.awayTeam && next.homeTeam) {
+        next.binderTitle = `${next.awayTeam} @ ${next.homeTeam}`;
+        conf.binderTitle = "high";
+      }
+      next.fieldConfidence = conf;
+      return next;
+    });
+  }, []);
+
+  const applyLocalParsed = useCallback((text: string) => {
     const parsed = parseQuinnInput(text);
     setDraft(prev => {
       const next = { ...prev };
@@ -155,7 +177,6 @@ export default function QuinnBinderAssistant({ onSubmit, onClose }: Props) {
         }
       }
       next.fieldConfidence = conf;
-      // Auto-derive title from teams if not set
       if (!next.binderTitle && next.awayTeam && next.homeTeam) {
         next.binderTitle = `${next.awayTeam} @ ${next.homeTeam}`;
         conf.binderTitle = conf.awayTeam || "medium";
@@ -164,7 +185,7 @@ export default function QuinnBinderAssistant({ onSubmit, onClose }: Props) {
     });
   }, []);
 
-  const processUserMessage = useCallback((text: string) => {
+  const processUserMessage = useCallback(async (text: string) => {
     // Add user message
     setMessages(prev => [...prev, { id: msgId(), role: "user", text, timestamp: Date.now() }]);
 
@@ -173,35 +194,68 @@ export default function QuinnBinderAssistant({ onSubmit, onClose }: Props) {
       setSkippedFields(prev => [...prev, currentQuestion.field]);
       addQuinnMessage(getSkipText(currentQuestion.field as any));
       setCurrentQuestion(null);
-      // Advance to next question after small delay
-      setTimeout(() => advanceConversation(text, true), 300);
+      setTimeout(() => advanceFallback(), 300);
       return;
     }
 
-    // Parse input
-    applyParsed(text);
+    // Try AI first, fallback to local parsing
+    setThinking(true);
 
-    // Advance conversation
-    setTimeout(() => advanceConversation(text, false), 400);
-  }, [currentQuestion, applyParsed, addQuinnMessage]);
+    // Build conversation history for AI
+    const aiMessages = messages
+      .filter(m => m.role === "user" || m.role === "quinn")
+      .map(m => ({ role: m.role === "quinn" ? "assistant" : "user", content: m.text }));
+    aiMessages.push({ role: "user", content: text });
 
-  const advanceConversation = useCallback((lastInput: string, wasSkip: boolean) => {
+    const aiResult = await callQuinnAI(aiMessages, draft);
+    setThinking(false);
+
+    if (aiResult) {
+      // Apply AI-extracted fields
+      applyFieldsFromAI(aiResult.fields, aiResult.confidence);
+
+      // Check if we should confirm
+      // We need to read draft after applying fields — use a timeout to let state settle
+      setTimeout(() => {
+        setDraft(currentDraft => {
+          const missing = getMissingFields(currentDraft);
+          const canConfirm = hasMinimumFields(currentDraft);
+
+          if (missing.length === 0 || (canConfirm && missing.length <= 2)) {
+            setState("CONFIRM");
+            const summary = buildSummary(currentDraft);
+            addQuinnMessage(
+              `${aiResult.reply}\n\nHere's what I'm creating:\n\n${summary}\n\nAnything to adjust?`,
+              ["Create Binder", "Edit Fields", "Keep Chatting"]
+            );
+          } else {
+            setState("CLARIFY");
+            addQuinnMessage(aiResult.reply, aiResult.quickReplies || undefined);
+          }
+          return currentDraft;
+        });
+      }, 100);
+    } else {
+      // Fallback to local parsing
+      applyLocalParsed(text);
+      setTimeout(() => advanceFallback(), 400);
+    }
+  }, [currentQuestion, messages, draft, addQuinnMessage, applyFieldsFromAI, applyLocalParsed]);
+
+  const advanceFallback = useCallback(() => {
     setDraft(currentDraft => {
       const missing = getMissingFields(currentDraft);
       const canConfirm = hasMinimumFields(currentDraft);
 
       if (missing.length === 0 || (canConfirm && missing.length <= 2)) {
-        // Show confirmation
         setState("CONFIRM");
-        const title = currentDraft.binderTitle || `${currentDraft.awayTeam} @ ${currentDraft.homeTeam}`;
         const summary = buildSummary(currentDraft);
         setTimeout(() => {
-          addQuinnMessage(`Here's what I'm creating:\n\n${summary}\n\nAnything to adjust before I create this binder?`, ["Create Binder", "Edit Fields", "Keep Chatting"]);
+          addQuinnMessage(`Here's what I'm creating:\n\n${summary}\n\nAnything to adjust?`, ["Create Binder", "Edit Fields", "Keep Chatting"]);
         }, 200);
         return currentDraft;
       }
 
-      // Ask next question
       const nextQ = getNextQuestion(missing, askCounts, skippedFields as any);
       if (nextQ) {
         setState("CLARIFY");
@@ -209,7 +263,6 @@ export default function QuinnBinderAssistant({ onSubmit, onClose }: Props) {
         setCurrentQuestion(nextQ);
         setTimeout(() => addQuinnMessage(nextQ.text, nextQ.quickReplies), 200);
       } else {
-        // All fields either filled or skipped
         setState("CONFIRM");
         const summary = buildSummary(currentDraft);
         setTimeout(() => {
@@ -257,20 +310,9 @@ export default function QuinnBinderAssistant({ onSubmit, onClose }: Props) {
   };
 
   const handleQuickReply = (reply: string) => {
-    if (reply === "Create Binder") {
-      handleCreate();
-      return;
-    }
-    if (reply === "Edit Fields") {
-      setState("CLARIFY");
-      addQuinnMessage("Which field would you like to change?");
-      return;
-    }
-    if (reply === "Keep Chatting") {
-      setState("CLARIFY");
-      addQuinnMessage("Got it — what else do you need?");
-      return;
-    }
+    if (reply === "Create Binder") { handleCreate(); return; }
+    if (reply === "Edit Fields") { setState("CLARIFY"); addQuinnMessage("Which field would you like to change?"); return; }
+    if (reply === "Keep Chatting") { setState("CLARIFY"); addQuinnMessage("Got it — what else do you need?"); return; }
     processUserMessage(reply);
   };
 
@@ -287,7 +329,6 @@ export default function QuinnBinderAssistant({ onSubmit, onClose }: Props) {
   // ── Render ──
   const chatPanel = (
     <div className="flex flex-col h-full min-w-0">
-      {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
         <AnimatePresence initial={false}>
           {messages.map((msg) => (
@@ -304,8 +345,18 @@ export default function QuinnBinderAssistant({ onSubmit, onClose }: Props) {
           ))}
         </AnimatePresence>
 
-        {/* Quick replies for last quinn message */}
-        {messages.length > 0 && messages[messages.length - 1].role === "quinn" && messages[messages.length - 1].quickReplies && (
+        {/* Thinking indicator */}
+        {thinking && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
+            <div className="bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-muted-foreground flex items-center gap-2">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              Quinn is thinking…
+            </div>
+          </motion.div>
+        )}
+
+        {/* Quick replies */}
+        {!thinking && messages.length > 0 && messages[messages.length - 1].role === "quinn" && messages[messages.length - 1].quickReplies && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-wrap gap-1.5 pl-1">
             {messages[messages.length - 1].quickReplies!.map((reply) => (
               <button key={reply} onClick={() => handleQuickReply(reply)}
@@ -323,7 +374,8 @@ export default function QuinnBinderAssistant({ onSubmit, onClose }: Props) {
 
         {creating && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
-            <div className="bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-muted-foreground">
+            <div className="bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-muted-foreground flex items-center gap-2">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
               Creating binder…
             </div>
           </motion.div>
@@ -336,8 +388,8 @@ export default function QuinnBinderAssistant({ onSubmit, onClose }: Props) {
           <input ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)}
             placeholder="Tell Quinn about your show…"
             className="flex-1 min-w-0 text-sm bg-secondary border border-border rounded-md px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
-            disabled={creating} />
-          <Button type="submit" size="icon" variant="ghost" disabled={!input.trim() || creating}>
+            disabled={creating || thinking} />
+          <Button type="submit" size="icon" variant="ghost" disabled={!input.trim() || creating || thinking}>
             <Send className="w-4 h-4" />
           </Button>
         </form>
@@ -358,9 +410,7 @@ export default function QuinnBinderAssistant({ onSubmit, onClose }: Props) {
             <TabsTrigger value="chat">Chat</TabsTrigger>
             <TabsTrigger value="fields">Fields</TabsTrigger>
           </TabsList>
-          <TabsContent value="chat" className="flex-1 overflow-hidden mt-0">
-            {chatPanel}
-          </TabsContent>
+          <TabsContent value="chat" className="flex-1 overflow-hidden mt-0">{chatPanel}</TabsContent>
           <TabsContent value="fields" className="flex-1 overflow-hidden mt-0">
             <QuinnPreviewPanel draft={draft} onEditField={handleEditField} />
           </TabsContent>

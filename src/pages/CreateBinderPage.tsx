@@ -1,5 +1,5 @@
 import { useState, useCallback, lazy, Suspense } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -24,10 +24,11 @@ const DEFAULT_CHECKLIST_SEEDS = [
 
 export default function CreateBinderPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [open, setOpen] = useState(true);
   const [seedChecklist, setSeedChecklist] = useState(true);
   const [customItems, setCustomItems] = useState<{ label: string; assignedTo: string; dueAt: string }[]>([]);
-  const [mode, setMode] = useState<"form" | "quinn">("form");
+  const [mode, setMode] = useState<"form" | "quinn">(() => searchParams.get("mode") === "quinn" ? "quinn" : "form");
 
   const buildChecklist = useCallback((returnRequired: boolean) => {
     const now = new Date().toISOString();
