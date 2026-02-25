@@ -16,7 +16,9 @@ import {
 } from "lucide-react";
 import { useDisplayName } from "@/hooks/use-display-name";
 import { useTeam } from "@/hooks/use-team";
+import { useOptionalAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
+import ProfileSettings from "@/components/settings/ProfileSettings";
 
 const STORAGE_KEY = "mako-settings";
 
@@ -88,13 +90,14 @@ const accessColors: Record<string, string> = {
   viewer: "text-muted-foreground",
 };
 
-type SettingsTab = "organization" | "team" | "templates" | "permissions";
+type SettingsTab = "profile" | "organization" | "team" | "templates" | "permissions";
 
 export default function SettingsPage() {
   const stored = loadSettings();
   const { displayName, setDisplayName } = useDisplayName();
 
-  const [tab, setTab] = useState<SettingsTab>("organization");
+  const auth = useOptionalAuth();
+  const [tab, setTab] = useState<SettingsTab>(auth?.user ? "profile" : "organization");
   const [org, setOrg] = useState<OrgSettings>(stored?.org ?? defaultOrg);
   const { members: team, addMember, removeMember } = useTeam();
   const [teamSearch, setTeamSearch] = useState("");
@@ -119,6 +122,7 @@ export default function SettingsPage() {
   }
 
   const tabs: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
+    ...(auth?.user ? [{ id: "profile" as const, label: "Profile", icon: UserCircle }] : []),
     { id: "organization", label: "Organization", icon: Building2 },
     { id: "team", label: "Team", icon: Users },
     { id: "templates", label: "Templates", icon: ClipboardList },
@@ -173,6 +177,9 @@ export default function SettingsPage() {
           transition={{ duration: 0.4, delay: 0.15 }}
           className="lg:col-span-3"
         >
+          {/* Profile */}
+          {tab === "profile" && <ProfileSettings />}
+
           {/* Organization */}
           {tab === "organization" && (
             <div className="steel-panel p-6 space-y-6">
