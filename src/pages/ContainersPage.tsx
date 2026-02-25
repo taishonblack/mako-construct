@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Search, ChevronRight, X, Plus, SlidersHorizontal } from "lucide-react";
+import { Search, ChevronRight, ChevronDown, X, Plus, SlidersHorizontal, Radio, AlertCircle } from "lucide-react";
 import { format, isToday, isBefore, addDays, isAfter, parseISO } from "date-fns";
 import { binderStore } from "@/stores/binder-store";
 import type { BinderStatus } from "@/stores/binder-store";
@@ -24,6 +24,99 @@ const statusColor: Record<string, string> = {
   draft: "text-muted-foreground", active: "text-primary",
   completed: "text-emerald-500", archived: "text-muted-foreground",
 };
+
+function BinderRow({ binder, readiness, index }: { binder: ReturnType<typeof binderStore.getAll>[number]; readiness: string; index: number }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, delay: 0.1 + index * 0.02 }}>
+      {/* Desktop row */}
+      <Link to={`/binders/${binder.id}`}
+        className="hidden sm:flex steel-panel items-center gap-4 px-5 py-4 hover:bg-secondary/50 transition-colors group">
+        <div className={`w-2 h-2 rounded-full shrink-0 ${readinessDot[readiness]}`} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium text-foreground truncate">{binder.title}</p>
+            {binder.status === "draft" && (
+              <span className="px-1.5 py-0.5 text-[9px] tracking-wider uppercase rounded bg-secondary text-muted-foreground border border-border">Draft</span>
+            )}
+          </div>
+          <div className="flex items-center gap-3 mt-1 text-[10px] text-muted-foreground">
+            <span>{format(new Date(binder.eventDate), "EEE, MMM d")} · {binder.eventTime || "19:00"}</span>
+            {binder.homeTeam && binder.awayTeam && <span>{binder.awayTeam} @ {binder.homeTeam}</span>}
+            <span>{binder.venue}</span>
+            {binder.controlRoom && <span>CR-{binder.controlRoom}</span>}
+          </div>
+        </div>
+        <span className="text-xs text-muted-foreground shrink-0">{binder.partner}</span>
+        <span className={`text-[10px] tracking-wider uppercase shrink-0 ${statusColor[binder.status]}`}>
+          {binder.status}
+        </span>
+        <span className="text-xs font-mono text-muted-foreground shrink-0">{binder.isoCount} ISOs</span>
+        {binder.openIssues > 0 && (
+          <span className="text-[10px] text-destructive shrink-0">{binder.openIssues} issues</span>
+        )}
+        <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+      </Link>
+
+      {/* Mobile card */}
+      <div className="sm:hidden steel-panel w-full max-w-full overflow-hidden">
+        <Link to={`/binders/${binder.id}`} className="block p-4">
+          <div className="flex items-start gap-2 min-w-0 mb-2">
+            <div className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${readinessDot[readiness]}`} />
+            <h3 className="text-sm font-medium text-foreground leading-snug min-w-0 flex-1 truncate">
+              {binder.title}
+            </h3>
+            <span className={`shrink-0 text-[10px] tracking-wider uppercase ${statusColor[binder.status]}`}>
+              {binder.status}
+            </span>
+          </div>
+          <div className="flex items-center justify-between min-w-0 text-xs text-muted-foreground pl-4">
+            <span>{format(new Date(binder.eventDate), "EEE, MMM d")} · {binder.eventTime || "19:00"}</span>
+          </div>
+        </Link>
+
+        {/* Expand toggle */}
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
+          className="flex items-center justify-center w-full py-2 border-t border-border text-muted-foreground hover:text-foreground transition-colors"
+          aria-label={expanded ? "Collapse details" : "Expand details"}
+        >
+          <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`} />
+        </button>
+
+        {/* Expanded details */}
+        {expanded && (
+          <div className="px-4 pb-4 space-y-2 text-xs text-muted-foreground border-t border-border pt-3">
+            <div className="flex items-center justify-between min-w-0">
+              <span className="truncate min-w-0 flex-1">{binder.partner}</span>
+              {binder.controlRoom && (
+                <span className="shrink-0 px-1.5 py-0.5 rounded bg-secondary text-[10px] font-mono">
+                  CR-{binder.controlRoom}
+                </span>
+              )}
+            </div>
+            <div className="truncate">{binder.venue}</div>
+            <div className="flex items-center gap-4">
+              <span className="flex items-center gap-1.5">
+                <Radio className="w-3 h-3" />
+                {binder.isoCount} ISOs
+              </span>
+              {binder.openIssues > 0 && (
+                <span className="flex items-center gap-1.5 text-destructive">
+                  <AlertCircle className="w-3 h-3" />
+                  {binder.openIssues} issue{binder.openIssues !== 1 ? "s" : ""}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+}
 
 export default function ContainersPage() {
   const [search, setSearch] = useState("");
@@ -209,36 +302,7 @@ export default function ContainersPage() {
         {filtered.map((binder, i) => {
           const readiness = inferReadiness(binder);
           return (
-            <motion.div key={binder.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.1 + i * 0.02 }}>
-              <Link to={`/binders/${binder.id}`}
-                className="steel-panel flex items-center gap-4 px-5 py-4 hover:bg-secondary/50 transition-colors group">
-                <div className={`w-2 h-2 rounded-full shrink-0 ${readinessDot[readiness]}`} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-foreground truncate">{binder.title}</p>
-                    {binder.status === "draft" && (
-                      <span className="px-1.5 py-0.5 text-[9px] tracking-wider uppercase rounded bg-secondary text-muted-foreground border border-border">Draft</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-3 mt-1 text-[10px] text-muted-foreground">
-                    <span>{format(new Date(binder.eventDate), "EEE, MMM d")} · {binder.eventTime || "19:00"}</span>
-                    {binder.homeTeam && binder.awayTeam && <span>{binder.awayTeam} @ {binder.homeTeam}</span>}
-                    <span>{binder.venue}</span>
-                    {binder.controlRoom && <span>CR-{binder.controlRoom}</span>}
-                  </div>
-                </div>
-                <span className="text-xs text-muted-foreground shrink-0">{binder.partner}</span>
-                <span className={`text-[10px] tracking-wider uppercase shrink-0 ${statusColor[binder.status]}`}>
-                  {binder.status}
-                </span>
-                <span className="text-xs font-mono text-muted-foreground shrink-0">{binder.isoCount} ISOs</span>
-                {binder.openIssues > 0 && (
-                  <span className="text-[10px] text-destructive shrink-0">{binder.openIssues} issues</span>
-                )}
-                <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-              </Link>
-            </motion.div>
+            <BinderRow key={binder.id} binder={binder} readiness={readiness} index={i} />
           );
         })}
       </div>
