@@ -9,20 +9,25 @@ const STORE_KEY = "mako-team-v1";
 
 type Listener = () => void;
 const listeners = new Set<Listener>();
+let cached: TeamMember[] | null = null;
 
 function emit() {
+  cached = null;
   listeners.forEach((fn) => fn());
 }
 
 function load(): TeamMember[] {
+  if (cached) return cached;
   try {
     const raw = localStorage.getItem(STORE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) { cached = JSON.parse(raw); return cached!; }
   } catch { /* ignore */ }
-  return seed();
+  const initial = seed();
+  return initial;
 }
 
 function save(members: TeamMember[]) {
+  cached = members;
   localStorage.setItem(STORE_KEY, JSON.stringify(members));
   emit();
 }
