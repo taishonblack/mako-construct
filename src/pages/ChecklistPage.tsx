@@ -72,7 +72,7 @@ const BINDER_STATUS_STYLE: Record<string, string> = {
 
 export default function ChecklistPage() {
   const [filter, setFilter] = useState<FilterMode>("incomplete");
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const { displayName, setDisplayName } = useDisplayName();
   const [namePrompt, setNamePrompt] = useState(false);
   const [nameInput, setNameInput] = useState("");
@@ -192,8 +192,8 @@ export default function ChecklistPage() {
       .filter(g => g.filteredTasks.length > 0);
   }, [savedGroups, drafts, filterTask]);
 
-  const toggleCollapse = (id: string) => {
-    setCollapsed(prev => {
+  const toggleExpand = (id: string) => {
+    setExpanded(prev => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
@@ -201,10 +201,10 @@ export default function ChecklistPage() {
   };
 
   const toggleAll = () => {
-    if (collapsed.size === visibleGroups.length) {
-      setCollapsed(new Set());
+    if (expanded.size > 0) {
+      setExpanded(new Set());
     } else {
-      setCollapsed(new Set(visibleGroups.map(g => g.binderId)));
+      setExpanded(new Set(visibleGroups.map(g => g.binderId)));
     }
   };
 
@@ -273,7 +273,7 @@ export default function ChecklistPage() {
         </div>
         <button onClick={toggleAll} className="ml-auto flex items-center gap-1.5 px-2.5 py-1 text-[10px] tracking-wider uppercase rounded border border-border text-muted-foreground hover:text-foreground transition-colors shrink-0">
           <ChevronsUpDown className="w-3 h-3" />
-          {collapsed.size === visibleGroups.length ? "Expand All" : "Collapse All"}
+          {expanded.size > 0 ? "Collapse All" : "Expand All"}
         </button>
       </div>
 
@@ -281,13 +281,13 @@ export default function ChecklistPage() {
       <div className="space-y-4">
         <AnimatePresence initial={false}>
           {visibleGroups.length > 0 ? visibleGroups.map(g => {
-            const isOpen = !collapsed.has(g.binderId);
+            const isOpen = expanded.has(g.binderId);
             const dirty = dirtyBinders.has(g.binderId);
             return (
               <motion.div key={g.binderId} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
                 className={`steel-panel overflow-hidden ${dirty ? "ring-1 ring-primary/30" : ""}`}>
                 {/* Binder header */}
-                <button onClick={() => toggleCollapse(g.binderId)}
+                <button onClick={() => toggleExpand(g.binderId)}
                   className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors text-left">
                   {isOpen ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
                   <div className="flex-1 min-w-0">
