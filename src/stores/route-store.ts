@@ -1,95 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
+import type { SignalRoute, RoutesState, RouterCrosspoint, RouterConfig } from "./route-types";
+import { buildDefaultLinks } from "./route-types";
 
-// ─── Types ───────────────────────────────────────────────────────
-
-export interface AudioMapping {
-  channel: number;
-  label: string; // e.g. "Clean", "Dusty", "DED", "Nats"
-}
-
-export interface EncoderDevice {
-  brand: string;
-  model: string;
-  deviceName: string;
-  inputPort: number;
-  localIp: string;
-  notes: string;
-}
-
-export interface TransportSpec {
-  type: "SRT Public" | "SRT Private" | "MPLS" | "Multicast" | "Fiber" | "";
-  srtAddress: string;
-  port: string;
-  mode: string; // caller / listener / rendezvous
-  passphrase: string;
-  multicastIp: string;
-  cloudRelayName: string;
-}
-
-export interface DecoderDevice {
-  brand: string;
-  model: string;
-  deviceName: string;
-  outputPort: number;
-  frameSync: boolean;
-  localIp: string;
-}
-
-export interface RouterMapping {
-  router: "23" | "26" | "";
-  inputCrosspoint: string;
-  outputCrosspoint: string;
-  monitorWallDest: string;
-  evsRecordChannel: string;
-}
-
-export interface ProductionAlias {
-  engineeringName: string;
-  productionName: string;
-}
-
-export interface SignalRoute {
-  id: string; // immutable
-  routeName: string; // editable display name e.g. "TX 1.1"
-  signalSource: {
-    location: string; // "Arena" | "Truck" | custom
-    venue: string;
-    signalName: string;
-  };
-  audioMapping: AudioMapping[];
-  encoder: EncoderDevice;
-  transport: TransportSpec;
-  decoder: DecoderDevice;
-  routerMapping: RouterMapping;
-  alias: ProductionAlias;
-  createdAt: string;
-  updatedAt: string;
-}
-
-// ─── Router model ────────────────────────────────────────────────
-
-export interface RouterCrosspoint {
-  input: number;
-  output: number;
-  signalLabel: string;
-  routeId: string; // links back to SignalRoute
-}
-
-export interface RouterConfig {
-  id: string;
-  name: string; // "Control Room 23 Router"
-  model: string;
-  brand: string;
-  ip: string;
-  crosspoints: RouterCrosspoint[];
-}
-
-// ─── Store state ─────────────────────────────────────────────────
-
-export interface RoutesState {
-  routes: SignalRoute[];
-  routers: RouterConfig[];
-}
+// Re-export types for convenience
+export type { SignalRoute, RoutesState, RouterConfig, RouterCrosspoint, HopNode, RouteLink, RouteHealth, RouteHealthStatus, HopSubtype } from "./route-types";
+export { HOP_SUBTYPES, CANONICAL_STAGES, buildDefaultLinks } from "./route-types";
 
 const STORAGE_KEY = "mako-routes";
 
@@ -111,8 +26,19 @@ function createDefaultRoute(index: number): SignalRoute {
     decoder: { brand: "Haivision", model: "", deviceName: `DEC-${pad(n)}`, outputPort: 1, frameSync: false, localIp: "" },
     routerMapping: { router: "26", inputCrosspoint: String(n), outputCrosspoint: String(n), monitorWallDest: "", evsRecordChannel: "" },
     alias: { engineeringName: `Haivision ${n}.1`, productionName: `ISO ${n}` },
+    health: { status: "healthy", reason: "", lastUpdated: new Date().toISOString() },
+    links: buildDefaultLinks(),
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+  };
+}
+
+/** Migrate old routes that lack health/links fields */
+function migrateRoute(r: any): SignalRoute {
+  return {
+    ...r,
+    health: r.health ?? { status: "healthy", reason: "", lastUpdated: new Date().toISOString() },
+    links: r.links ?? buildDefaultLinks(),
   };
 }
 
@@ -120,33 +46,20 @@ function buildDefaultState(): RoutesState {
   return {
     routes: Array.from({ length: 4 }, (_, i) => createDefaultRoute(i)),
     routers: [
-      {
-        id: "router-cr23",
-        name: "Control Room 23 Router",
-        model: "EQX 32x32",
-        brand: "Evertz",
-        ip: "10.0.23.1",
-        crosspoints: [],
-      },
-      {
-        id: "router-cr26",
-        name: "Control Room 26 Router",
-        model: "Ultrix FR5",
-        brand: "Ross",
-        ip: "10.0.26.1",
-        crosspoints: [],
-      },
+      { id: "router-cr23", name: "Control Room 23 Router", model: "EQX 32x32", brand: "Evertz", ip: "10.0.23.1", crosspoints: [] },
+      { id: "router-cr26", name: "Control Room 26 Router", model: "Ultrix FR5", brand: "Ross", ip: "10.0.26.1", crosspoints: [] },
     ],
   };
 }
-
-// ─── Hook ────────────────────────────────────────────────────────
 
 export function useRoutesStore() {
   const [state, setState] = useState<RoutesState>(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
-      try { return JSON.parse(stored); } catch { /* ignore */ }
+      try {
+        const parsed = JSON.parse(stored);
+        return { ...parsed, routes: (parsed.routes || []).map(migrateRoute) };
+      } catch { /* ignore */ }
     }
     return buildDefaultState();
   });
