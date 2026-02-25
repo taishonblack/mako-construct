@@ -14,9 +14,43 @@ export type Database = {
   }
   public: {
     Tables: {
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string
+          id: string
+          organization: string | null
+          role_title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string
+          id?: string
+          organization?: string | null
+          role_title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string
+          id?: string
+          organization?: string | null
+          role_title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       wiki_articles: {
         Row: {
           article_type: Database["public"]["Enums"]["wiki_article_type"]
+          attachments: Json | null
           category: Database["public"]["Enums"]["wiki_category"]
           created_at: string
           created_by: string
@@ -34,6 +68,7 @@ export type Database = {
         }
         Insert: {
           article_type?: Database["public"]["Enums"]["wiki_article_type"]
+          attachments?: Json | null
           category?: Database["public"]["Enums"]["wiki_category"]
           created_at?: string
           created_by?: string
@@ -51,6 +86,7 @@ export type Database = {
         }
         Update: {
           article_type?: Database["public"]["Enums"]["wiki_article_type"]
+          attachments?: Json | null
           category?: Database["public"]["Enums"]["wiki_category"]
           created_at?: string
           created_by?: string
