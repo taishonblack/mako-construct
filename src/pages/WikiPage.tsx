@@ -1,9 +1,10 @@
 import { useState, useCallback, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { BookOpen, Plus, RotateCcw } from "lucide-react";
+import { BookOpen, Plus, LogIn } from "lucide-react";
 import type { WikiCategory, WikiArticleType } from "@/lib/wiki-types";
 import { useWikiArticles, useWikiArticle } from "@/hooks/use-wiki";
+import { useOptionalAuth } from "@/contexts/AuthContext";
 import WikiHome from "@/components/wiki/WikiHome";
 import WikiArticleList from "@/components/wiki/WikiArticleList";
 import WikiArticleView from "@/components/wiki/WikiArticleView";
@@ -18,6 +19,8 @@ type View =
   | { kind: "addSolve"; prefill?: { title?: string; tags?: string[]; relatedRouteId?: string } };
 
 export default function WikiPage() {
+  const auth = useOptionalAuth();
+  const isLoggedIn = !!auth?.user;
   const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = useState<View>(() => {
     const articleId = searchParams.get("article");
@@ -47,8 +50,10 @@ export default function WikiPage() {
   function goCategory(cat: WikiCategory) { setView({ kind: "category", category: cat }); }
   function goArticle(id: string) { setView({ kind: "article", id }); }
   function goEdit(id: string | null, defaultCategory?: WikiCategory) {
+    if (!isLoggedIn) return; // gated by UI
     setView({ kind: "edit", id, defaultCategory });
   }
+
 
   return (
     <div>
@@ -67,12 +72,19 @@ export default function WikiPage() {
             <div className="w-full max-w-xs">
               <WikiSearchBar onSelect={goArticle} />
             </div>
-            <button
-              onClick={() => goEdit(null)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded hover:opacity-90 transition-opacity shrink-0"
-            >
-              <Plus className="w-3 h-3" /> New Article
-            </button>
+            {isLoggedIn ? (
+              <button
+                onClick={() => goEdit(null)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded hover:opacity-90 transition-opacity shrink-0"
+              >
+                <Plus className="w-3 h-3" /> New Article
+              </button>
+            ) : (
+              <Link to="/login"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-muted-foreground border border-border rounded hover:bg-secondary transition-colors shrink-0">
+                <LogIn className="w-3 h-3" /> Sign in to contribute
+              </Link>
+            )}
           </div>
         </div>
         <p className="text-sm text-muted-foreground mt-1">

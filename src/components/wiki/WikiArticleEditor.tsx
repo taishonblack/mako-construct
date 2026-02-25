@@ -1,11 +1,12 @@
 import { useState, useCallback } from "react";
 import { ArrowLeft, Save, Plus, Trash2, X } from "lucide-react";
-import type { WikiArticle, WikiCategory, WikiArticleType, StructuredContent, SolveContent, BlockContent, WorkflowContent } from "@/lib/wiki-types";
+import type { WikiArticle, WikiCategory, WikiArticleType, StructuredContent, SolveContent, BlockContent, WorkflowContent, WikiAttachment } from "@/lib/wiki-types";
 import {
   CATEGORY_META, ARTICLE_TYPE_META, ALL_CATEGORIES, ALL_ARTICLE_TYPES,
   defaultContentForType, isSolveContent, isBlockContent, isWorkflowContent,
 } from "@/lib/wiki-types";
 import { createWikiArticle, updateWikiArticle } from "@/hooks/use-wiki";
+import WikiFileUpload from "./WikiFileUpload";
 
 interface Props {
   article?: WikiArticle | null;
@@ -34,6 +35,7 @@ export default function WikiArticleEditor({ article, defaultCategory, defaultTyp
   const [content, setContent] = useState<StructuredContent>(
     article?.structured_content || defaultContentForType(defaultType || articleType)
   );
+  const [attachments, setAttachments] = useState<WikiAttachment[]>(article?.attachments || []);
   const [changeSummary, setChangeSummary] = useState("");
   const [saving, setSaving] = useState(false);
   const relatedRouteId = article?.related_route_id || prefill?.relatedRouteId || null;
@@ -58,6 +60,7 @@ export default function WikiArticleEditor({ article, defaultCategory, defaultTyp
       if (isNew) {
         const created = await createWikiArticle({
           title, category, article_type: articleType, tags, description, structured_content: content,
+          attachments: attachments as unknown[],
           related_binder_id: relatedBinderId || undefined,
           related_route_id: relatedRouteId || undefined,
         });
@@ -65,6 +68,7 @@ export default function WikiArticleEditor({ article, defaultCategory, defaultTyp
       } else {
         const updated = await updateWikiArticle(article!.id, {
           title, category, article_type: articleType, tags, description, structured_content: content,
+          attachments,
           related_binder_id: relatedBinderId,
           related_route_id: relatedRouteId,
         }, changeSummary || undefined);
@@ -174,6 +178,16 @@ export default function WikiArticleEditor({ article, defaultCategory, defaultTyp
 
           {/* Workflow content */}
           {isWorkflowContent(content) && <WorkflowEditor content={content} onChange={c => setContent(c)} />}
+        </div>
+
+        {/* File attachments */}
+        <div className="border-t border-border pt-5">
+          <h3 className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-4">Attachments</h3>
+          <WikiFileUpload
+            attachments={attachments}
+            onChange={setAttachments}
+            articleId={article?.id}
+          />
         </div>
       </div>
     </div>

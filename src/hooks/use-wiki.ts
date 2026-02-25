@@ -4,6 +4,16 @@ import type { WikiArticle, WikiVersion, WikiLink, WikiCategory, WikiArticleType,
 import { defaultContentForType } from "@/lib/wiki-types";
 import { getDisplayName } from "@/hooks/use-display-name";
 
+/** Get the best available author name: profile display_name > localStorage > 'System' */
+async function getAuthorName(): Promise<string> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) {
+    const { data: profile } = await supabase.from("profiles").select("display_name").eq("user_id", user.id).single();
+    if (profile?.display_name) return profile.display_name;
+  }
+  return getDisplayName() || "System";
+}
+
 // ─── Fetch all articles ──────────────────────────────────────
 export function useWikiArticles(category?: WikiCategory | null) {
   const [articles, setArticles] = useState<WikiArticle[]>([]);
@@ -104,10 +114,11 @@ export async function createWikiArticle(article: {
   tags: string[];
   description: string;
   structured_content: StructuredContent;
+  attachments?: unknown[];
   related_binder_id?: string;
   related_route_id?: string;
 }): Promise<WikiArticle | null> {
-  const author = getDisplayName() || "System";
+  const author = await getAuthorName();
   const insertPayload: Record<string, unknown> = {
     title: article.title,
     category: article.category,
@@ -117,6 +128,7 @@ export async function createWikiArticle(article: {
     structured_content: article.structured_content,
     related_binder_id: article.related_binder_id || null,
     related_route_id: article.related_route_id || null,
+    attachments: article.attachments || [],
     created_by: author,
     updated_by: author,
     version: 1,
@@ -128,10 +140,10 @@ export async function createWikiArticle(article: {
 
 export async function updateWikiArticle(
   id: string,
-  patch: Partial<Pick<WikiArticle, "title" | "category" | "article_type" | "tags" | "description" | "structured_content" | "related_binder_id" | "related_route_id">>,
+  patch: Partial<Pick<WikiArticle, "title" | "category" | "article_type" | "tags" | "description" | "structured_content" | "attachments" | "related_binder_id" | "related_route_id">>,
   changeSummary?: string
 ): Promise<WikiArticle | null> {
-  const author = getDisplayName() || "System";
+  const author = await getAuthorName();
 
   // Fetch current to snapshot version
   const { data: current } = await supabase.from("wiki_articles").select("*").eq("id", id).single();
@@ -177,7 +189,7 @@ export async function restoreWikiVersion(articleId: string, version: WikiVersion
 }
 
 export async function createWikiLink(link: { article_id: string; entity_type: string; entity_id: string; link_type?: string }): Promise<WikiLink | null> {
-  const author = getDisplayName() || "System";
+  const author = await getAuthorName();
   const payload: Record<string, unknown> = {
     article_id: link.article_id,
     entity_type: link.entity_type,
