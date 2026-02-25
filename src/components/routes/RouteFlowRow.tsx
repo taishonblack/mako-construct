@@ -296,21 +296,32 @@ export function RouteFlowRow({ route, onNodeClick, trace, onAddHop, metricsMap }
           {nodes.map((node, i) => {
             const hops = hopInsertions.get(i);
             const link = getLinkAtIndex(i);
+            // Determine if the connector AFTER this node leads into a fault node
+            const nextNode = i < nodes.length - 1 ? nodes[i + 1] : null;
+            const nextIsFault = nextNode && (nextNode.status === "error" || nextNode.status === "offline");
+            // Check if any hop in this segment is faulted
+            const hopFault = hops?.some(h => h.status === "error" || h.status === "offline");
+            const segmentFault = !!(nextIsFault || hopFault);
             return (
               <div key={node.kind + i} className="flex items-center group/link">
                 <FlowNodeCard node={node} trace={trace} metricLine={getNodeMetricLine(node.kind)} onClick={() => handleNodeClick(node.kind)} />
                 {i < nodes.length - 1 && (
                   <div className="flex items-center gap-0">
-                    <NodeConnector trace={trace} />
+                    <NodeConnector trace={trace} fault={segmentFault} />
                     {hops && hops.length > 0 && (
                       <>
                         {hops.length <= 2 ? (
-                          hops.map((hop) => (
-                            <div key={hop.id} className="flex items-center">
-                              <HopMiniCard hop={hop} trace={trace} metricLine={getHopMetricLine(hop)} onClick={handleHopClick} />
-                              <NodeConnector trace={trace} />
-                            </div>
-                          ))
+                          hops.map((hop, hIdx) => {
+                            const nextHopFault = hIdx < hops.length - 1
+                              ? (hops[hIdx + 1].status === "error" || hops[hIdx + 1].status === "offline")
+                              : !!nextIsFault;
+                            return (
+                              <div key={hop.id} className="flex items-center">
+                                <HopMiniCard hop={hop} trace={trace} metricLine={getHopMetricLine(hop)} onClick={handleHopClick} />
+                                <NodeConnector trace={trace} fault={hop.status === "error" || hop.status === "offline" || nextHopFault} />
+                              </div>
+                            );
+                          })
                         ) : (
                           <div className="flex items-center">
                             <HopMiniCard hop={hops[0]} trace={trace} metricLine={getHopMetricLine(hops[0])} onClick={handleHopClick} />
@@ -321,7 +332,7 @@ export function RouteFlowRow({ route, onNodeClick, trace, onAddHop, metricsMap }
                             >
                               +{hops.length - 1}
                             </button>
-                            <NodeConnector trace={trace} />
+                            <NodeConnector trace={trace} fault={segmentFault} />
                           </div>
                         )}
                       </>

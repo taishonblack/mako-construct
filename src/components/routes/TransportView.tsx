@@ -117,6 +117,56 @@ export function TransportView({ routes, onNodeClick, onAddHop }: Props) {
 
   return (
     <div className="space-y-3">
+      {/* Health summary bar */}
+      <div className="flex items-center gap-3 p-2.5 rounded-lg border border-border bg-card">
+        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mr-1">Routes</span>
+        <button
+          type="button"
+          onClick={() => setHealthFilter("all")}
+          className={cn("text-xs font-mono font-bold transition-colors", healthFilter === "all" ? "text-foreground" : "text-muted-foreground hover:text-foreground")}
+        >
+          {routes.length}
+          <span className="text-[10px] font-normal ml-1 text-muted-foreground">total</span>
+        </button>
+        <span className="w-px h-4 bg-border" />
+        <button
+          type="button"
+          onClick={() => setHealthFilter("ok")}
+          className={cn("flex items-center gap-1.5 transition-colors", healthFilter === "ok" ? "text-foreground" : "text-muted-foreground hover:text-foreground")}
+        >
+          <span className="w-2 h-2 rounded-full bg-emerald-500" />
+          <span className="text-xs font-mono font-bold">{counts.ok}</span>
+          <span className="text-[10px] hidden sm:inline">healthy</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setHealthFilter("warn")}
+          className={cn("flex items-center gap-1.5 transition-colors", healthFilter === "warn" ? "text-foreground" : "text-muted-foreground hover:text-foreground")}
+        >
+          <span className="w-2 h-2 rounded-full bg-amber-400" />
+          <span className="text-xs font-mono font-bold">{counts.warn}</span>
+          <span className="text-[10px] hidden sm:inline">warn</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setHealthFilter("error")}
+          className={cn("flex items-center gap-1.5 transition-colors", healthFilter === "error" ? "text-foreground" : "text-muted-foreground hover:text-foreground")}
+        >
+          <span className="w-2 h-2 rounded-full bg-red-500" />
+          <span className="text-xs font-mono font-bold">{counts.error}</span>
+          <span className="text-[10px] hidden sm:inline">down</span>
+        </button>
+        {healthFilter !== "all" && (
+          <button
+            type="button"
+            onClick={() => setHealthFilter("all")}
+            className="text-[10px] text-muted-foreground hover:text-foreground ml-auto transition-colors"
+          >
+            Clear filter
+          </button>
+        )}
+      </div>
+
       {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-1">
