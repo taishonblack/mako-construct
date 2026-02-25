@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { X, Copy, Ban, Plus, Trash2, GripVertical, Activity } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { X, Copy, Ban, Plus, Trash2, GripVertical, Activity, ChevronUp, ChevronDown as ChevronDownSmall } from "lucide-react";
 import type { SignalRoute, HopNode, RouteHealthStatus } from "@/stores/route-store";
 import { HOP_SUBTYPES, buildDefaultLinks } from "@/stores/route-store";
 import { Input } from "@/components/ui/input";
@@ -164,6 +164,19 @@ export function RouteDrawer({ route, open, onOpenChange, onSave, onRemove, onDup
       const links = [...prev.links];
       const link = { ...links[linkIndex], hops: [...links[linkIndex].hops] };
       link.hops.splice(hopIndex, 1);
+      links[linkIndex] = link;
+      return { ...prev, links };
+    });
+  };
+
+  const reorderHop = (linkIndex: number, fromIdx: number, toIdx: number) => {
+    if (fromIdx === toIdx) return;
+    setDraft((prev) => {
+      if (!prev) return prev;
+      const links = [...prev.links];
+      const link = { ...links[linkIndex], hops: [...links[linkIndex].hops] };
+      const [moved] = link.hops.splice(fromIdx, 1);
+      link.hops.splice(toIdx, 0, moved);
       links[linkIndex] = link;
       return { ...prev, links };
     });
@@ -371,20 +384,70 @@ export function RouteDrawer({ route, open, onOpenChange, onSave, onRemove, onDup
                 ) : (
                   <div className="space-y-2">
                     {link.hops.map((hop, hopIdx) => (
-                      <div key={hop.id} className="p-2 rounded border border-border bg-secondary/30 space-y-1.5">
+                      <div
+                        key={hop.id}
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData("text/plain", JSON.stringify({ linkIdx, hopIdx }));
+                          e.dataTransfer.effectAllowed = "move";
+                          (e.currentTarget as HTMLElement).style.opacity = "0.5";
+                        }}
+                        onDragEnd={(e) => {
+                          (e.currentTarget as HTMLElement).style.opacity = "1";
+                        }}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = "move";
+                          (e.currentTarget as HTMLElement).classList.add("border-primary/60");
+                        }}
+                        onDragLeave={(e) => {
+                          (e.currentTarget as HTMLElement).classList.remove("border-primary/60");
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          (e.currentTarget as HTMLElement).classList.remove("border-primary/60");
+                          try {
+                            const data = JSON.parse(e.dataTransfer.getData("text/plain"));
+                            if (data.linkIdx === linkIdx) {
+                              reorderHop(linkIdx, data.hopIdx, hopIdx);
+                            }
+                          } catch {}
+                        }}
+                        className="p-2 rounded border border-border bg-secondary/30 space-y-1.5 transition-colors"
+                      >
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-1 min-w-0">
-                            <GripVertical className="w-3 h-3 text-muted-foreground/40 shrink-0" />
+                            <GripVertical className="w-3 h-3 text-muted-foreground/40 shrink-0 cursor-grab active:cursor-grabbing" />
                             <span className="text-[10px] font-mono font-semibold truncate">{hop.label || "Unnamed"}</span>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-5 w-5 text-destructive hover:text-destructive"
-                            onClick={() => removeHop(linkIdx, hopIdx)}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
+                          <div className="flex items-center gap-0.5 shrink-0">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5 text-muted-foreground hover:text-foreground"
+                              disabled={hopIdx === 0}
+                              onClick={() => reorderHop(linkIdx, hopIdx, hopIdx - 1)}
+                            >
+                              <ChevronUp className="w-3 h-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5 text-muted-foreground hover:text-foreground"
+                              disabled={hopIdx === link.hops.length - 1}
+                              onClick={() => reorderHop(linkIdx, hopIdx, hopIdx + 1)}
+                            >
+                              <ChevronDownSmall className="w-3 h-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5 text-destructive hover:text-destructive"
+                              onClick={() => removeHop(linkIdx, hopIdx)}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
                         </div>
                         <div className="grid grid-cols-2 gap-1.5">
                           <div>

@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import type { NodeMetrics } from "@/stores/route-types";
 
 export type NodeKind = "source" | "encoder" | "transport" | "cloud" | "decoder" | "router" | "output";
 export type NodeStatus = "ok" | "warn" | "error" | "offline" | "unknown";
@@ -33,10 +34,12 @@ interface Props {
   node: FlowNode;
   isActive?: boolean;
   trace?: boolean;
+  metricLine?: string | null;
   onClick?: () => void;
 }
 
-export function FlowNodeCard({ node, isActive, trace, onClick }: Props) {
+export function FlowNodeCard({ node, isActive, trace, metricLine, onClick }: Props) {
+  const showMetric = metricLine && (node.status === "warn" || node.status === "error" || node.status === "offline");
   return (
     <button
       type="button"
@@ -46,7 +49,9 @@ export function FlowNodeCard({ node, isActive, trace, onClick }: Props) {
         "hover:border-primary/50 hover:bg-secondary/40 cursor-pointer",
         isActive ? "border-primary/60 glow-red-subtle" : "border-border",
         trace && node.status !== "offline" && node.primary !== "—" ? "glow-trace-node border-primary/30" : "",
-        !node.primary || node.primary === "—" ? "opacity-50" : ""
+        !node.primary || node.primary === "—" ? "opacity-50" : "",
+        node.status === "error" && "border-red-500/40",
+        node.status === "warn" && "border-amber-400/30"
       )}
     >
       {/* Status dot */}
@@ -61,6 +66,14 @@ export function FlowNodeCard({ node, isActive, trace, onClick }: Props) {
       <span className="text-[10px] text-muted-foreground truncate w-full mt-0.5">
         {node.secondary || "Tap to configure"}
       </span>
+      {showMetric && (
+        <span className={cn(
+          "text-[9px] font-mono mt-1 truncate w-full",
+          node.status === "error" ? "text-red-400" : "text-amber-400"
+        )}>
+          {metricLine}
+        </span>
+      )}
     </button>
   );
 }

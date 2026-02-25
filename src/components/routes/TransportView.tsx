@@ -7,6 +7,8 @@ import type { SignalRoute } from "@/stores/route-store";
 import type { NodeKind } from "./FlowNodeCard";
 import { RouteFlowRow } from "./RouteFlowRow";
 import { cn } from "@/lib/utils";
+import { useSimulatedMetrics } from "@/hooks/use-simulated-metrics";
+import type { NodeHealthStatus } from "@/hooks/use-simulated-metrics";
 
 type HealthFilter = "all" | "ok" | "warn" | "error";
 
@@ -52,6 +54,40 @@ const FILTER_OPTIONS: { value: HealthFilter; label: string; cls: string }[] = [
 export function TransportView({ routes, onNodeClick, onAddHop }: Props) {
   const [healthFilter, setHealthFilter] = useState<HealthFilter>("all");
   const [traceMode, setTraceMode] = useState(false);
+
+  // Build node status list for simulated metrics
+  const metricNodes = useMemo(() => {
+    const nodes: { key: string; status: NodeHealthStatus }[] = [];
+    const STAGES: NodeKind[] = ["source", "encoder", "transport", "cloud", "decoder", "router", "output"];
+    for (const r of routes) {
+      for (const stage of STAGES) {
+        const has = (v: string | undefined | null) => !!v && v.trim() !== "";
+        let status: NodeHealthStatus = "unknown";
+        if (stage === "source") status = has(r.signalSource.signalName) ? "ok" : "unknown";
+        else if (stage === "encoder") status = has(r.encoder.deviceName) ? "ok" : "unknown";
+        else if (stage === "transport") status = r.transport.type ? "ok" : "offline";
+        else if (stage === "cloud") status = r.transport.cloudRelayName ? "ok" : "unknown";
+        else if (stage === "decoder") status = has(r.decoder.deviceName) ? "ok" : "unknown";
+        else if (stage === "router") status = r.routerMapping.router ? "ok" : "unknown";
+        else if (stage === "output") status = has(r.alias.productionName) ? "ok" : "unknown";
+        // Override with route health
+        if (r.health?.status === "down" && (stage === "transport" || stage === "encoder")) status = "error";
+        if (r.health?.status === "warn" && stage === "transport") status = "warn";
+        nodes.push({ key: `${r.id}-${stage}`, status });
+      }
+      // Add hops
+      if (r.links) {
+        for (const link of r.links) {
+          for (const hop of link.hops) {
+            nodes.push({ key: `${r.id}-hop-${hop.id}`, status: hop.status as NodeHealthStatus });
+          }
+        }
+      }
+    }
+    return nodes;
+  }, [routes]);
+
+  const metricsMap = useSimulatedMetrics(metricNodes, 10000);
 
   const routesWithHealth = useMemo(
     () => routes.map((r) => ({ route: r, health: computeRouteHealth(r) })),
@@ -133,6 +169,7 @@ export function TransportView({ routes, onNodeClick, onAddHop }: Props) {
             onNodeClick={onNodeClick}
             trace={traceMode}
             onAddHop={onAddHop}
+            metricsMap={metricsMap}
           />
         ))
       )}
