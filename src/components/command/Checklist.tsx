@@ -4,6 +4,7 @@ import { CheckSquare, Square, Plus, Trash2, Clock, User, ChevronDown, ChevronUp 
 import { format } from "date-fns";
 import type { ChecklistItem, ChecklistStatus } from "@/hooks/use-binder-state";
 import { Input } from "@/components/ui/input";
+import { TeamMemberSelect } from "@/components/TeamMemberSelect";
 import { cn } from "@/lib/utils";
 
 interface ChecklistProps {
@@ -177,11 +178,9 @@ export function Checklist({ items, onToggle, onAddItem, onUpdateItem, onRemoveIt
                       </div>
                       <div className="space-y-1">
                         <label className="text-[9px] tracking-[0.15em] uppercase text-muted-foreground">Assigned To</label>
-                        <Input
+                        <TeamMemberSelect
                           value={item.assignedTo}
-                          onChange={(e) => onUpdateItem(item.id, { assignedTo: e.target.value })}
-                          className="h-7 text-xs"
-                          placeholder="Name…"
+                          onChange={(name, _id) => onUpdateItem(item.id, { assignedTo: name })}
                         />
                       </div>
                       <div className="space-y-1">
