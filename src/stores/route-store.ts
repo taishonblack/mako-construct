@@ -71,13 +71,13 @@ const SEED_ROUTES: Partial<SignalRoute>[] = [
   },
 ];
 
-function createDefaultRoute(index: number): SignalRoute {
+function createDefaultRoute(index: number, id?: string): SignalRoute {
   const n = index + 1;
   const pad = (v: number) => String(v).padStart(2, "0");
   const seed = SEED_ROUTES[index];
   if (seed) {
     return {
-      id: `route-seed-${n}`,
+      id: id || crypto.randomUUID(),
       routeName: seed.routeName!,
       signalSource: seed.signalSource!,
       audioMapping: [
@@ -98,7 +98,7 @@ function createDefaultRoute(index: number): SignalRoute {
     };
   }
   return {
-    id: `route-${Date.now()}-${n}`,
+    id: id || crypto.randomUUID(),
     routeName: `TX ${n}.1`,
     signalSource: { location: "Truck", venue: "", signalName: `Camera ${n}` },
     audioMapping: [
@@ -154,20 +154,30 @@ export function useRoutesStore() {
 
       // Seed defaults if empty
       if (routes.length === 0) {
-        routes = Array.from({ length: SEED_ROUTES.length }, (_, i) => createDefaultRoute(i));
-        for (const r of routes) {
-          const { id, ...routeData } = r;
-          await supabase.from("routes").insert({ id, route_name: r.routeName, route_data: routeData as any }).select();
+        const seedRoutes = Array.from({ length: SEED_ROUTES.length }, (_, i) => createDefaultRoute(i));
+        const insertedRoutes: SignalRoute[] = [];
+        for (const r of seedRoutes) {
+          const { id: _id, ...routeData } = r;
+          const { data } = await supabase.from("routes").insert({ route_name: r.routeName, route_data: routeData as any }).select().single();
+          if (data) {
+            insertedRoutes.push(migrateRoute({ id: data.id, ...routeData }));
+          }
         }
+        routes = insertedRoutes.length > 0 ? insertedRoutes : seedRoutes;
       }
       if (routers.length === 0) {
-        routers = [
-          { id: "router-cr23", name: "Control Room 23 Router", model: "EQX 32x32", brand: "Evertz", ip: "10.0.23.1", crosspoints: [] },
-          { id: "router-cr26", name: "Control Room 26 Router", model: "Ultrix FR5", brand: "Ross", ip: "10.0.26.1", crosspoints: [] },
+        const seedRouters = [
+          { name: "Control Room 23 Router", model: "EQX 32x32", brand: "Evertz", ip: "10.0.23.1", crosspoints: [] as any },
+          { name: "Control Room 26 Router", model: "Ultrix FR5", brand: "Ross", ip: "10.0.26.1", crosspoints: [] as any },
         ];
-        for (const r of routers) {
-          await supabase.from("routers").insert({ id: r.id, name: r.name, model: r.model, brand: r.brand, ip: r.ip, crosspoints: r.crosspoints as any }).select();
+        const insertedRouters: RouterConfig[] = [];
+        for (const r of seedRouters) {
+          const { data } = await supabase.from("routers").insert(r).select().single();
+          if (data) {
+            insertedRouters.push({ id: data.id, name: data.name, model: data.model, brand: data.brand, ip: data.ip, crosspoints: (data.crosspoints || []) as unknown as RouterCrosspoint[] });
+          }
         }
+        routers = insertedRouters.length > 0 ? insertedRouters : seedRouters.map((r, i) => ({ ...r, id: `fallback-${i}` }));
       }
 
       setState({ routes, routers });
@@ -178,9 +188,10 @@ export function useRoutesStore() {
 
   const addRoute = useCallback(async () => {
     const newRoute = createDefaultRoute(state.routes.length);
-    setState((prev) => ({ ...prev, routes: [...prev.routes, newRoute] }));
-    const { id, ...routeData } = newRoute;
-    await supabase.from("routes").insert({ id, route_name: newRoute.routeName, route_data: routeData as any });
+    const { id: _id, ...routeData } = newRoute;
+    const { data } = await supabase.from("routes").insert({ route_name: newRoute.routeName, route_data: routeData as any }).select().single();
+    const finalRoute = data ? migrateRoute({ id: data.id, ...routeData }) : newRoute;
+    setState((prev) => ({ ...prev, routes: [...prev.routes, finalRoute] }));
   }, [state.routes.length]);
 
   const updateRoute = useCallback(async (id: string, patch: Partial<SignalRoute>) => {
@@ -229,8 +240,8 @@ export function useRoutesStore() {
         else if (route.routerMapping.router === "26") cr26Points.push(point);
       }
       const newRouters = prev.routers.map((r) => {
-        if (r.id === "router-cr23") return { ...r, crosspoints: cr23Points };
-        if (r.id === "router-cr26") return { ...r, crosspoints: cr26Points };
+        if (r.name.includes("23")) return { ...r, crosspoints: cr23Points };
+        if (r.name.includes("26")) return { ...r, crosspoints: cr26Points };
         return r;
       });
       // Persist
