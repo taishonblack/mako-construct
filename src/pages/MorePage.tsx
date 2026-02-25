@@ -1,8 +1,9 @@
-import { Calendar, BookOpen, Settings, Users, BarChart3 } from "lucide-react";
+import { Calendar, BookOpen, Settings, Users, BarChart3, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 
 const links = [
+  { label: "Quinn", icon: Sparkles, to: "/quinn" },
   { label: "Dashboard", icon: BarChart3, to: "/dashboard" },
   { label: "Calendar", icon: Calendar, to: "/calendar" },
   { label: "Staff", icon: Users, to: "/staff" },
