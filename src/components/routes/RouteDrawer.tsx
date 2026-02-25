@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { X, Copy, Ban, Plus, Trash2, GripVertical, Activity, ChevronUp, ChevronDown as ChevronDownSmall, Power } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import type { SignalRoute, HopNode, RouteHealthStatus } from "@/stores/route-store";
 import { HOP_SUBTYPES, buildDefaultLinks } from "@/stores/route-store";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { ChevronDown } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
+import WikiSuggestedSolves from "@/components/wiki/WikiSuggestedSolves";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,6 +56,7 @@ const HEALTH_PILL: Record<RouteHealthStatus, { label: string; dot: string; cls: 
 };
 
 export function RouteDrawer({ route, open, onOpenChange, onSave, onRemove, onDuplicate, initialSection }: Props) {
+  const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [draft, setDraft] = useState<SignalRoute | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
@@ -299,7 +302,27 @@ export function RouteDrawer({ route, open, onOpenChange, onSave, onRemove, onDup
             </Row>
           </DrawerSection>
 
-          {/* Signal Source */}
+          {/* Wiki Intelligence - Suggested Solves */}
+          <div className="py-1">
+            <WikiSuggestedSolves
+              entityType="route"
+              entityId={draft.id}
+              context={{
+                transportType: draft.transport.type || undefined,
+                encoderBrand: draft.encoder.brand || undefined,
+                decoderBrand: draft.decoder.brand || undefined,
+                signalName: draft.signalSource.signalName || undefined,
+                controlRoom: draft.routerMapping.router || undefined,
+              }}
+              onOpenArticle={(articleId) => {
+                navigate(`/wiki?article=${articleId}`);
+              }}
+              onAddSolve={() => {
+                navigate(`/wiki?addSolve=true&routeId=${draft.id}&signal=${encodeURIComponent(draft.signalSource.signalName || "")}&transport=${encodeURIComponent(draft.transport.type || "")}`);
+              }}
+            />
+          </div>
+
           <DrawerSection id="source" title="Signal Source" defaultOpen>
             <Row label="Location">
               <Input value={draft.signalSource.location} onChange={(e) => fSource("location", e.target.value)} className="h-8 text-xs" />

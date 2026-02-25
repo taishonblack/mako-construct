@@ -14,7 +14,186 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      wiki_articles: {
+        Row: {
+          article_type: Database["public"]["Enums"]["wiki_article_type"]
+          category: Database["public"]["Enums"]["wiki_category"]
+          created_at: string
+          created_by: string
+          description: string | null
+          fts: unknown
+          id: string
+          related_binder_id: string | null
+          related_route_id: string | null
+          structured_content: Json
+          tags: string[] | null
+          title: string
+          updated_at: string
+          updated_by: string
+          version: number
+        }
+        Insert: {
+          article_type?: Database["public"]["Enums"]["wiki_article_type"]
+          category?: Database["public"]["Enums"]["wiki_category"]
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          fts?: unknown
+          id?: string
+          related_binder_id?: string | null
+          related_route_id?: string | null
+          structured_content?: Json
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+          updated_by?: string
+          version?: number
+        }
+        Update: {
+          article_type?: Database["public"]["Enums"]["wiki_article_type"]
+          category?: Database["public"]["Enums"]["wiki_category"]
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          fts?: unknown
+          id?: string
+          related_binder_id?: string | null
+          related_route_id?: string | null
+          structured_content?: Json
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+          updated_by?: string
+          version?: number
+        }
+        Relationships: []
+      }
+      wiki_links: {
+        Row: {
+          article_id: string
+          created_at: string
+          created_by: string
+          entity_id: string
+          entity_type: string
+          id: string
+          link_type: string
+        }
+        Insert: {
+          article_id: string
+          created_at?: string
+          created_by?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+          link_type?: string
+        }
+        Update: {
+          article_id?: string
+          created_at?: string
+          created_by?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          link_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wiki_links_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "wiki_articles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wiki_suggestion_feedback: {
+        Row: {
+          action: string
+          article_id: string
+          created_at: string
+          entity_id: string
+          entity_type: string
+          id: string
+        }
+        Insert: {
+          action: string
+          article_id: string
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          id?: string
+        }
+        Update: {
+          action?: string
+          article_id?: string
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wiki_suggestion_feedback_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "wiki_articles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wiki_versions: {
+        Row: {
+          article_id: string
+          article_type: Database["public"]["Enums"]["wiki_article_type"]
+          category: Database["public"]["Enums"]["wiki_category"]
+          change_summary: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          structured_content: Json
+          tags: string[] | null
+          title: string
+          version_number: number
+        }
+        Insert: {
+          article_id: string
+          article_type: Database["public"]["Enums"]["wiki_article_type"]
+          category: Database["public"]["Enums"]["wiki_category"]
+          change_summary?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          structured_content?: Json
+          tags?: string[] | null
+          title: string
+          version_number: number
+        }
+        Update: {
+          article_id?: string
+          article_type?: Database["public"]["Enums"]["wiki_article_type"]
+          category?: Database["public"]["Enums"]["wiki_category"]
+          change_summary?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          structured_content?: Json
+          tags?: string[] | null
+          title?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wiki_versions_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "wiki_articles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +202,25 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      wiki_article_type:
+        | "solve"
+        | "standard"
+        | "workflow"
+        | "diagram"
+        | "vendor_procedure"
+        | "post_mortem"
+        | "reference"
+      wiki_category:
+        | "signal_standards"
+        | "encoder_standards"
+        | "decoder_topology"
+        | "transport_profiles"
+        | "comms_standards"
+        | "production_protocols"
+        | "naming_conventions"
+        | "checklist_templates"
+        | "field_solves"
+        | "drawings_diagrams"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +347,28 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      wiki_article_type: [
+        "solve",
+        "standard",
+        "workflow",
+        "diagram",
+        "vendor_procedure",
+        "post_mortem",
+        "reference",
+      ],
+      wiki_category: [
+        "signal_standards",
+        "encoder_standards",
+        "decoder_topology",
+        "transport_profiles",
+        "comms_standards",
+        "production_protocols",
+        "naming_conventions",
+        "checklist_templates",
+        "field_solves",
+        "drawings_diagrams",
+      ],
+    },
   },
 } as const
