@@ -1,7 +1,15 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Plus, X, Phone, Mail, Copy, Check, Pencil, Trash2 } from "lucide-react";
+import { Search, Plus, X, Phone, Mail, Copy, Check, Pencil, Trash2, LayoutGrid, List } from "lucide-react";
 import { staffStore, type StaffMember } from "@/stores/staff-store";
+import { StaffListView } from "@/components/staff/StaffListView";
+
+type ViewMode = "cards" | "list";
+
+const STORAGE_KEY = "mako-staff-view";
+function getInitialView(): ViewMode {
+  try { const v = localStorage.getItem(STORAGE_KEY); return v === "list" ? "list" : "cards"; } catch { return "cards"; }
+}
 
 const TAGS = ["NHL", "Partner", "Vendor", "Truck", "Transmission"];
 
@@ -107,7 +115,13 @@ export default function StaffPage() {
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>(getInitialView);
   const [, forceUpdate] = useState(0);
+
+  const toggleView = (mode: ViewMode) => {
+    setViewMode(mode);
+    try { localStorage.setItem(STORAGE_KEY, mode); } catch {}
+  };
 
   const allStaff = useMemo(() => staffStore.getAll(), [formOpen, editingStaff]);
 
@@ -146,10 +160,23 @@ export default function StaffPage() {
           <h1 className="text-xl font-medium text-foreground tracking-tight">Staff</h1>
           <p className="text-sm text-muted-foreground mt-1">{allStaff.length} contacts</p>
         </div>
-        <button onClick={() => setFormOpen(true)}
-          className="flex items-center gap-1.5 px-3 py-2 text-xs tracking-wider uppercase rounded-sm border border-crimson/40 bg-crimson/10 text-crimson hover:bg-crimson/20 transition-colors">
-          <Plus className="w-3.5 h-3.5" /> Add Contact
-        </button>
+        <div className="flex items-center gap-2">
+          {/* View toggle */}
+          <div className="flex rounded-sm border border-border overflow-hidden">
+            <button onClick={() => toggleView("cards")}
+              className={`p-2 transition-colors ${viewMode === "cards" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"}`}>
+              <LayoutGrid className="w-3.5 h-3.5" />
+            </button>
+            <button onClick={() => toggleView("list")}
+              className={`p-2 transition-colors ${viewMode === "list" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"}`}>
+              <List className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <button onClick={() => setFormOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs tracking-wider uppercase rounded-sm border border-crimson/40 bg-crimson/10 text-crimson hover:bg-crimson/20 transition-colors">
+            <Plus className="w-3.5 h-3.5" /> Add Contact
+          </button>
+        </div>
       </motion.div>
 
       {/* Search + Tag Filter */}
@@ -170,48 +197,53 @@ export default function StaffPage() {
         </div>
       </div>
 
-      {/* Staff Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {filtered.map((member, i) => (
-          <motion.div key={member.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.35, delay: 0.1 + i * 0.03 }}
-            className="steel-panel p-4 space-y-3">
-            <div className="flex items-start justify-between">
-              <div>
-                <h3 className="text-sm font-medium text-foreground">{member.name}</h3>
-                <p className="text-[10px] text-muted-foreground">{member.role} · {member.org}</p>
-              </div>
-              <div className="flex items-center gap-1">
-                <button onClick={() => setEditingStaff(member)} className="p-1 text-muted-foreground hover:text-foreground"><Pencil className="w-3 h-3" /></button>
-                <button onClick={() => handleDelete(member.id)} className="p-1 text-muted-foreground hover:text-destructive"><Trash2 className="w-3 h-3" /></button>
-              </div>
+      {/* Staff content */}
+      {viewMode === "cards" ? (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {filtered.map((member, i) => (
+              <motion.div key={member.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.35, delay: 0.1 + i * 0.03 }}
+                className="steel-panel p-4 space-y-3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="text-sm font-medium text-foreground">{member.name}</h3>
+                    <p className="text-[10px] text-muted-foreground">{member.role} · {member.org}</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => setEditingStaff(member)} className="p-1 text-muted-foreground hover:text-foreground"><Pencil className="w-3 h-3" /></button>
+                    <button onClick={() => handleDelete(member.id)} className="p-1 text-muted-foreground hover:text-destructive"><Trash2 className="w-3 h-3" /></button>
+                  </div>
+                </div>
+                {member.phone && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Phone className="w-3 h-3" /> <span className="font-mono">{member.phone}</span> <CopyButton text={member.phone} />
+                  </div>
+                )}
+                {member.email && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Mail className="w-3 h-3" /> <span>{member.email}</span> <CopyButton text={member.email} />
+                  </div>
+                )}
+                {member.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {member.tags.map((tag) => (
+                      <span key={tag} className="px-1.5 py-0.5 text-[9px] tracking-wider uppercase rounded bg-secondary text-muted-foreground border border-border">{tag}</span>
+                    ))}
+                  </div>
+                )}
+                {member.notes && <p className="text-[10px] text-muted-foreground italic">{member.notes}</p>}
+              </motion.div>
+            ))}
+          </div>
+          {filtered.length === 0 && (
+            <div className="steel-panel px-6 py-12 text-center">
+              <p className="text-sm text-muted-foreground">No staff match your search.</p>
             </div>
-            {member.phone && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Phone className="w-3 h-3" /> <span className="font-mono">{member.phone}</span> <CopyButton text={member.phone} />
-              </div>
-            )}
-            {member.email && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Mail className="w-3 h-3" /> <span>{member.email}</span> <CopyButton text={member.email} />
-              </div>
-            )}
-            {member.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {member.tags.map((tag) => (
-                  <span key={tag} className="px-1.5 py-0.5 text-[9px] tracking-wider uppercase rounded bg-secondary text-muted-foreground border border-border">{tag}</span>
-                ))}
-              </div>
-            )}
-            {member.notes && <p className="text-[10px] text-muted-foreground italic">{member.notes}</p>}
-          </motion.div>
-        ))}
-      </div>
-
-      {filtered.length === 0 && (
-        <div className="steel-panel px-6 py-12 text-center">
-          <p className="text-sm text-muted-foreground">No staff match your search.</p>
-        </div>
+          )}
+        </>
+      ) : (
+        <StaffListView staff={filtered} onEdit={setEditingStaff} onDelete={handleDelete} />
       )}
 
       <StaffFormModal open={formOpen} onClose={() => setFormOpen(false)} onSubmit={handleCreate} mode="create" />
