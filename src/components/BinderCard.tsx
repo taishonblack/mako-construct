@@ -31,9 +31,9 @@ export function BinderCard({ binder }: { binder: MockBinder }) {
       href={`/binders/${binder.id}`}
       className="group block steel-panel p-5 hover:border-glow-red transition-all duration-300 w-full max-w-full overflow-hidden"
     >
-      {/* Header row */}
-      <div className="flex items-start justify-between mb-3 min-w-0">
-        <h3 className="text-sm font-medium text-foreground leading-snug pr-3 min-w-0 truncate">
+      {/* Header row: title + status */}
+      <div className="flex items-start gap-2 min-w-0 mb-3">
+        <h3 className="text-sm font-medium text-foreground leading-snug min-w-0 flex-1 truncate">
           {binder.title}
         </h3>
         <span
@@ -43,21 +43,21 @@ export function BinderCard({ binder }: { binder: MockBinder }) {
         </span>
       </div>
 
-      {/* Partner + venue */}
-      <p className="text-xs text-muted-foreground mb-4">{binder.partner} · {binder.venue}</p>
-
-      {/* Stats row */}
-      <div className="flex items-center gap-4 text-xs text-muted-foreground mb-4">
-        <span className="flex items-center gap-1.5">
+      {/* Meta row: partner + stats — wraps on mobile */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mb-4">
+        <span className="max-w-[55%] truncate">{binder.partner}</span>
+        <span className="shrink-0 hidden sm:inline">·</span>
+        <span className="shrink-0 hidden sm:inline truncate max-w-[40%]">{binder.venue}</span>
+        <span className="shrink-0 flex items-center gap-1.5">
           <Calendar className="w-3 h-3" />
           {formatDate(binder.eventDate)}
         </span>
-        <span className="flex items-center gap-1.5">
+        <span className="shrink-0 flex items-center gap-1.5">
           <Radio className="w-3 h-3" />
           {binder.isoCount} ISOs
         </span>
         {binder.openIssues > 0 && (
-          <span className="flex items-center gap-1.5 text-destructive">
+          <span className="shrink-0 flex items-center gap-1.5 text-destructive">
             <AlertCircle className="w-3 h-3" />
             {binder.openIssues}
           </span>
@@ -65,11 +65,11 @@ export function BinderCard({ binder }: { binder: MockBinder }) {
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-        <span className="px-1.5 py-0.5 rounded bg-secondary text-muted-foreground uppercase tracking-wider">
+      <div className="flex items-center justify-between min-w-0 text-[10px] text-muted-foreground">
+        <span className="shrink-0 px-1.5 py-0.5 rounded bg-secondary text-muted-foreground uppercase tracking-wider">
           {binder.transport}
         </span>
-        <span>Updated {timeAgo(binder.updatedAt)}</span>
+        <span className="shrink-0">Updated {timeAgo(binder.updatedAt)}</span>
       </div>
     </a>
   );
