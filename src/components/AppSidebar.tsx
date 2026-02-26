@@ -2,7 +2,10 @@ import {
   LayoutGrid,
   Settings,
   Plus,
+  Calendar,
   BookOpen,
+  Route,
+  CheckSquare,
   Users,
   LogIn,
   LogOut,
@@ -28,6 +31,9 @@ import {
 const navItems = [
   { title: "Binders", url: "/binders", icon: LayoutGrid },
   { title: "Quinn", url: "/quinn", icon: Sparkles },
+  { title: "Calendar", url: "/calendar", icon: Calendar },
+  { title: "Checklist", url: "/checklist", icon: CheckSquare },
+  { title: "Routes", url: "/routes", icon: Route },
   { title: "Staff", url: "/staff", icon: Users },
   { title: "Wiki", url: "/wiki", icon: BookOpen },
 ];

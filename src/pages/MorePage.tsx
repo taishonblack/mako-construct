@@ -1,9 +1,12 @@
-import { BookOpen, Settings, Users, Sparkles } from "lucide-react";
+import { Calendar, BookOpen, Settings, Users, Sparkles, Route, CheckSquare } from "lucide-react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 
 const links = [
   { label: "Quinn", icon: Sparkles, to: "/quinn" },
+  { label: "Calendar", icon: Calendar, to: "/calendar" },
+  { label: "Checklist", icon: CheckSquare, to: "/checklist" },
+  { label: "Routes", icon: Route, to: "/routes" },
   { label: "Staff", icon: Users, to: "/staff" },
   { label: "Wiki", icon: BookOpen, to: "/wiki" },
   { label: "Settings", icon: Settings, to: "/settings" },
