@@ -10,7 +10,7 @@ import { AppLayout } from "./components/AppLayout";
 import ContainersPage from "./pages/ContainersPage";
 import ContainerDetailPage from "./pages/ContainerDetailPage";
 import CalendarPage from "./pages/CalendarPage";
-import DashboardPage from "./pages/DashboardPage";
+// DashboardPage removed for V1
 import WikiPage from "./pages/WikiPage";
 import BinderDetail from "./pages/BinderDetail";
 import CreateBinderPage from "./pages/CreateBinderPage";
@@ -41,7 +41,7 @@ const App = () => (
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route element={<AppLayout />}>
-              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/dashboard" element={<Navigate to="/binders" replace />} />
               <Route path="/binders" element={<ContainersPage />} />
               <Route path="/binders/new" element={<CreateBinderPage />} />
               <Route path="/binders/:id" element={<BinderDetail />} />

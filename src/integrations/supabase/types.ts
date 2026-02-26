@@ -14,6 +14,68 @@ export type Database = {
   }
   public: {
     Tables: {
+      binder_activity: {
+        Row: {
+          action_type: string
+          actor_name: string
+          actor_type: string
+          binder_id: string | null
+          confidence: number | null
+          created_at: string
+          details: Json
+          id: string
+          is_confirmed: boolean
+          source: string
+          summary: string
+          target: string
+          target_id: string | null
+          timestamp: string
+          undo_token: string | null
+        }
+        Insert: {
+          action_type: string
+          actor_name?: string
+          actor_type?: string
+          binder_id?: string | null
+          confidence?: number | null
+          created_at?: string
+          details?: Json
+          id?: string
+          is_confirmed?: boolean
+          source?: string
+          summary: string
+          target?: string
+          target_id?: string | null
+          timestamp?: string
+          undo_token?: string | null
+        }
+        Update: {
+          action_type?: string
+          actor_name?: string
+          actor_type?: string
+          binder_id?: string | null
+          confidence?: number | null
+          created_at?: string
+          details?: Json
+          id?: string
+          is_confirmed?: boolean
+          source?: string
+          summary?: string
+          target?: string
+          target_id?: string | null
+          timestamp?: string
+          undo_token?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "binder_activity_binder_id_fkey"
+            columns: ["binder_id"]
+            isOneToOne: false
+            referencedRelation: "binders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       binder_templates: {
         Row: {
           config: Json

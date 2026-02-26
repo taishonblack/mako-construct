@@ -29,6 +29,7 @@ import { BinderCopilot } from "@/components/command/BinderCopilot";
 import { DocToBinderAssist, type DetectedField } from "@/components/command/DocToBinderAssist";
 import { AudioPhilosophy } from "@/components/command/AudioPhilosophy";
 import { PdfExport } from "@/components/command/PdfExport";
+import { ActivityPanel } from "@/components/binder/ActivityPanel";
 
 export default function BinderDetail() {
   const { id } = useParams();
@@ -448,6 +449,8 @@ export default function BinderDetail() {
             />
           </div>
         </motion.section>
+
+        <ActivityPanel binderId={binderId} />
 
         <SaveBar isDirty={checklistDirty && !isReadOnly} onSave={saveChecklist} onDiscard={discardChecklist} />
 
