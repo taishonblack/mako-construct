@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Send, Loader2, Trash2, Sparkles, HelpCircle } from "lucide-react";
+import { Send, Loader2, Trash2, Sparkles, Paperclip } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
@@ -54,13 +54,6 @@ const HELP_CHIPS = [
   "Add notes to a binder",
 ];
 
-const IDLE_NUDGES = [
-  "Still there?", "Need anything?", "Want to keep going?",
-  "Should I help with something?", "Are you still with me?",
-  "Do you need help?", "Ready when you are.",
-  "Want to build something?", "Should we continue?",
-  "I'm here if you need me.",
-];
 
 export default function QuinnPage() {
   const isMobile = useIsMobile();
@@ -80,7 +73,8 @@ export default function QuinnPage() {
   const [thinking, setThinking] = useState(false);
   const [mobileTab, setMobileTab] = useState<string>("chat");
   const [typingPhase, setTypingPhase] = useState(0);
-  const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
 
   // Persist
   useEffect(() => { binderDraftStore.saveDraft(draft); }, [draft]);
@@ -124,35 +118,6 @@ export default function QuinnPage() {
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
   }, []);
 
-  // Idle nudge timer: 1min → rotating phrase, 2min → check-in, 3min → final, then silence
-  const idleNudgeCount = useRef(0);
-  useEffect(() => {
-    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-    if (!introComplete) return;
-    if (messages.length > 0 && messages[messages.length - 1].role === "quinn") {
-      idleNudgeCount.current = 0;
-      const scheduleNudge = () => {
-        const count = idleNudgeCount.current;
-        if (count >= 3) return; // silence after 3 nudges
-        const delay = count === 0 ? 60000 : 60000; // 1min intervals
-        idleTimerRef.current = setTimeout(() => {
-          let text: string;
-          if (count === 0) {
-            text = IDLE_NUDGES[Math.floor(Math.random() * IDLE_NUDGES.length)];
-          } else if (count === 1) {
-            text = "Just checking — are you still there?";
-          } else {
-            text = "No rush. Just let me know if you need anything.";
-          }
-          idleNudgeCount.current = count + 1;
-          setMessages(prev => [...prev, { id: msgId(), role: "quinn", text, timestamp: Date.now() }]);
-          scheduleNudge();
-        }, delay);
-      };
-      scheduleNudge();
-    }
-    return () => { if (idleTimerRef.current) clearTimeout(idleTimerRef.current); };
-  }, [messages, introComplete]);
 
   const addQuinnMessage = useCallback((text: string, quickReplies?: string[]) => {
     setMessages(prev => [...prev, { id: msgId(), role: "quinn", text, quickReplies, timestamp: Date.now() }]);
@@ -415,7 +380,7 @@ export default function QuinnPage() {
     setCurrentQuestion(null);
     setQuinnState("IDLE");
     setIntroComplete(false);
-    idleNudgeCount.current = 0;
+    setAttachedFiles([]);
     setTimeout(() => {
       setTypingPhase(1);
       const t1 = setTimeout(() => {
@@ -503,12 +468,27 @@ export default function QuinnPage() {
       </div>
 
       <div className="border-t border-border px-4 py-3">
+        {attachedFiles.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {attachedFiles.map((file, i) => (
+              <span key={i} className="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded bg-secondary border border-border text-muted-foreground">
+                {file.name}
+                <button type="button" onClick={() => setAttachedFiles(prev => prev.filter((_, j) => j !== i))} className="hover:text-destructive">×</button>
+              </span>
+            ))}
+          </div>
+        )}
         <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="flex items-center gap-2">
+          <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.json" className="hidden"
+            onChange={(e) => { if (e.target.files) setAttachedFiles(prev => [...prev, ...Array.from(e.target.files!)]); e.target.value = ""; }} />
+          <Button type="button" size="icon" variant="ghost" className="shrink-0" onClick={() => fileInputRef.current?.click()} disabled={creating || thinking}>
+            <Paperclip className="w-4 h-4" />
+          </Button>
           <input ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)}
             placeholder="Tell Quinn what you need…"
             className="flex-1 min-w-0 text-sm bg-secondary border border-border rounded-md px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
             disabled={creating || thinking} />
-          <Button type="submit" size="icon" variant="ghost" disabled={!input.trim() || creating || thinking}>
+          <Button type="submit" size="icon" variant="ghost" disabled={(!input.trim() && attachedFiles.length === 0) || creating || thinking}>
             <Send className="w-4 h-4" />
           </Button>
         </form>
