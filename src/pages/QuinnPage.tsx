@@ -69,9 +69,10 @@ export default function QuinnPage() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [draft, setDraft] = useState<BinderDraft>(() => binderDraftStore.getDraft());
-  const [messages, setMessages] = useState<QuinnMessage[]>(() => binderDraftStore.getConversation());
+  const [messages, setMessages] = useState<QuinnMessage[]>([]);
   const [input, setInput] = useState("");
-  const [quinnState, setQuinnState] = useState<QuinnState>(() => messages.length > 0 ? "CLARIFY" : "IDLE");
+  const [quinnState, setQuinnState] = useState<QuinnState>("IDLE");
+  const [introComplete, setIntroComplete] = useState(false);
   const [askCounts, setAskCounts] = useState<AskCounts>({});
   const [skippedFields, setSkippedFields] = useState<string[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState<QuestionResult | null>(null);
@@ -83,48 +84,75 @@ export default function QuinnPage() {
 
   // Persist
   useEffect(() => { binderDraftStore.saveDraft(draft); }, [draft]);
-  useEffect(() => { binderDraftStore.saveConversation(messages); }, [messages]);
+  useEffect(() => { if (introComplete) binderDraftStore.saveConversation(messages); }, [messages, introComplete]);
 
   // Auto-scroll
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, thinking, typingPhase]);
 
-  // Animated intro
+  // Animated intro — runs every time the page mounts
   useEffect(() => {
-    if (messages.length === 0) {
-      setTypingPhase(1);
-      const t1 = setTimeout(() => {
-        setTypingPhase(2);
-        setMessages([{ id: msgId(), role: "quinn", text: "Hey — how can I help?", timestamp: Date.now() }]);
-      }, 1200);
-      const t2 = setTimeout(() => {
-        setTypingPhase(3);
-      }, 2000);
-      const t3 = setTimeout(() => {
-        setTypingPhase(0);
-        setMessages(prev => [...prev, {
+    setTypingPhase(1);
+    const t1 = setTimeout(() => {
+      setTypingPhase(2);
+      setMessages([{ id: msgId(), role: "quinn", text: "Hey — how can I help?", timestamp: Date.now() }]);
+    }, 1200);
+    const t2 = setTimeout(() => {
+      setTypingPhase(3);
+    }, 2000);
+    const t3 = setTimeout(() => {
+      setTypingPhase(0);
+      setIntroComplete(true);
+      const prev = binderDraftStore.getConversation();
+      if (prev.length > 0) {
+        setMessages([
+          { id: msgId(), role: "quinn", text: "Hey — how can I help?", timestamp: Date.now() },
+          { id: msgId(), role: "quinn", text: "Picking up where we left off.", timestamp: Date.now() },
+          ...prev,
+        ]);
+        setQuinnState("CLARIFY");
+      } else {
+        setMessages(prev2 => [...prev2, {
           id: msgId(), role: "quinn", text: "Let me know if you need help or options.",
           timestamp: Date.now(),
           quickReplies: ["Create a binder", "Help"],
         }]);
         setQuinnState("INTAKE");
-      }, 2800);
-      return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
-    }
+      }
+    }, 2800);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
   }, []);
 
-  // Idle nudge timer
+  // Idle nudge timer: 1min → rotating phrase, 2min → check-in, 3min → final, then silence
+  const idleNudgeCount = useRef(0);
   useEffect(() => {
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    if (!introComplete) return;
     if (messages.length > 0 && messages[messages.length - 1].role === "quinn") {
-      idleTimerRef.current = setTimeout(() => {
-        const nudge = IDLE_NUDGES[Math.floor(Math.random() * IDLE_NUDGES.length)];
-        setMessages(prev => [...prev, { id: msgId(), role: "quinn", text: nudge, timestamp: Date.now() }]);
-      }, 60000);
+      idleNudgeCount.current = 0;
+      const scheduleNudge = () => {
+        const count = idleNudgeCount.current;
+        if (count >= 3) return; // silence after 3 nudges
+        const delay = count === 0 ? 60000 : 60000; // 1min intervals
+        idleTimerRef.current = setTimeout(() => {
+          let text: string;
+          if (count === 0) {
+            text = IDLE_NUDGES[Math.floor(Math.random() * IDLE_NUDGES.length)];
+          } else if (count === 1) {
+            text = "Just checking — are you still there?";
+          } else {
+            text = "No rush. Just let me know if you need anything.";
+          }
+          idleNudgeCount.current = count + 1;
+          setMessages(prev => [...prev, { id: msgId(), role: "quinn", text, timestamp: Date.now() }]);
+          scheduleNudge();
+        }, delay);
+      };
+      scheduleNudge();
     }
     return () => { if (idleTimerRef.current) clearTimeout(idleTimerRef.current); };
-  }, [messages]);
+  }, [messages, introComplete]);
 
   const addQuinnMessage = useCallback((text: string, quickReplies?: string[]) => {
     setMessages(prev => [...prev, { id: msgId(), role: "quinn", text, quickReplies, timestamp: Date.now() }]);
@@ -386,6 +414,8 @@ export default function QuinnPage() {
     setSkippedFields([]);
     setCurrentQuestion(null);
     setQuinnState("IDLE");
+    setIntroComplete(false);
+    idleNudgeCount.current = 0;
     setTimeout(() => {
       setTypingPhase(1);
       const t1 = setTimeout(() => {
@@ -394,6 +424,7 @@ export default function QuinnPage() {
       }, 1200);
       const t2 = setTimeout(() => {
         setTypingPhase(0);
+        setIntroComplete(true);
         setMessages(prev => [...prev, {
           id: msgId(), role: "quinn", text: "Let me know if you need help or options.",
           timestamp: Date.now(), quickReplies: ["Create a binder", "Help"],
