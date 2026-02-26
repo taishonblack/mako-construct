@@ -188,8 +188,8 @@ export default function QuinnPage() {
     });
   }, [askCounts, skippedFields, addQuinnMessage]);
 
-  const processUserMessage = useCallback(async (text: string) => {
-    setMessages(prev => [...prev, { id: msgId(), role: "user", text, timestamp: Date.now() }]);
+  const processUserMessage = useCallback(async (text: string, displayText?: string) => {
+    setMessages(prev => [...prev, { id: msgId(), role: "user", text: displayText || text, timestamp: Date.now() }]);
 
     // Help command
     if (text.toLowerCase() === "help") {
@@ -311,20 +311,52 @@ export default function QuinnPage() {
     }
   }, [draft, navigate, addQuinnMessage]);
 
-  const handleSend = () => {
+  const readFileAsText = useCallback(async (file: File): Promise<string> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => resolve(`[Could not read file: ${file.name}]`);
+      reader.readAsText(file);
+    });
+  }, []);
+
+  const handleSend = async () => {
     const text = input.trim();
-    if (!text) return;
+    const files = [...attachedFiles];
+    if (!text && files.length === 0) return;
     setInput("");
+    setAttachedFiles([]);
+
+    // Build message with file contents
+    let fullMessage = text;
+    if (files.length > 0) {
+      const fileContents: string[] = [];
+      for (const file of files) {
+        const content = await readFileAsText(file);
+        fileContents.push(`--- File: ${file.name} ---\n${content.slice(0, 15000)}\n--- End of ${file.name} ---`);
+      }
+      const fileBlock = fileContents.join("\n\n");
+      fullMessage = text
+        ? `${text}\n\n[Attached documents]\n${fileBlock}`
+        : `Please extract binder information from these documents:\n\n${fileBlock}`;
+    }
+
+    // Show user message with file names
+    const displayText = files.length > 0
+      ? `${text ? text + "\n" : ""}📎 ${files.map(f => f.name).join(", ")}`
+      : text;
+
     if (quinnState === "CONFIRM") {
-      const lower = text.toLowerCase();
+      const lower = (text || fullMessage).toLowerCase();
       if (lower.includes("create") || lower === "yes" || lower === "y") {
-        setMessages(prev => [...prev, { id: msgId(), role: "user", text, timestamp: Date.now() }]);
+        setMessages(prev => [...prev, { id: msgId(), role: "user", text: displayText, timestamp: Date.now() }]);
         handleCreate();
         return;
       }
       if (lower.includes("edit") || lower.includes("change")) setQuinnState("CLARIFY");
     }
-    processUserMessage(text);
+
+    processUserMessage(fullMessage, displayText);
   };
 
   const handleQuickReply = (reply: string) => {
