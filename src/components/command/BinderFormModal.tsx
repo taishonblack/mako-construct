@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import type { BinderStatus, ReturnFeedEndpoint, DeviceLine, LQPort } from "@/stores/binder-store";
 import { templateStore } from "@/stores/template-store";
 import { staffStore } from "@/stores/staff-store";
-import { CANONICAL_SIGNAL_NAMES } from "@/data/mock-signals";
+import { CANONICAL_SIGNAL_NAMES } from "@/lib/signal-utils";
 
 const NHL_TEAMS = [
   "ANA","ARI","BOS","BUF","CGY","CAR","CHI","COL","CBJ","DAL",

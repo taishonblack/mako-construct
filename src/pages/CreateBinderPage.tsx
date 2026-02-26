@@ -5,9 +5,9 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { BinderFormModal, type BinderFormData } from "@/components/command/BinderFormModal";
 import { binderStore } from "@/stores/binder-store";
-import { generateSignals, generatePatchpoints } from "@/data/mock-signals";
-import { mockTransport } from "@/data/mock-phase5";
-import type { SignalNamingMode } from "@/data/mock-signals";
+import { generateSignals, generatePatchpoints } from "@/lib/signal-utils";
+import { DEFAULT_TRANSPORT } from "@/lib/binder-types";
+import type { SignalNamingMode } from "@/lib/signal-utils";
 
 const QuinnBinderAssistant = lazy(() => import("@/components/quinn/QuinnBinderAssistant"));
 
@@ -136,18 +136,18 @@ export default function CreateBinderPage() {
       commercials: data.commercials || "local-insert",
       signals: finalSignals,
       transport: {
-        ...mockTransport,
+        ...DEFAULT_TRANSPORT,
         primary: {
-          ...mockTransport.primary,
+          ...DEFAULT_TRANSPORT.primary,
           protocol: data.primaryTransport,
-          destination: data.outboundHost || mockTransport.primary.destination,
-          port: data.outboundPort ? parseInt(data.outboundPort) : mockTransport.primary.port,
+          destination: data.outboundHost || DEFAULT_TRANSPORT.primary.destination,
+          port: data.outboundPort ? parseInt(data.outboundPort) : DEFAULT_TRANSPORT.primary.port,
         },
         backup: {
-          ...mockTransport.backup,
+          ...DEFAULT_TRANSPORT.backup,
           protocol: data.backupTransport || "MPEG-TS",
-          destination: data.backupOutboundHost || mockTransport.backup.destination,
-          port: data.backupOutboundPort ? parseInt(data.backupOutboundPort) : mockTransport.backup.port,
+          destination: data.backupOutboundHost || DEFAULT_TRANSPORT.backup.destination,
+          port: data.backupOutboundPort ? parseInt(data.backupOutboundPort) : DEFAULT_TRANSPORT.backup.port,
         },
         returnFeed: data.returnRequired,
         commercials: (data.commercials || "local-insert") as "local-insert" | "pass-through" | "none",

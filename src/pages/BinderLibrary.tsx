@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Search, Plus, SlidersHorizontal, FileText, MessageSquare } from "lucide-react";
 import { motion } from "framer-motion";
 import { useOutletContext } from "react-router-dom";
-import { mockBinders } from "@/data/mock-binders";
+import { useBinders } from "@/hooks/use-binders";
 import { BinderCard } from "@/components/BinderCard";
 import { Button } from "@/components/ui/button";
 import type { ImportSourceType } from "@/lib/import-types";
@@ -10,15 +10,16 @@ import type { ImportSourceType } from "@/lib/import-types";
 export default function BinderLibrary() {
   const [search, setSearch] = useState("");
   const context = useOutletContext<{ openImport?: (s: ImportSourceType) => void }>();
+  const { binders, loading } = useBinders();
 
-  const filtered = mockBinders.filter((b) => {
+  const filtered = useMemo(() => binders.filter((b) => {
     const q = search.toLowerCase();
     return (
       b.title.toLowerCase().includes(q) ||
       b.partner.toLowerCase().includes(q) ||
       b.venue.toLowerCase().includes(q)
     );
-  });
+  }), [binders, search]);
 
   return (
     <div>

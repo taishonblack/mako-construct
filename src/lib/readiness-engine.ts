@@ -1,5 +1,5 @@
-import type { Signal } from "@/data/mock-signals";
-import type { TransportConfig, Issue, CommEntry } from "@/data/mock-phase5";
+import type { Signal } from "@/lib/signal-utils";
+import type { TransportConfig, Issue, CommEntry } from "@/lib/binder-types";
 import type { ChecklistItem } from "@/hooks/use-binder-state";
 import type { SignalRoute } from "@/stores/route-store";
 

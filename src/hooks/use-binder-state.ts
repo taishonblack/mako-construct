@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
-import type { Signal } from "@/data/mock-signals";
-import { generateSignals, generatePatchpoints } from "@/data/mock-signals";
-import type { TransportConfig, CommEntry, ChangeEntry, Issue, DocEntry } from "@/data/mock-phase5";
-import { mockTransport, mockComms, mockChanges, mockIssues, mockDocs } from "@/data/mock-phase5";
-import { mockBinderDetail } from "@/data/mock-binder-detail";
+import type { Signal } from "@/lib/signal-utils";
+import { generateSignals, generatePatchpoints } from "@/lib/signal-utils";
+import type { TransportConfig, CommEntry, ChangeEntry, Issue, DocEntry } from "@/lib/binder-types";
+import { DEFAULT_TRANSPORT } from "@/lib/binder-types";
 import type { EventCommandHeaderData, StaffEntry, InternalLQEntry } from "@/components/command/EventCommandHeader";
 import { DEFAULT_EVENT_HEADER } from "@/components/command/EventCommandHeader";
 import type { AudioPhilosophyData } from "@/components/command/AudioPhilosophy";
@@ -47,22 +46,7 @@ export interface LockState {
   unlockReason?: string;
 }
 
-const today = new Date().toISOString().slice(0, 10);
-const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-const dayAfter = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
 
-const defaultChecklist: ChecklistItem[] = [
-  { id: "ck1", label: "Confirm ISO count with TNT producer", checked: true, assignedTo: "Mike Torres", dueAt: today + "T12:00:00", createdAt: new Date().toISOString(), status: "done", notes: "Confirmed 18 ISOs — Jenna approved" },
-  { id: "ck2", label: "Encoder allocation — Makito X4 (6 units)", checked: true, assignedTo: "Sarah Kim", dueAt: today + "T14:00:00", createdAt: new Date().toISOString(), status: "done", notes: "ENC-01 through ENC-06 assigned, all firmware v4.2.1" },
-  { id: "ck3", label: "Decoder mapping verified — CR-23", checked: false, assignedTo: "Sarah Kim", dueAt: tomorrow + "T10:00:00", createdAt: new Date().toISOString(), status: "in-progress", notes: "DEC-01 to DEC-04 verified, DEC-05/06 pending fiber patch" },
-  { id: "ck4", label: "SRT transport primary test — all 6 paths", checked: false, assignedTo: "Alex Nguyen", dueAt: tomorrow + "T14:00:00", createdAt: new Date().toISOString(), status: "open", notes: "TX 3.1 showing elevated packet loss — investigating" },
-  { id: "ck5", label: "Return feed request sent to TNT", checked: false, assignedTo: "Mike Torres", dueAt: today + "T16:00:00", createdAt: new Date().toISOString(), status: "open", notes: "" },
-  { id: "ck6", label: "Comms confirmed — PL channels + LQ links", checked: false, assignedTo: "Dave Kowalski", dueAt: tomorrow + "T09:00:00", createdAt: new Date().toISOString(), status: "open", notes: "Need LQ-3 credentials from TNT" },
-  { id: "ck7", label: "Graphics package loaded and tested", checked: false, assignedTo: "Marcus Cole", dueAt: tomorrow + "T15:00:00", createdAt: new Date().toISOString(), status: "open", notes: "" },
-  { id: "ck8", label: "Venue fiber patch confirmed with TD Garden", checked: false, assignedTo: "Pat Sullivan", dueAt: dayAfter + "T08:00:00", createdAt: new Date().toISOString(), status: "open", notes: "Pat confirmed 12 fiber pairs available" },
-  { id: "ck9", label: "Full signal chain test — end-to-end", checked: false, assignedTo: "Sarah Kim", dueAt: dayAfter + "T12:00:00", createdAt: new Date().toISOString(), status: "open", notes: "" },
-  { id: "ck10", label: "Release authorization from producer", checked: false, assignedTo: "Mike Torres", dueAt: dayAfter + "T17:00:00", createdAt: new Date().toISOString(), status: "open", notes: "" },
-];
 
 export interface BinderState {
   league: string;
@@ -126,28 +110,27 @@ function migrateChecklist(items: any[]): ChecklistItem[] {
 }
 
 function buildInitialState(_id: string): BinderState {
-  const binder = mockBinderDetail;
   return {
     league: "NHL",
-    partner: binder.partner,
-    venue: binder.venue,
+    partner: "",
+    venue: "",
     showType: "Live Game",
-    eventDate: binder.eventDate,
+    eventDate: new Date().toISOString().slice(0, 10),
     eventTime: "19:00",
     timezone: "America/New_York",
     homeTeam: "",
     awayTeam: "",
     siteType: "Arena",
-    isoCount: binder.isoCount,
-    returnRequired: binder.returnFeed,
+    isoCount: 12,
+    returnRequired: false,
     commercials: "local-insert",
-    signals: generateSignals(binder.isoCount),
-    transport: { ...mockTransport },
-    comms: [...mockComms],
-    issues: [...mockIssues],
-    changes: [...mockChanges],
-    docs: [...mockDocs],
-    checklist: [...defaultChecklist],
+    signals: generateSignals(12),
+    transport: { ...DEFAULT_TRANSPORT },
+    comms: [],
+    issues: [],
+    changes: [],
+    docs: [],
+    checklist: [],
     topology: buildDefaultTopology(),
     currentLock: { ...DEFAULT_LOCK },
     lockHistory: [],
@@ -204,7 +187,7 @@ export function useBinderState(binderId: string) {
 
   useEffect(() => {
     if (!state.docs) {
-      setState((prev) => ({ ...prev, docs: [...mockDocs] }));
+      setState((prev) => ({ ...prev, docs: [] }));
     }
   }, []);
 

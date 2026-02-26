@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { CheckCircle, Clock, XCircle, AlertTriangle } from "lucide-react";
-import type { ChangeEntry, Issue } from "@/data/mock-phase5";
+import type { ChangeEntry, Issue } from "@/lib/binder-types";
 
 function timeAgo(ts: string) {
   const diff = Date.now() - new Date(ts).getTime();

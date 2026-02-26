@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { Zap, AlertTriangle, Clock, CheckCircle } from "lucide-react";
 import type { ReadinessReport } from "@/lib/readiness-engine";
-import type { Issue, ChangeEntry } from "@/data/mock-phase5";
+import type { Issue, ChangeEntry } from "@/lib/binder-types";
 import type { ChecklistItem } from "@/hooks/use-binder-state";
 
 interface CommandBriefProps {

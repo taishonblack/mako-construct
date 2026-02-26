@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { DocEntry } from "@/data/mock-phase5";
+import type { DocEntry } from "@/lib/binder-types";
 
 const extractionIcon: Record<DocEntry["extractionStatus"], { icon: typeof CheckCircle; cls: string }> = {
   complete: { icon: CheckCircle, cls: "text-emerald-400" },

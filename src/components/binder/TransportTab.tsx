@@ -1,5 +1,5 @@
 import { Shield, ShieldOff } from "lucide-react";
-import type { TransportConfig } from "@/data/mock-phase5";
+import type { TransportConfig } from "@/lib/binder-types";
 
 function Field({ label, value }: { label: string; value: string | number | boolean }) {
   return (

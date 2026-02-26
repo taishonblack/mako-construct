@@ -1,6 +1,6 @@
 import { FileText, CheckCircle, Clock, AlertCircle } from "lucide-react";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
-import type { DocEntry } from "@/data/mock-phase5";
+import type { DocEntry } from "@/lib/binder-types";
 
 const extractionIcon: Record<DocEntry["extractionStatus"], { icon: typeof CheckCircle; cls: string }> = {
   complete: { icon: CheckCircle, cls: "text-emerald-400" },

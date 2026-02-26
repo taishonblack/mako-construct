@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { Minus, Plus, Zap } from "lucide-react";
-import { generateSignals } from "@/data/mock-signals";
+import { generateSignals } from "@/lib/signal-utils";
 import {
   Table, TableHeader, TableBody, TableHead, TableRow, TableCell,
 } from "@/components/ui/table";

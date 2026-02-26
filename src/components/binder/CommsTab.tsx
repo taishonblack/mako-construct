@@ -1,4 +1,4 @@
-import type { CommEntry } from "@/data/mock-phase5";
+import type { CommEntry } from "@/lib/binder-types";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 
 const typeBadge: Record<CommEntry["type"], string> = {
