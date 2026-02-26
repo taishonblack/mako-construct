@@ -165,6 +165,81 @@ function toDbRow(record: Partial<BinderRecord>) {
   return row;
 }
 
+const SEED_BINDERS: Array<{ title: string; partner: string; venue: string; event_date: string; status: string; iso_count: number; open_issues: number; transport: string; league: string; config: Record<string, any> }> = [
+  {
+    title: "NYR @ BOS — Standard",
+    partner: "TNT Sports",
+    venue: "TD Garden, Boston",
+    event_date: "2026-10-08",
+    status: "active",
+    iso_count: 18,
+    open_issues: 1,
+    transport: "SRT",
+    league: "NHL",
+    config: { primaryTransport: "SRT", backupTransport: "MPEG-TS", homeTeam: "BOS", awayTeam: "NYR", eventTime: "19:00", timezone: "America/New_York", controlRoom: "23", gameType: "Regular Season", season: "2025–26" },
+  },
+  {
+    title: "TOR @ MTL — Alt French Feed",
+    partner: "SportsNet",
+    venue: "Bell Centre, Montreal",
+    event_date: "2026-10-12",
+    status: "active",
+    iso_count: 12,
+    open_issues: 3,
+    transport: "SRT",
+    league: "NHL",
+    config: { primaryTransport: "SRT", backupTransport: "MPEG-TS", homeTeam: "MTL", awayTeam: "TOR", eventTime: "19:30", timezone: "America/New_York", controlRoom: "26", gameType: "Regular Season", season: "2025–26" },
+  },
+  {
+    title: "COL @ VGK — Standard",
+    partner: "ESPN",
+    venue: "T-Mobile Arena, Las Vegas",
+    event_date: "2026-11-15",
+    status: "draft",
+    iso_count: 16,
+    open_issues: 5,
+    transport: "SRT",
+    league: "NHL",
+    config: { primaryTransport: "SRT", homeTeam: "VGK", awayTeam: "COL", eventTime: "22:00", timezone: "America/Los_Angeles", gameType: "Regular Season", season: "2025–26" },
+  },
+  {
+    title: "EDM @ DAL — Playoffs R1 G3",
+    partner: "ESPN",
+    venue: "American Airlines Center, Dallas",
+    event_date: "2026-04-22",
+    status: "completed",
+    iso_count: 22,
+    open_issues: 0,
+    transport: "SRT",
+    league: "NHL",
+    config: { primaryTransport: "SRT", homeTeam: "DAL", awayTeam: "EDM", eventTime: "20:00", timezone: "America/Chicago", gameType: "Playoffs", season: "2025–26" },
+  },
+  {
+    title: "PIT @ CHI — Winter Classic 2026",
+    partner: "TNT Sports",
+    venue: "Wrigley Field, Chicago",
+    event_date: "2026-01-01",
+    status: "draft",
+    iso_count: 24,
+    open_issues: 8,
+    transport: "MPEG-TS",
+    league: "NHL",
+    config: { primaryTransport: "MPEG-TS", homeTeam: "CHI", awayTeam: "PIT", eventTime: "17:00", timezone: "America/Chicago", siteType: "Outdoor", gameType: "Special Event", season: "2025–26" },
+  },
+  {
+    title: "SEA @ VAN — Stadium Series",
+    partner: "ABC",
+    venue: "BC Place, Vancouver",
+    event_date: "2026-02-21",
+    status: "archived",
+    iso_count: 20,
+    open_issues: 0,
+    transport: "SRT",
+    league: "NHL",
+    config: { primaryTransport: "SRT", homeTeam: "VAN", awayTeam: "SEA", eventTime: "22:00", timezone: "America/Los_Angeles", siteType: "Outdoor", gameType: "Special Event", season: "2025–26" },
+  },
+];
+
 export const binderStore = {
   async getAll(): Promise<BinderRecord[]> {
     const { data, error } = await supabase
@@ -172,7 +247,15 @@ export const binderStore = {
       .select("*")
       .order("updated_at", { ascending: false });
     if (error) { console.error("binderStore.getAll", error); return []; }
-    return (data || []).map(mapRow);
+    const rows = (data || []).map(mapRow);
+    if (rows.length === 0) {
+      for (const seed of SEED_BINDERS) {
+        await supabase.from("binders").insert(seed);
+      }
+      const { data: seeded } = await supabase.from("binders").select("*").order("updated_at", { ascending: false });
+      return (seeded || []).map(mapRow);
+    }
+    return rows;
   },
 
   async getById(id: string): Promise<BinderRecord | undefined> {
