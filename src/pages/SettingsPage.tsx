@@ -13,12 +13,14 @@ import {
   UserCircle,
   Search,
   X,
+  MessageSquare,
 } from "lucide-react";
 import { useDisplayName } from "@/hooks/use-display-name";
 import { useTeam } from "@/hooks/use-team";
 import { useOptionalAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
 import ProfileSettings from "@/components/settings/ProfileSettings";
+import QuinnHistory from "@/components/settings/QuinnHistory";
 
 const STORAGE_KEY = "mako-settings";
 
@@ -90,7 +92,7 @@ const accessColors: Record<string, string> = {
   viewer: "text-muted-foreground",
 };
 
-type SettingsTab = "profile" | "organization" | "team" | "templates" | "permissions";
+type SettingsTab = "profile" | "organization" | "team" | "templates" | "permissions" | "quinn-history";
 
 export default function SettingsPage() {
   const stored = loadSettings();
@@ -127,6 +129,7 @@ export default function SettingsPage() {
     { id: "team", label: "Team", icon: Users },
     { id: "templates", label: "Templates", icon: ClipboardList },
     { id: "permissions", label: "Permissions", icon: Shield },
+    ...(auth?.user ? [{ id: "quinn-history" as const, label: "Quinn History", icon: MessageSquare }] : []),
   ];
 
   return (
@@ -426,6 +429,9 @@ export default function SettingsPage() {
               </button>
             </div>
           )}
+
+          {/* Quinn History */}
+          {tab === "quinn-history" && <QuinnHistory />}
 
           {/* Permissions */}
           {tab === "permissions" && (
