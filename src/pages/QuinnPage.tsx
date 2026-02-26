@@ -16,8 +16,8 @@ import { binderDraftStore, type BinderDraft, type QuinnMessage, EMPTY_DRAFT } fr
 import { QuinnPreviewPanel } from "@/components/quinn/QuinnPreviewPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { binderStore } from "@/stores/binder-store";
-import { generateSignals, generatePatchpoints } from "@/data/mock-signals";
-import { mockTransport } from "@/data/mock-phase5";
+import { generateSignals, generatePatchpoints } from "@/lib/signal-utils";
+import { DEFAULT_TRANSPORT } from "@/lib/binder-types";
 import { activityStore } from "@/stores/activity-store";
 
 function msgId() { return `qm-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`; }
@@ -304,7 +304,7 @@ export default function QuinnPage() {
         timezone: d.timezone, homeTeam: d.homeTeam, awayTeam: d.awayTeam,
         siteType: "Arena", isoCount: d.isoCount || 12, returnRequired: false,
         commercials: "local-insert", signals: finalSignals,
-        transport: { ...mockTransport, primary: { ...mockTransport.primary, protocol: "SRT" }, returnFeed: false, commercials: "local-insert" as const },
+        transport: { ...DEFAULT_TRANSPORT, primary: { ...DEFAULT_TRANSPORT.primary, protocol: "SRT" }, returnFeed: false, commercials: "local-insert" as const },
         comms: [], issues: [], changes: [], docs: [], checklist: [],
         topology: { encoderInputsPerUnit: 2, encoderCount: 6, decoderOutputsPerUnit: 4, decoderCount: 6, encoderPatchpoints, decoderPatchpoints },
       };

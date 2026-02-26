@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { CallSheetExtraction, ImportFileInfo, ConfidenceLevel } from "@/lib/import-types";
-import { runMockExtraction } from "@/lib/mock-extraction";
+import { runCallSheetExtraction } from "@/lib/call-sheet-extraction";
 
 const CONF_DOT: Record<ConfidenceLevel, string> = {
   high: "bg-emerald-500",
@@ -29,7 +29,7 @@ export function StepExtract({ file, extraction, onExtracted, onChange }: Props) 
 
   const handleRun = async () => {
     setRunning(true);
-    const result = await runMockExtraction(file);
+    const result = await runCallSheetExtraction(file);
     onExtracted(result);
     setRunning(false);
   };

@@ -5,7 +5,6 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useBinder } from "@/hooks/use-binders";
 import { binderStore } from "@/stores/binder-store";
-import { mockBinderDetail } from "@/data/mock-binder-detail";
 import { computeReadiness } from "@/lib/readiness-engine";
 import { useBinderState } from "@/hooks/use-binder-state";
 import { useRoutesStore } from "@/stores/route-store";
@@ -38,7 +37,6 @@ export default function BinderDetail() {
 
   const binder = storeRecord
     ? {
-        ...mockBinderDetail,
         id: storeRecord.id,
         title: storeRecord.title,
         partner: storeRecord.partner,
@@ -46,11 +44,28 @@ export default function BinderDetail() {
         eventDate: storeRecord.eventDate,
         status: storeRecord.status,
         isoCount: storeRecord.isoCount,
+        openIssues: storeRecord.openIssues || 0,
         transport: storeRecord.primaryTransport || storeRecord.transport,
         backupTransport: storeRecord.backupTransport || "MPEG-TS",
         returnFeed: storeRecord.returnRequired,
+        encodersRequired: Math.ceil((storeRecord.isoCount || 12) / 2),
+        encodersAssigned: Math.ceil((storeRecord.isoCount || 12) / 2),
       }
-    : mockBinderDetail;
+    : {
+        id: binderId,
+        title: "Untitled Binder",
+        partner: "",
+        venue: "",
+        eventDate: new Date().toISOString().slice(0, 10),
+        status: "draft" as const,
+        isoCount: 12,
+        openIssues: 0,
+        transport: "SRT",
+        backupTransport: "MPEG-TS",
+        returnFeed: false,
+        encodersRequired: 6,
+        encodersAssigned: 6,
+      };
 
   const {
     state, update, setIsoCount, updateSignal, updateSignals, updateTopology,
@@ -224,10 +239,10 @@ export default function BinderDetail() {
   }, [binderId, state.transport, update, isReadOnly]);
 
   const lockedSetIsoCount = useCallback((count: number) => { if (!isReadOnly) setIsoCount(count); }, [isReadOnly, setIsoCount]);
-  const lockedUpdateSignal = useCallback((iso: number, field: keyof import("@/data/mock-signals").Signal, value: string) => {
+  const lockedUpdateSignal = useCallback((iso: number, field: keyof import("@/lib/signal-utils").Signal, value: string) => {
     if (!isReadOnly) updateSignal(iso, field, value);
   }, [isReadOnly, updateSignal]);
-  const lockedUpdateSignals = useCallback((updater: (signals: import("@/data/mock-signals").Signal[]) => import("@/data/mock-signals").Signal[]) => {
+  const lockedUpdateSignals = useCallback((updater: (signals: import("@/lib/signal-utils").Signal[]) => import("@/lib/signal-utils").Signal[]) => {
     if (!isReadOnly) updateSignals(updater);
   }, [isReadOnly, updateSignals]);
   const lockedToggleChecklist = useCallback((id: string) => { if (!isReadOnly) toggleChecklist(id); }, [isReadOnly, toggleChecklist]);

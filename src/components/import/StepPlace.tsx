@@ -3,7 +3,7 @@ import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { mockBinders } from "@/data/mock-binders";
+import { useBinders } from "@/hooks/use-binders";
 import type { CallSheetExtraction, ImportPlan, BinderTarget, TimelineOption, AssignmentBehavior } from "@/lib/import-types";
 
 interface Props {
@@ -14,12 +14,13 @@ interface Props {
 
 export function StepPlace({ extraction, plan, onChange }: Props) {
   const [binderSearch, setBinderSearch] = useState("");
+  const { binders } = useBinders();
 
   const filteredBinders = useMemo(() => {
-    if (!binderSearch) return mockBinders.slice(0, 5);
+    if (!binderSearch) return binders.slice(0, 5);
     const q = binderSearch.toLowerCase();
-    return mockBinders.filter(b => b.title.toLowerCase().includes(q) || b.venue.toLowerCase().includes(q)).slice(0, 8);
-  }, [binderSearch]);
+    return binders.filter(b => b.title.toLowerCase().includes(q) || b.venue.toLowerCase().includes(q)).slice(0, 8);
+  }, [binderSearch, binders]);
 
   const set = <K extends keyof ImportPlan>(key: K, value: ImportPlan[K]) =>
     onChange({ ...plan, [key]: value });

@@ -1,8 +1,8 @@
 import { useState, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Zap, Wand2, ChevronDown, Copy, Eraser, Layers, Link2, Unlink } from "lucide-react";
-import type { Signal } from "@/data/mock-signals";
-import { TRANSPORT_OPTIONS, DESTINATION_OPTIONS, applyAliasScheme } from "@/data/mock-signals";
+import type { Signal } from "@/lib/signal-utils";
+import { TRANSPORT_OPTIONS, DESTINATION_OPTIONS, applyAliasScheme } from "@/lib/signal-utils";
 import type { ReadinessReport } from "@/lib/readiness-engine";
 import type { TopologyConfig } from "@/hooks/use-binder-state";
 import type { SignalRoute } from "@/stores/route-store";

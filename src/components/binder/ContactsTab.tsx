@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Search, Copy, Check } from "lucide-react";
-import type { Contact } from "@/data/mock-binder-detail";
+import type { Contact } from "@/lib/binder-types";
 
 const locationOrder = ["Truck", "Studio", "Arena", "Transmission", "Partner"];
 

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
-import type { ScheduleItem } from "@/data/mock-binder-detail";
+import type { ScheduleItem } from "@/lib/binder-types";
 
 const typeStyles: Record<ScheduleItem["type"], { dot: string; line: string }> = {
   milestone: { dot: "bg-crimson", line: "border-crimson/40" },
