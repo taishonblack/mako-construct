@@ -17,39 +17,39 @@ const QUESTION_BANK: QuestionDef[] = [
   {
     field: "identity",
     phrasings: [
-      "What's the show matchup or title?",
-      "Which teams are playing?",
-      "What should we call this binder?",
+      "What's the project name?",
+      "What should I name this binder?",
+      "What matchup / show name should I use for the binder?",
     ],
-    quickReplies: ["NYR @ BOS", "TOR @ MTL", "Just a title…"],
+    quickReplies: ["NYR @ BOS — Standard", "TOR @ MTL — Alt French Feed", "I'll type it"],
     skipText: "No problem — I'll use a temporary title. We can update it anytime.",
   },
   {
     field: "gameDate",
     phrasings: [
-      "What's the show date?",
-      "When is this airing?",
-      "Confirm the broadcast date.",
+      "When is this project?",
+      "What's the event date?",
+      "What date should I put on the binder?",
     ],
     quickReplies: ["Today", "Tomorrow"],
-    skipText: "Okay — I'll leave the date blank for now.",
+    skipText: "No problem — we'll leave that blank for now. You can add it later in the Binder Draft panel.",
   },
   {
     field: "gameTime",
     phrasings: [
       "What's the on-air time?",
-      "What time are we live?",
-      "Give me the broadcast time.",
+      "When is the show live / on-air?",
+      "What time should I set for the show start?",
     ],
     quickReplies: ["7:00 PM", "8:00 PM"],
-    skipText: "No problem — I'll leave time open for now.",
+    skipText: "No problem — we'll leave that blank for now.",
   },
   {
     field: "timezone",
     phrasings: [
-      "Which timezone should I use?",
-      "ET, PT, or something else?",
-      "Confirm timezone.",
+      "What timezone should I use?",
+      "Should I record times in ET, PT, or another timezone?",
+      "Which timezone should operators follow for this show?",
     ],
     quickReplies: ["ET", "PT", "CET"],
     skipText: "I'll default to ET.",
@@ -57,19 +57,19 @@ const QUESTION_BANK: QuestionDef[] = [
   {
     field: "controlRoom",
     phrasings: [
-      "Which control room?",
-      "Is this CR-23 or CR-26?",
-      "Confirm room assignment.",
+      "Which control room is this show in?",
+      "Is this in CR-23 or CR-26?",
+      "Where should I route ops ownership — CR-23 or CR-26?",
     ],
     quickReplies: ["CR-23", "CR-26", "Remote"],
-    skipText: "No problem — I'll leave control room open.",
+    skipText: "No problem — we'll leave that blank for now.",
   },
   {
     field: "venue",
     phrasings: [
-      "Where's this show based?",
-      "What's the venue?",
-      "Which facility or arena?",
+      "What's the venue or facility name?",
+      "Which arena is this?",
+      "Where are ops located?",
     ],
     quickReplies: ["NHL Studios NYC", "Arena", "Remote"],
     skipText: "We can add the venue later.",
@@ -77,8 +77,8 @@ const QUESTION_BANK: QuestionDef[] = [
   {
     field: "broadcastFeed",
     phrasings: [
+      "What broadcast feed should we monitor?",
       "Which feed are we watching?",
-      "What's the primary monitor feed?",
       "Host feed or partner feed?",
     ],
     quickReplies: ["ESPN", "SportsNet", "World Feed"],
@@ -134,5 +134,5 @@ export function hasMinimumFields(draft: Record<string, any>): boolean {
 
 /** Format the intro message */
 export function getIntroMessage(): string {
-  return "Tell me what you're building — show, date, venue, control room, feed, notes. I'll fill in the rest.";
+  return "Hey — how can I help?";
 }

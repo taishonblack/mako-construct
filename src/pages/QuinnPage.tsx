@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Send, Loader2, Trash2, Sparkles } from "lucide-react";
+import { Send, Loader2, Trash2, Sparkles, HelpCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
@@ -18,6 +18,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { binderStore } from "@/stores/binder-store";
 import { generateSignals, generatePatchpoints } from "@/data/mock-signals";
 import { mockTransport } from "@/data/mock-phase5";
+import { activityStore } from "@/stores/activity-store";
 
 function msgId() { return `qm-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`; }
 
@@ -46,7 +47,20 @@ async function callQuinnAI(
   } catch (e) { console.error("Quinn AI fetch failed:", e); return null; }
 }
 
-const WELCOME_TEXT = `Hi — I'm Quinn.\nTell me about the show and I'll build the binder as we talk.\nDo you want to start a new binder, or update an existing one?`;
+const HELP_CHIPS = [
+  "Create a binder",
+  "Find a staff member",
+  "Search the wiki",
+  "Add notes to a binder",
+];
+
+const IDLE_NUDGES = [
+  "Still there?", "Need anything?", "Want to keep going?",
+  "Should I help with something?", "Are you still with me?",
+  "Do you need help?", "Ready when you are.",
+  "Want to build something?", "Should we continue?",
+  "I'm here if you need me.",
+];
 
 export default function QuinnPage() {
   const isMobile = useIsMobile();
@@ -57,13 +71,15 @@ export default function QuinnPage() {
   const [draft, setDraft] = useState<BinderDraft>(() => binderDraftStore.getDraft());
   const [messages, setMessages] = useState<QuinnMessage[]>(() => binderDraftStore.getConversation());
   const [input, setInput] = useState("");
-  const [state, setState] = useState<QuinnState>(() => messages.length > 0 ? "CLARIFY" : "IDLE");
+  const [quinnState, setQuinnState] = useState<QuinnState>(() => messages.length > 0 ? "CLARIFY" : "IDLE");
   const [askCounts, setAskCounts] = useState<AskCounts>({});
   const [skippedFields, setSkippedFields] = useState<string[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState<QuestionResult | null>(null);
   const [creating, setCreating] = useState(false);
   const [thinking, setThinking] = useState(false);
   const [mobileTab, setMobileTab] = useState<string>("chat");
+  const [typingPhase, setTypingPhase] = useState(0);
+  const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Persist
   useEffect(() => { binderDraftStore.saveDraft(draft); }, [draft]);
@@ -72,18 +88,43 @@ export default function QuinnPage() {
   // Auto-scroll
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages, thinking]);
+  }, [messages, thinking, typingPhase]);
 
-  // Init greeting
+  // Animated intro
   useEffect(() => {
     if (messages.length === 0) {
-      setMessages([{
-        id: msgId(), role: "quinn", text: WELCOME_TEXT, timestamp: Date.now(),
-        quickReplies: ["Start new binder", "NYR @ BOS tonight 7pm ET CR-23"],
-      }]);
-      setState("INTAKE");
+      setTypingPhase(1);
+      const t1 = setTimeout(() => {
+        setTypingPhase(2);
+        setMessages([{ id: msgId(), role: "quinn", text: "Hey — how can I help?", timestamp: Date.now() }]);
+      }, 1200);
+      const t2 = setTimeout(() => {
+        setTypingPhase(3);
+      }, 2000);
+      const t3 = setTimeout(() => {
+        setTypingPhase(0);
+        setMessages(prev => [...prev, {
+          id: msgId(), role: "quinn", text: "Let me know if you need help or options.",
+          timestamp: Date.now(),
+          quickReplies: ["Create a binder", "Help"],
+        }]);
+        setQuinnState("INTAKE");
+      }, 2800);
+      return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
     }
   }, []);
+
+  // Idle nudge timer
+  useEffect(() => {
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    if (messages.length > 0 && messages[messages.length - 1].role === "quinn") {
+      idleTimerRef.current = setTimeout(() => {
+        const nudge = IDLE_NUDGES[Math.floor(Math.random() * IDLE_NUDGES.length)];
+        setMessages(prev => [...prev, { id: msgId(), role: "quinn", text: nudge, timestamp: Date.now() }]);
+      }, 60000);
+    }
+    return () => { if (idleTimerRef.current) clearTimeout(idleTimerRef.current); };
+  }, [messages]);
 
   const addQuinnMessage = useCallback((text: string, quickReplies?: string[]) => {
     setMessages(prev => [...prev, { id: msgId(), role: "quinn", text, quickReplies, timestamp: Date.now() }]);
@@ -134,19 +175,19 @@ export default function QuinnPage() {
       const missing = getMissingFields(currentDraft);
       const canConfirm = hasMinimumFields(currentDraft);
       if (missing.length === 0 || (canConfirm && missing.length <= 2)) {
-        setState("CONFIRM");
+        setQuinnState("CONFIRM");
         const summary = buildSummary(currentDraft);
-        setTimeout(() => addQuinnMessage(`Here's what I have so far:\n\n${summary}\n\nWant me to create the binder now, or keep refining details?`, ["Create Binder", "Keep Chatting", "Edit Fields"]), 200);
+        setTimeout(() => addQuinnMessage(`Here's what I have so far:\n\n${summary}\n\nAnything to adjust before I create this binder?`, ["Create Binder", "Keep Chatting", "Edit Fields"]), 200);
         return currentDraft;
       }
       const nextQ = getNextQuestion(missing, askCounts, skippedFields as any);
       if (nextQ) {
-        setState("CLARIFY");
+        setQuinnState("CLARIFY");
         setAskCounts(prev => ({ ...prev, [nextQ.field]: (prev[nextQ.field] || 0) + 1 }));
         setCurrentQuestion(nextQ);
         setTimeout(() => addQuinnMessage(nextQ.text, nextQ.quickReplies), 200);
       } else {
-        setState("CONFIRM");
+        setQuinnState("CONFIRM");
         const summary = buildSummary(currentDraft);
         setTimeout(() => addQuinnMessage(`Here's what I have:\n\n${summary}\n\nReady to create?`, ["Create Binder", "Keep Chatting"]), 200);
       }
@@ -156,6 +197,12 @@ export default function QuinnPage() {
 
   const processUserMessage = useCallback(async (text: string) => {
     setMessages(prev => [...prev, { id: msgId(), role: "user", text, timestamp: Date.now() }]);
+
+    // Help command
+    if (text.toLowerCase() === "help") {
+      addQuinnMessage("Here are a few things I can help with:", HELP_CHIPS);
+      return;
+    }
 
     if (text.toLowerCase() === "skip" && currentQuestion) {
       setSkippedFields(prev => [...prev, currentQuestion.field]);
@@ -181,11 +228,11 @@ export default function QuinnPage() {
           const missing = getMissingFields(currentDraft);
           const canConfirm = hasMinimumFields(currentDraft);
           if (missing.length === 0 || (canConfirm && missing.length <= 2)) {
-            setState("CONFIRM");
+            setQuinnState("CONFIRM");
             const summary = buildSummary(currentDraft);
             addQuinnMessage(`${aiResult.reply}\n\n${summary}\n\nAnything to adjust?`, ["Create Binder", "Edit Fields", "Keep Chatting"]);
           } else {
-            setState("CLARIFY");
+            setQuinnState("CLARIFY");
             addQuinnMessage(aiResult.reply, aiResult.quickReplies || undefined);
           }
           return currentDraft;
@@ -199,7 +246,7 @@ export default function QuinnPage() {
 
   const handleCreate = useCallback(async () => {
     setCreating(true);
-    setState("CREATE");
+    setQuinnState("CREATE");
     try {
       const d = draft;
       const record = await binderStore.create({
@@ -221,6 +268,22 @@ export default function QuinnPage() {
         lqRequired: false, lqPorts: [],
       });
       if (!record) throw new Error("Create failed");
+
+      // Log activity
+      await activityStore.log({
+        binder_id: record.id,
+        actor_type: "quinn",
+        actor_name: "Quinn",
+        action_type: "binder_create",
+        target: "binder",
+        target_id: record.id,
+        summary: `Created binder "${d.binderTitle || "Untitled"}" via Quinn`,
+        details: { draft: d },
+        confidence: null,
+        source: "chat",
+        undo_token: null,
+        is_confirmed: true,
+      });
 
       const signals = generateSignals(d.isoCount || 12, "iso");
       const encoderPatchpoints = generatePatchpoints("encoder", 6, 2);
@@ -244,12 +307,12 @@ export default function QuinnPage() {
       localStorage.setItem(`mako-binder-${record.id}`, JSON.stringify(binderState));
 
       binderDraftStore.clearDraft();
-      toast.success("Binder created by Quinn");
+      toast.success("Binder created.");
       addQuinnMessage("Binder created. Redirecting…");
       setTimeout(() => navigate(`/binders/${record.id}`), 800);
     } catch {
       toast.error("Failed to create binder");
-      setState("CONFIRM");
+      setQuinnState("CONFIRM");
     } finally {
       setCreating(false);
     }
@@ -259,27 +322,47 @@ export default function QuinnPage() {
     const text = input.trim();
     if (!text) return;
     setInput("");
-    if (state === "CONFIRM") {
+    if (quinnState === "CONFIRM") {
       const lower = text.toLowerCase();
       if (lower.includes("create") || lower === "yes" || lower === "y") {
         setMessages(prev => [...prev, { id: msgId(), role: "user", text, timestamp: Date.now() }]);
         handleCreate();
         return;
       }
-      if (lower.includes("edit") || lower.includes("change")) setState("CLARIFY");
+      if (lower.includes("edit") || lower.includes("change")) setQuinnState("CLARIFY");
     }
     processUserMessage(text);
   };
 
   const handleQuickReply = (reply: string) => {
     if (reply === "Create Binder") { handleCreate(); return; }
-    if (reply === "Edit Fields") { setState("CLARIFY"); addQuinnMessage("Which field would you like to change?"); return; }
-    if (reply === "Keep Chatting") { setState("CLARIFY"); addQuinnMessage("Got it — what else do you need?"); return; }
+    if (reply === "Edit Fields") { setQuinnState("CLARIFY"); addQuinnMessage("Which field would you like to change?"); return; }
+    if (reply === "Keep Chatting") { setQuinnState("CLARIFY"); addQuinnMessage("Got it — what else do you need?"); return; }
+    if (reply === "Help") {
+      addQuinnMessage("Here are a few things I can help with:", HELP_CHIPS);
+      return;
+    }
+    if (reply === "Create a binder") {
+      binderDraftStore.clearDraft();
+      setDraft({ ...EMPTY_DRAFT });
+      addQuinnMessage("Let's build a binder.\n\nWhat's the project name?", ["NYR @ BOS — Standard", "TOR @ MTL — Alt French Feed", "I'll type it"]);
+      setQuinnState("INTAKE");
+      return;
+    }
     if (reply === "Start new binder") {
       binderDraftStore.clearDraft();
       setDraft({ ...EMPTY_DRAFT });
-      addQuinnMessage("Starting fresh. Tell me about the show — matchup, date, venue, control room, feed, notes.");
-      setState("INTAKE");
+      addQuinnMessage("Let's build a binder.\n\nWhat's the project name?", ["NYR @ BOS — Standard", "TOR @ MTL — Alt French Feed", "I'll type it"]);
+      setQuinnState("INTAKE");
+      return;
+    }
+    // Staff/wiki shortcuts
+    if (reply === "Find a staff member") {
+      navigate("/staff");
+      return;
+    }
+    if (reply === "Search the wiki") {
+      navigate("/wiki");
       return;
     }
     processUserMessage(reply);
@@ -292,7 +375,7 @@ export default function QuinnPage() {
     }));
     if (isMobile) setMobileTab("chat");
     addQuinnMessage(`What should I set for ${fieldLabel(field)}?`);
-    setState("CLARIFY");
+    setQuinnState("CLARIFY");
   };
 
   const handleClearSession = () => {
@@ -302,32 +385,50 @@ export default function QuinnPage() {
     setAskCounts({});
     setSkippedFields([]);
     setCurrentQuestion(null);
-    setState("IDLE");
+    setQuinnState("IDLE");
     setTimeout(() => {
-      setMessages([{
-        id: msgId(), role: "quinn", text: WELCOME_TEXT, timestamp: Date.now(),
-        quickReplies: ["Start new binder", "NYR @ BOS tonight 7pm ET CR-23"],
-      }]);
-      setState("INTAKE");
+      setTypingPhase(1);
+      const t1 = setTimeout(() => {
+        setTypingPhase(2);
+        setMessages([{ id: msgId(), role: "quinn", text: "Hey — how can I help?", timestamp: Date.now() }]);
+      }, 1200);
+      const t2 = setTimeout(() => {
+        setTypingPhase(0);
+        setMessages(prev => [...prev, {
+          id: msgId(), role: "quinn", text: "Let me know if you need help or options.",
+          timestamp: Date.now(), quickReplies: ["Create a binder", "Help"],
+        }]);
+        setQuinnState("INTAKE");
+      }, 2200);
+      return () => { clearTimeout(t1); clearTimeout(t2); };
     }, 100);
   };
+
+  // ── Typing indicator ──
+  const typingDots = (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
+      <div className="bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-muted-foreground flex items-center gap-1">
+        <span className="animate-bounce" style={{ animationDelay: "0ms" }}>.</span>
+        <span className="animate-bounce" style={{ animationDelay: "150ms" }}>.</span>
+        <span className="animate-bounce" style={{ animationDelay: "300ms" }}>.</span>
+      </div>
+    </motion.div>
+  );
 
   // ── Chat Panel ──
   const chatPanel = (
     <div className="flex flex-col h-full min-w-0">
-      {/* Header */}
       <div className="px-4 py-3 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-primary" />
           <span className="text-sm font-medium text-foreground">Quinn</span>
-          <Badge variant="outline" className="text-[9px]">AI Binder Builder</Badge>
+          <Badge variant="outline" className="text-[9px]">Ops Assistant</Badge>
         </div>
         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleClearSession} title="Clear session">
           <Trash2 className="w-3.5 h-3.5 text-muted-foreground" />
         </Button>
       </div>
 
-      {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
         <AnimatePresence initial={false}>
           {messages.map((msg) => (
@@ -340,6 +441,8 @@ export default function QuinnPage() {
           ))}
         </AnimatePresence>
 
+        {(typingPhase === 1 || typingPhase === 3) && typingDots}
+
         {thinking && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
             <div className="bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-muted-foreground flex items-center gap-2">
@@ -348,7 +451,7 @@ export default function QuinnPage() {
           </motion.div>
         )}
 
-        {!thinking && messages.length > 0 && messages[messages.length - 1].role === "quinn" && messages[messages.length - 1].quickReplies && (
+        {!thinking && typingPhase === 0 && messages.length > 0 && messages[messages.length - 1].role === "quinn" && messages[messages.length - 1].quickReplies && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-wrap gap-1.5 pl-1">
             {messages[messages.length - 1].quickReplies!.map((reply) => (
               <button key={reply} onClick={() => handleQuickReply(reply)}
@@ -368,11 +471,10 @@ export default function QuinnPage() {
         )}
       </div>
 
-      {/* Input */}
       <div className="border-t border-border px-4 py-3">
         <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="flex items-center gap-2">
           <input ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)}
-            placeholder="Tell Quinn about your show…"
+            placeholder="Tell Quinn what you need…"
             className="flex-1 min-w-0 text-sm bg-secondary border border-border rounded-md px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
             disabled={creating || thinking} />
           <Button type="submit" size="icon" variant="ghost" disabled={!input.trim() || creating || thinking}>
@@ -383,7 +485,6 @@ export default function QuinnPage() {
     </div>
   );
 
-  // ── Preview Panel with Create/Clear buttons ──
   const previewPanel = (
     <div className="flex flex-col h-full border-l border-border">
       <QuinnPreviewPanel draft={draft} onEditField={handleEditField} />

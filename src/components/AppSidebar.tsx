@@ -2,11 +2,7 @@ import {
   LayoutGrid,
   Settings,
   Plus,
-  Calendar,
   BookOpen,
-  BarChart3,
-  Route,
-  CheckSquare,
   Users,
   LogIn,
   LogOut,
@@ -30,12 +26,8 @@ import {
 } from "@/components/ui/sidebar";
 
 const navItems = [
-  { title: "Dashboard", url: "/dashboard", icon: BarChart3 },
   { title: "Binders", url: "/binders", icon: LayoutGrid },
   { title: "Quinn", url: "/quinn", icon: Sparkles },
-  { title: "Calendar", url: "/calendar", icon: Calendar },
-  { title: "Checklist", url: "/checklist", icon: CheckSquare },
-  { title: "Routes", url: "/routes", icon: Route },
   { title: "Staff", url: "/staff", icon: Users },
   { title: "Wiki", url: "/wiki", icon: BookOpen },
 ];
