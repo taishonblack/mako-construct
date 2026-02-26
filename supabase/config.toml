@@ -2,3 +2,6 @@ project_id = "casqytdnseqiysewtkkh"
 
 [functions.quinn-chat]
 verify_jwt = false
+
+[functions.quinn-parse-doc]
+verify_jwt = false

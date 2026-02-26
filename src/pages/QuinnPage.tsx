@@ -311,6 +311,11 @@ export default function QuinnPage() {
     }
   }, [draft, navigate, addQuinnMessage]);
 
+  const BINARY_TYPES = ["application/pdf", "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-powerpoint", "application/vnd.openxmlformats-officedocument.presentationml.presentation"];
+
   const readFileAsText = useCallback(async (file: File): Promise<string> => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -320,6 +325,36 @@ export default function QuinnPage() {
     });
   }, []);
 
+  const readFileAsBase64 = useCallback(async (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        // Strip data URL prefix to get raw base64
+        const base64 = result.split(",")[1] || result;
+        resolve(base64);
+      };
+      reader.onerror = () => reject(new Error(`Could not read file: ${file.name}`));
+      reader.readAsDataURL(file);
+    });
+  }, []);
+
+  const parseDocumentViaAI = useCallback(async (file: File): Promise<string> => {
+    try {
+      const base64 = await readFileAsBase64(file);
+      const { data, error } = await supabase.functions.invoke("quinn-parse-doc", {
+        body: { fileBase64: base64, fileName: file.name, mimeType: file.type },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data?.text || `[Could not extract text from ${file.name}]`;
+    } catch (e) {
+      console.error("Doc parse failed:", e);
+      toast.error(`Could not parse ${file.name}. Trying as plain text.`);
+      return readFileAsText(file);
+    }
+  }, [readFileAsBase64, readFileAsText]);
+
   const handleSend = async () => {
     const text = input.trim();
     const files = [...attachedFiles];
@@ -327,24 +362,30 @@ export default function QuinnPage() {
     setInput("");
     setAttachedFiles([]);
 
+    // Show user message with file names immediately
+    const displayText = files.length > 0
+      ? `${text ? text + "\n" : ""}📎 ${files.map(f => f.name).join(", ")}`
+      : text;
+
     // Build message with file contents
     let fullMessage = text;
     if (files.length > 0) {
+      setThinking(true);
       const fileContents: string[] = [];
       for (const file of files) {
-        const content = await readFileAsText(file);
+        const isBinary = BINARY_TYPES.includes(file.type) || file.name.endsWith(".pdf");
+        const content = isBinary
+          ? await parseDocumentViaAI(file)
+          : await readFileAsText(file);
         fileContents.push(`--- File: ${file.name} ---\n${content.slice(0, 15000)}\n--- End of ${file.name} ---`);
       }
+      setThinking(false);
       const fileBlock = fileContents.join("\n\n");
       fullMessage = text
         ? `${text}\n\n[Attached documents]\n${fileBlock}`
         : `Please extract binder information from these documents:\n\n${fileBlock}`;
     }
 
-    // Show user message with file names
-    const displayText = files.length > 0
-      ? `${text ? text + "\n" : ""}📎 ${files.map(f => f.name).join(", ")}`
-      : text;
 
     if (quinnState === "CONFIRM") {
       const lower = (text || fullMessage).toLowerCase();
