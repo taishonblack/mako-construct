@@ -90,6 +90,7 @@ export interface BinderState {
   lockHistory: LockSnapshot[];
   eventHeader: EventCommandHeaderData;
   audioPhilosophy: AudioPhilosophyData;
+  notes: string;
 }
 
 const STORAGE_KEY = "mako-binder-";
@@ -152,6 +153,7 @@ function buildInitialState(_id: string): BinderState {
     lockHistory: [],
     eventHeader: { ...DEFAULT_EVENT_HEADER },
     audioPhilosophy: { ...DEFAULT_AUDIO_PHILOSOPHY },
+    notes: "",
   };
 }
 
@@ -178,6 +180,7 @@ export function useBinderState(binderId: string) {
         if (!parsed.lockHistory) parsed.lockHistory = [];
         if (!parsed.eventHeader) parsed.eventHeader = { ...DEFAULT_EVENT_HEADER };
         if (!parsed.audioPhilosophy) parsed.audioPhilosophy = { ...DEFAULT_AUDIO_PHILOSOPHY };
+        if (parsed.notes === undefined) parsed.notes = "";
         if (parsed.checklist) {
           parsed.checklist = migrateChecklist(parsed.checklist);
         }

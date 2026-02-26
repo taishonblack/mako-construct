@@ -16,13 +16,11 @@ import { CommandBrief } from "@/components/command/CommandBrief";
 import { ProductionDefinition } from "@/components/command/ProductionDefinition";
 import { SignalMatrix } from "@/components/command/SignalMatrix";
 import { TransportProfile } from "@/components/command/TransportProfile";
-import { ExecutionTimeline } from "@/components/command/ExecutionTimeline";
-import { IssuesChanges } from "@/components/command/IssuesChanges";
 import { DocumentArchive } from "@/components/command/DocumentArchive";
 import { ChecklistTable } from "@/components/checklist/ChecklistTable";
 import { SaveBar } from "@/components/checklist/SaveBar";
 import { useDisplayName } from "@/hooks/use-display-name";
-import { PreAirLock } from "@/components/command/PreAirLock";
+
 import { DiffView } from "@/components/command/DiffView";
 import { BinderFormModal, type BinderFormData } from "@/components/command/BinderFormModal";
 import { BinderCopilot } from "@/components/command/BinderCopilot";
@@ -371,13 +369,6 @@ export default function BinderDetail() {
           report={report} issues={state.issues} changes={state.changes} checklist={state.checklist}
         />
 
-        <PreAirLock
-          lockState={state.currentLock || { locked: false, lockedAt: null, lockedBy: "You", version: 0 }}
-          lockHistory={state.lockHistory || []}
-          report={report}
-          onLock={lockBinder}
-          onUnlock={unlockBinder}
-        />
 
         <ProductionDefinition
           league={state.league} venue={state.venue} partner={state.partner}
@@ -401,10 +392,33 @@ export default function BinderDetail() {
           routes={routesState.routes}
         />
         <TransportProfile config={state.transport} returnRequired={state.returnRequired} />
-        <ExecutionTimeline />
-        <IssuesChanges changes={state.changes} issues={state.issues} />
         <DocumentArchive docs={state.docs} onAddDoc={isReadOnly ? () => {} : addDoc} onRemoveDoc={isReadOnly ? () => {} : removeDoc} onUpdateDoc={isReadOnly ? () => {} : updateDoc} />
-        
+
+        {/* ═══ NOTES ═══ */}
+        <motion.section
+          id="notes"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.6 }}
+        >
+          <h2 className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground mb-3">Notes</h2>
+          <div className="steel-panel p-5">
+            {isReadOnly ? (
+              <p className="text-sm text-foreground whitespace-pre-wrap min-h-[60px]">
+                {state.notes || <span className="text-muted-foreground italic">No notes yet.</span>}
+              </p>
+            ) : (
+              <textarea
+                value={state.notes}
+                onChange={(e) => update("notes", e.target.value)}
+                placeholder="Add notes about this production…"
+                rows={4}
+                className="w-full text-sm bg-secondary border border-border rounded-md px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors resize-none"
+              />
+            )}
+          </div>
+        </motion.section>
+
         <motion.section
           id="checklist"
           initial={{ opacity: 0, y: 12 }}
