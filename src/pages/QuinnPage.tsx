@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Send, Loader2, Trash2, Sparkles, Paperclip } from "lucide-react";
+import { Send, Loader2, Trash2, Sparkles, Paperclip, Upload } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
@@ -75,6 +75,7 @@ export default function QuinnPage() {
   const [typingPhase, setTypingPhase] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [dragOver, setDragOver] = useState(false);
 
   // Persist
   useEffect(() => { binderDraftStore.saveDraft(draft); }, [draft]);
@@ -486,7 +487,16 @@ export default function QuinnPage() {
 
   // ── Chat Panel ──
   const chatPanel = (
-    <div className="flex flex-col h-full min-w-0">
+    <div className="flex flex-col h-full min-w-0 relative"
+      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; setDragOver(true); }}
+      onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(false); }}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDragOver(false);
+        const files = Array.from(e.dataTransfer.files);
+        if (files.length > 0) setAttachedFiles(prev => [...prev, ...files]);
+      }}
+    >
       <div className="px-4 py-3 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-primary" />
@@ -497,6 +507,24 @@ export default function QuinnPage() {
           <Trash2 className="w-3.5 h-3.5 text-muted-foreground" />
         </Button>
       </div>
+
+      {/* Drag overlay */}
+      <AnimatePresence>
+        {dragOver && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm border-2 border-dashed border-primary rounded-lg pointer-events-none"
+          >
+            <div className="flex flex-col items-center gap-2 text-primary">
+              <Upload className="w-8 h-8" />
+              <span className="text-sm font-medium">Drop files here</span>
+              <span className="text-xs text-muted-foreground">PDFs, images, documents</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
         <AnimatePresence initial={false}>
