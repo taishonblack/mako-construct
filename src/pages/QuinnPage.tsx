@@ -103,16 +103,11 @@ export default function QuinnPage() {
       if (prev.length > 0) {
         setMessages([
           { id: msgId(), role: "quinn", text: "Hey — how can I help?", timestamp: Date.now() },
-          { id: msgId(), role: "quinn", text: "Picking up where we left off.", timestamp: Date.now() },
           ...prev,
         ]);
         setQuinnState("CLARIFY");
       } else {
-        setMessages(prev2 => [...prev2, {
-          id: msgId(), role: "quinn", text: "Let me know if you need help or options.",
-          timestamp: Date.now(),
-          quickReplies: ["Create a binder", "Help"],
-        }]);
+        // Just the greeting — wait for the user to engage
         setQuinnState("INTAKE");
       }
     }, 2800);
