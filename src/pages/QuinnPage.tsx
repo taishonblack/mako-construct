@@ -76,6 +76,7 @@ export default function QuinnPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   // Persist
   useEffect(() => { binderDraftStore.saveDraft(draft); }, [draft]);
@@ -109,9 +110,23 @@ export default function QuinnPage() {
       } else {
         // Just the greeting — wait for the user to engage
         setQuinnState("INTAKE");
+        // Show quick-reply chips after a few seconds of inactivity
+        const idleTimer = setTimeout(() => {
+          setMessages(prev2 => {
+            // Only append if user hasn't sent anything yet
+            if (prev2.length === 1 && prev2[0].role === "quinn") {
+              return [{
+                ...prev2[0],
+                quickReplies: ["Create a binder", "Help"],
+              }];
+            }
+            return prev2;
+          });
+        }, 4000);
+        timersRef.current.push(idleTimer);
       }
     }, 2800);
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); timersRef.current.forEach(clearTimeout); };
   }, []);
 
 
