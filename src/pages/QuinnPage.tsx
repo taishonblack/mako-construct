@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Send, Loader2, Trash2, Sparkles, Paperclip, Upload } from "lucide-react";
+import { Send, Loader2, Sparkles, Paperclip, Upload } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 
@@ -10,15 +10,20 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 
-import { parseQuinnInput, getMissingFields } from "@/lib/quinn-parser";
-import { getNextQuestion, getSkipText, hasMinimumFields, type QuinnState, type AskCounts, type QuestionResult } from "@/lib/quinn-engine";
-import { binderDraftStore, type BinderDraft, type QuinnMessage, EMPTY_DRAFT } from "@/stores/binder-draft-store";
+import { parseQuinnInput } from "@/lib/quinn-parser";
+import {
+  getNextQuestion, getSkipText, hasMinimumFields,
+  getIntroMessages, HELP_CHIPS, getMissingIntakeFields,
+  type QuinnState, type AskCounts, type QuestionResult, type QuinnIntakeField,
+} from "@/lib/quinn-engine";
+import { binderDraftStore, type BinderDraft, EMPTY_DRAFT } from "@/stores/binder-draft-store";
 import { QuinnPreviewPanel } from "@/components/quinn/QuinnPreviewPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { binderStore } from "@/stores/binder-store";
 import { generateSignals, generatePatchpoints } from "@/lib/signal-utils";
 import { DEFAULT_TRANSPORT } from "@/lib/binder-types";
 import { activityStore } from "@/stores/activity-store";
+import { quinnThreadStore, getWeekDateKeys, DAY_LABELS, type QuinnThreadMessage } from "@/stores/quinn-thread-store";
 
 function msgId() { return `qm-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`; }
 
@@ -47,98 +52,139 @@ async function callQuinnAI(
   } catch (e) { console.error("Quinn AI fetch failed:", e); return null; }
 }
 
-const HELP_CHIPS = [
-  "Create a binder",
-  "Find a staff member",
-  "Search the wiki",
-  "Add notes to a binder",
-];
-
+interface LocalMessage {
+  id: string;
+  role: "quinn" | "user";
+  text: string;
+  quickReplies?: string[];
+  timestamp: number;
+}
 
 export default function QuinnPage() {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Day selector
+  const weekKeys = getWeekDateKeys();
+  const todayKey = new Date().toISOString().split("T")[0];
+  const [selectedDay, setSelectedDay] = useState(todayKey);
+  const [threadId, setThreadId] = useState<string | null>(null);
+  const [threadLoading, setThreadLoading] = useState(true);
+
+  // Chat state
   const [draft, setDraft] = useState<BinderDraft>(() => binderDraftStore.getDraft());
-  const [messages, setMessages] = useState<QuinnMessage[]>([]);
+  const [messages, setMessages] = useState<LocalMessage[]>([]);
   const [input, setInput] = useState("");
   const [quinnState, setQuinnState] = useState<QuinnState>("IDLE");
-  const [introComplete, setIntroComplete] = useState(false);
   const [askCounts, setAskCounts] = useState<AskCounts>({});
   const [skippedFields, setSkippedFields] = useState<string[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState<QuestionResult | null>(null);
   const [creating, setCreating] = useState(false);
   const [thinking, setThinking] = useState(false);
   const [mobileTab, setMobileTab] = useState<string>("chat");
-  const [typingPhase, setTypingPhase] = useState(0);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
-  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-  // Persist
+  // Persist draft
   useEffect(() => { binderDraftStore.saveDraft(draft); }, [draft]);
-  useEffect(() => { if (introComplete) binderDraftStore.saveConversation(messages); }, [messages, introComplete]);
 
   // Auto-scroll
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages, thinking, typingPhase]);
+  }, [messages, thinking]);
 
-  // Animated intro — runs every time the page mounts
+  // Load thread when day changes
   useEffect(() => {
-    setTypingPhase(1);
-    const t1 = setTimeout(() => {
-      setTypingPhase(2);
-      setMessages([{ id: msgId(), role: "quinn", text: "Hey — how can I help?", timestamp: Date.now() }]);
-    }, 1200);
-    const t2 = setTimeout(() => {
-      setTypingPhase(3);
-    }, 2000);
-    const t3 = setTimeout(() => {
-      setTypingPhase(0);
-      setIntroComplete(true);
-      const prev = binderDraftStore.getConversation();
-      if (prev.length > 0) {
-        setMessages([
-          { id: msgId(), role: "quinn", text: "Hey — how can I help?", timestamp: Date.now() },
-          ...prev,
-        ]);
-        setQuinnState("CLARIFY");
-      } else {
-        // Just the greeting — wait for the user to engage
-        setQuinnState("INTAKE");
-        // Show quick-reply chips after a few seconds of inactivity
-        const idleTimer = setTimeout(() => {
-          setMessages(prev2 => {
-            // Only append if user hasn't sent anything yet
-            if (prev2.length === 1 && prev2[0].role === "quinn") {
-              return [{
-                ...prev2[0],
-                quickReplies: ["Create a binder", "Help"],
-              }];
-            }
-            return prev2;
-          });
-        }, 4000);
-        timersRef.current.push(idleTimer);
+    let cancelled = false;
+    setThreadLoading(true);
+    setMessages([]);
+
+    async function loadThread() {
+      const thread = await quinnThreadStore.getOrCreateThread(selectedDay);
+      if (cancelled) return;
+
+      if (!thread) {
+        // Not authenticated — use local-only mode
+        setThreadId(null);
+        setThreadLoading(false);
+        initEmptyThread();
+        return;
       }
-    }, 2800);
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); timersRef.current.forEach(clearTimeout); };
-  }, []);
 
+      setThreadId(thread.id);
 
-  const addQuinnMessage = useCallback((text: string, quickReplies?: string[]) => {
-    setMessages(prev => [...prev, { id: msgId(), role: "quinn", text, quickReplies, timestamp: Date.now() }]);
-  }, []);
+      if (thread.messages.length > 0) {
+        // Existing thread with messages
+        setMessages(thread.messages.map(m => ({
+          id: m.id,
+          role: m.role,
+          text: m.content,
+          quickReplies: m.quickReplies,
+          timestamp: new Date(m.createdAt).getTime(),
+        })));
+        setQuinnState("INTAKE");
+      } else {
+        // Empty thread — post intro messages
+        await postIntroMessages(thread.id);
+      }
+      setThreadLoading(false);
+    }
 
+    loadThread();
+    return () => { cancelled = true; };
+  }, [selectedDay]);
+
+  async function postIntroMessages(tid: string) {
+    const intros = getIntroMessages();
+    const newMsgs: LocalMessage[] = [];
+    for (const intro of intros) {
+      const saved = await quinnThreadStore.addMessage(tid, "quinn", intro.text, intro.quickReplies);
+      newMsgs.push({
+        id: saved?.id || msgId(),
+        role: "quinn",
+        text: intro.text,
+        quickReplies: intro.quickReplies,
+        timestamp: Date.now(),
+      });
+    }
+    setMessages(newMsgs);
+    setQuinnState("INTAKE");
+  }
+
+  function initEmptyThread() {
+    const intros = getIntroMessages();
+    setMessages(intros.map(i => ({
+      id: msgId(), role: "quinn", text: i.text, quickReplies: i.quickReplies, timestamp: Date.now(),
+    })));
+    setQuinnState("INTAKE");
+  }
+
+  // ── Message helpers ──
+  const addQuinnMessage = useCallback(async (text: string, quickReplies?: string[]) => {
+    const local: LocalMessage = { id: msgId(), role: "quinn", text, quickReplies, timestamp: Date.now() };
+    setMessages(prev => [...prev, local]);
+    if (threadId) {
+      quinnThreadStore.addMessage(threadId, "quinn", text, quickReplies);
+    }
+  }, [threadId]);
+
+  const addUserMessage = useCallback(async (text: string) => {
+    const local: LocalMessage = { id: msgId(), role: "user", text, timestamp: Date.now() };
+    setMessages(prev => [...prev, local]);
+    if (threadId) {
+      quinnThreadStore.addMessage(threadId, "user", text);
+    }
+  }, [threadId]);
+
+  // ── Field extraction ──
   const applyFieldsFromAI = useCallback((fields: Record<string, any>, confidence: Record<string, string>) => {
     setDraft(prev => {
       const next = { ...prev };
       const conf = { ...prev.fieldConfidence };
-      const fieldKeys = ["binderTitle", "homeTeam", "awayTeam", "gameDate", "gameTime", "timezone", "controlRoom", "venue", "broadcastFeed", "status", "onsiteTechManager", "notes"];
+      const fieldKeys = ["binderTitle", "homeTeam", "awayTeam", "gameDate", "gameTime", "timezone", "controlRoom", "venue", "broadcastFeed", "status", "onsiteTechManager", "notes", "isoCount"];
       for (const key of fieldKeys) {
         if (fields[key] && !prev.lockedFields.includes(key)) {
           (next as any)[key] = fields[key];
@@ -176,7 +222,7 @@ export default function QuinnPage() {
 
   const advanceFallback = useCallback(() => {
     setDraft(currentDraft => {
-      const missing = getMissingFields(currentDraft);
+      const missing = getMissingIntakeFields(currentDraft);
       const canConfirm = hasMinimumFields(currentDraft);
       if (missing.length === 0 || (canConfirm && missing.length <= 2)) {
         setQuinnState("CONFIRM");
@@ -199,16 +245,32 @@ export default function QuinnPage() {
     });
   }, [askCounts, skippedFields, addQuinnMessage]);
 
+  // ── Process user message ──
   const processUserMessage = useCallback(async (text: string, displayText?: string) => {
-    setMessages(prev => [...prev, { id: msgId(), role: "user", text: displayText || text, timestamp: Date.now() }]);
+    await addUserMessage(displayText || text);
 
-    // Help command
-    if (text.toLowerCase() === "help") {
+    // "I don't know" detection
+    const lower = text.toLowerCase().trim();
+    if (["not sure", "idk", "help", "i don't know", "i dont know", "no idea"].includes(lower)) {
       addQuinnMessage("Here are a few things I can help with:", HELP_CHIPS);
       return;
     }
 
-    if (text.toLowerCase() === "skip" && currentQuestion) {
+    // Help chip handlers
+    if (lower === "build a binder") {
+      binderDraftStore.clearDraft();
+      setDraft({ ...EMPTY_DRAFT });
+      setQuinnState("INTAKE");
+      addQuinnMessage("what is the project name", ["I'll type it"]);
+      return;
+    }
+    if (lower === "get an overview of routes") { navigate("/routes"); return; }
+    if (lower === "ask for the upcoming projects") { navigate("/binders"); return; }
+    if (lower === "find staff") { navigate("/staff"); return; }
+    if (lower === "look up something in the wiki") { navigate("/wiki"); return; }
+
+    // Skip handling
+    if (lower === "skip" && currentQuestion) {
       setSkippedFields(prev => [...prev, currentQuestion.field]);
       addQuinnMessage(getSkipText(currentQuestion.field as any));
       setCurrentQuestion(null);
@@ -216,6 +278,7 @@ export default function QuinnPage() {
       return;
     }
 
+    // AI extraction
     setThinking(true);
     const aiMessages = messages
       .filter(m => m.role === "user" || m.role === "quinn")
@@ -229,7 +292,7 @@ export default function QuinnPage() {
       applyFieldsFromAI(aiResult.fields, aiResult.confidence);
       setTimeout(() => {
         setDraft(currentDraft => {
-          const missing = getMissingFields(currentDraft);
+          const missing = getMissingIntakeFields(currentDraft);
           const canConfirm = hasMinimumFields(currentDraft);
           if (missing.length === 0 || (canConfirm && missing.length <= 2)) {
             setQuinnState("CONFIRM");
@@ -243,11 +306,19 @@ export default function QuinnPage() {
         });
       }, 100);
     } else {
+      // Unknown / can't answer → admin escalation
+      if (quinnState === "IDLE" || quinnState === "INTAKE") {
+        // Might be a general question Quinn can't answer
+        addQuinnMessage("I'm not sure about that — I've flagged it for the team.");
+        quinnThreadStore.logAdminQuestion(text);
+        return;
+      }
       applyLocalParsed(text);
       setTimeout(() => advanceFallback(), 400);
     }
-  }, [currentQuestion, messages, draft, addQuinnMessage, applyFieldsFromAI, applyLocalParsed, advanceFallback]);
+  }, [currentQuestion, messages, draft, addQuinnMessage, addUserMessage, applyFieldsFromAI, applyLocalParsed, advanceFallback, quinnState, navigate]);
 
+  // ── Create binder ──
   const handleCreate = useCallback(async () => {
     setCreating(true);
     setQuinnState("CREATE");
@@ -257,7 +328,8 @@ export default function QuinnPage() {
         title: d.binderTitle || `${d.awayTeam} @ ${d.homeTeam}` || "Untitled",
         league: "NHL", containerId: "", eventDate: d.gameDate || new Date().toISOString().split("T")[0],
         venue: d.venue || "TBD", showType: "Standard", partner: d.partner || "ESPN",
-        status: (d.status as "draft" | "active" | "completed" | "archived") || "draft", isoCount: d.isoCount || 12, returnRequired: false,
+        status: (d.status as "draft" | "active" | "completed" | "archived") || "draft",
+        isoCount: d.isoCount || 12, returnRequired: false,
         commercials: "local-insert", primaryTransport: "SRT", backupTransport: "",
         notes: d.notes, transport: "SRT", openIssues: 0, eventTime: d.gameTime || "19:00",
         timezone: d.timezone || "America/New_York", homeTeam: d.homeTeam, awayTeam: d.awayTeam,
@@ -273,7 +345,6 @@ export default function QuinnPage() {
       });
       if (!record) throw new Error("Create failed");
 
-      // Log activity
       await activityStore.log({
         binder_id: record.id,
         actor_type: "quinn",
@@ -312,20 +383,24 @@ export default function QuinnPage() {
 
       binderDraftStore.clearDraft();
       toast.success("Binder created.");
-      addQuinnMessage("Binder created. Redirecting…");
-      setTimeout(() => navigate(`/binders/${record.id}`), 800);
+
+      // Transition: ask about routes
+      addQuinnMessage("Binder created.\n\nDo you want to build routes for this binder now?", ["Yes", "No"]);
+      setQuinnState("ROUTES_BUILD");
+      // Store binder id for route context
+      setDraft(prev => ({ ...prev, binderTitle: record.id }));
     } catch {
       toast.error("Failed to create binder");
       setQuinnState("CONFIRM");
     } finally {
       setCreating(false);
     }
-  }, [draft, navigate, addQuinnMessage]);
+  }, [draft, addQuinnMessage]);
 
+  // ── File handling ──
   const BINARY_TYPES = ["application/pdf", "application/msword",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "application/vnd.ms-powerpoint", "application/vnd.openxmlformats-officedocument.presentationml.presentation"];
+    "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"];
 
   const readFileAsText = useCallback(async (file: File): Promise<string> => {
     return new Promise((resolve) => {
@@ -339,12 +414,7 @@ export default function QuinnPage() {
   const readFileAsBase64 = useCallback(async (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result as string;
-        // Strip data URL prefix to get raw base64
-        const base64 = result.split(",")[1] || result;
-        resolve(base64);
-      };
+      reader.onload = () => { const result = reader.result as string; resolve(result.split(",")[1] || result); };
       reader.onerror = () => reject(new Error(`Could not read file: ${file.name}`));
       reader.readAsDataURL(file);
     });
@@ -366,6 +436,7 @@ export default function QuinnPage() {
     }
   }, [readFileAsBase64, readFileAsText]);
 
+  // ── Send handler ──
   const handleSend = async () => {
     const text = input.trim();
     const files = [...attachedFiles];
@@ -373,21 +444,17 @@ export default function QuinnPage() {
     setInput("");
     setAttachedFiles([]);
 
-    // Show user message with file names immediately
     const displayText = files.length > 0
       ? `${text ? text + "\n" : ""}📎 ${files.map(f => f.name).join(", ")}`
       : text;
 
-    // Build message with file contents
     let fullMessage = text;
     if (files.length > 0) {
       setThinking(true);
       const fileContents: string[] = [];
       for (const file of files) {
         const isBinary = BINARY_TYPES.includes(file.type) || file.name.endsWith(".pdf");
-        const content = isBinary
-          ? await parseDocumentViaAI(file)
-          : await readFileAsText(file);
+        const content = isBinary ? await parseDocumentViaAI(file) : await readFileAsText(file);
         fileContents.push(`--- File: ${file.name} ---\n${content.slice(0, 15000)}\n--- End of ${file.name} ---`);
       }
       setThinking(false);
@@ -397,11 +464,31 @@ export default function QuinnPage() {
         : `Please extract binder information from these documents:\n\n${fileBlock}`;
     }
 
+    // Route build transition
+    if (quinnState === "ROUTES_BUILD") {
+      const lower = text.toLowerCase();
+      if (lower === "yes" || lower === "y") {
+        await addUserMessage(displayText);
+        addQuinnMessage("Topology or Transport", ["Topology", "Transport"]);
+        return;
+      }
+      if (lower === "no" || lower === "n") {
+        await addUserMessage(displayText);
+        addQuinnMessage("Got it — standing by.");
+        setQuinnState("INTAKE");
+        return;
+      }
+      if (lower === "topology" || lower === "transport") {
+        await addUserMessage(displayText);
+        navigate("/routes");
+        return;
+      }
+    }
 
     if (quinnState === "CONFIRM") {
       const lower = (text || fullMessage).toLowerCase();
       if (lower.includes("create") || lower === "yes" || lower === "y") {
-        setMessages(prev => [...prev, { id: msgId(), role: "user", text: displayText, timestamp: Date.now() }]);
+        await addUserMessage(displayText);
         handleCreate();
         return;
       }
@@ -415,31 +502,25 @@ export default function QuinnPage() {
     if (reply === "Create Binder") { handleCreate(); return; }
     if (reply === "Edit Fields") { setQuinnState("CLARIFY"); addQuinnMessage("Which field would you like to change?"); return; }
     if (reply === "Keep Chatting") { setQuinnState("CLARIFY"); addQuinnMessage("Got it — what else do you need?"); return; }
-    if (reply === "Help") {
-      addQuinnMessage("Here are a few things I can help with:", HELP_CHIPS);
+    if (reply === "Yes" && quinnState === "ROUTES_BUILD") {
+      addUserMessage("Yes");
+      addQuinnMessage("Topology or Transport", ["Topology", "Transport"]);
       return;
     }
-    if (reply === "Create a binder") {
-      binderDraftStore.clearDraft();
-      setDraft({ ...EMPTY_DRAFT });
-      addQuinnMessage("Let's build a binder.\n\nWhat's the project name?", ["NYR @ BOS — Standard", "TOR @ MTL — Alt French Feed", "I'll type it"]);
+    if (reply === "No" && quinnState === "ROUTES_BUILD") {
+      addUserMessage("No");
+      addQuinnMessage("Got it — standing by.");
       setQuinnState("INTAKE");
       return;
     }
-    if (reply === "Start new binder") {
-      binderDraftStore.clearDraft();
-      setDraft({ ...EMPTY_DRAFT });
-      addQuinnMessage("Let's build a binder.\n\nWhat's the project name?", ["NYR @ BOS — Standard", "TOR @ MTL — Alt French Feed", "I'll type it"]);
-      setQuinnState("INTAKE");
+    if (reply === "Topology" || reply === "Transport") {
+      addUserMessage(reply);
+      navigate("/routes");
       return;
     }
-    // Staff/wiki shortcuts
-    if (reply === "Find a staff member") {
-      navigate("/staff");
-      return;
-    }
-    if (reply === "Search the wiki") {
-      navigate("/wiki");
+    // Help chips
+    if (HELP_CHIPS.includes(reply)) {
+      processUserMessage(reply);
       return;
     }
     processUserMessage(reply);
@@ -455,36 +536,36 @@ export default function QuinnPage() {
     setQuinnState("CLARIFY");
   };
 
-  const handleClearSession = () => {
-    binderDraftStore.clearDraft();
-    setDraft({ ...EMPTY_DRAFT });
-    setMessages([]);
-    setAskCounts({});
-    setSkippedFields([]);
-    setCurrentQuestion(null);
-    setQuinnState("IDLE");
-    setIntroComplete(false);
-    setAttachedFiles([]);
-    setTimeout(() => {
-      setTypingPhase(1);
-      const t1 = setTimeout(() => {
-        setTypingPhase(2);
-        setMessages([{ id: msgId(), role: "quinn", text: "Hey — how can I help?", timestamp: Date.now() }]);
-      }, 1200);
-      const t2 = setTimeout(() => {
-        setTypingPhase(0);
-        setIntroComplete(true);
-        setMessages(prev => [...prev, {
-          id: msgId(), role: "quinn", text: "Let me know if you need help or options.",
-          timestamp: Date.now(), quickReplies: ["Create a binder", "Help"],
-        }]);
-        setQuinnState("INTAKE");
-      }, 2200);
-      return () => { clearTimeout(t1); clearTimeout(t2); };
-    }, 100);
-  };
+  // ── Day selector ──
+  const daySelector = (
+    <div className="flex items-center gap-1 px-4 py-2 border-b border-border overflow-x-auto">
+      {weekKeys.map((key, i) => {
+        const isToday = key === todayKey;
+        const isSelected = key === selectedDay;
+        const isFuture = key > todayKey;
+        return (
+          <button
+            key={key}
+            onClick={() => !isFuture && setSelectedDay(key)}
+            disabled={isFuture}
+            className={cn(
+              "text-xs px-3 py-1.5 rounded-md transition-colors whitespace-nowrap",
+              isSelected
+                ? "bg-primary text-primary-foreground"
+                : isFuture
+                  ? "text-muted-foreground/40 cursor-not-allowed"
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary",
+              isToday && !isSelected && "font-semibold"
+            )}
+          >
+            {DAY_LABELS[i]}
+          </button>
+        );
+      })}
+    </div>
+  );
 
-  // ── Typing indicator ──
+  // ── Typing dots ──
   const typingDots = (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
       <div className="bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-muted-foreground flex items-center gap-1">
@@ -513,71 +594,74 @@ export default function QuinnPage() {
           <span className="text-sm font-medium text-foreground">Quinn</span>
           <Badge variant="outline" className="text-[9px]">Ops Assistant</Badge>
         </div>
-        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleClearSession} title="Clear session">
-          <Trash2 className="w-3.5 h-3.5 text-muted-foreground" />
-        </Button>
       </div>
+
+      {daySelector}
 
       {/* Drag overlay */}
       <AnimatePresence>
         {dragOver && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm border-2 border-dashed border-primary rounded-lg pointer-events-none"
           >
             <div className="flex flex-col items-center gap-2 text-primary">
               <Upload className="w-8 h-8" />
               <span className="text-sm font-medium">Drop files here</span>
-              <span className="text-xs text-muted-foreground">PDFs, images, documents</span>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-        <AnimatePresence initial={false}>
-          {messages.map((msg) => (
-            <motion.div key={msg.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}
-              className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")}>
-              <div className={cn("max-w-[85%] min-w-0 rounded-lg px-3 py-2 text-sm whitespace-pre-wrap",
-                msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground border border-border"
-              )}>{msg.text}</div>
-            </motion.div>
-          ))}
-        </AnimatePresence>
+        {threadLoading ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <>
+            <AnimatePresence initial={false}>
+              {messages.map((msg) => (
+                <motion.div key={msg.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}
+                  className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")}>
+                  <div className={cn("max-w-[85%] min-w-0 rounded-lg px-3 py-2 text-sm whitespace-pre-wrap",
+                    msg.role === "user" ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground border border-border"
+                  )}>{msg.text}</div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
 
-        {(typingPhase === 1 || typingPhase === 3) && typingDots}
+            {thinking && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
+                <div className="bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-muted-foreground flex items-center gap-2">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Quinn is thinking…
+                </div>
+              </motion.div>
+            )}
 
-        {thinking && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
-            <div className="bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-muted-foreground flex items-center gap-2">
-              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Quinn is thinking…
-            </div>
-          </motion.div>
-        )}
+            {!thinking && messages.length > 0 && messages[messages.length - 1].role === "quinn" && messages[messages.length - 1].quickReplies && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-wrap gap-1.5 pl-1">
+                {messages[messages.length - 1].quickReplies!.map((reply) => (
+                  <button key={reply} onClick={() => handleQuickReply(reply)}
+                    className={cn("text-xs px-3 py-1.5 rounded-full border transition-colors",
+                      reply === "Create Binder" ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90" : "border-border text-muted-foreground hover:text-foreground hover:bg-secondary"
+                    )}>{reply}</button>
+                ))}
+              </motion.div>
+            )}
 
-        {!thinking && typingPhase === 0 && messages.length > 0 && messages[messages.length - 1].role === "quinn" && messages[messages.length - 1].quickReplies && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-wrap gap-1.5 pl-1">
-            {messages[messages.length - 1].quickReplies!.map((reply) => (
-              <button key={reply} onClick={() => handleQuickReply(reply)}
-                className={cn("text-xs px-3 py-1.5 rounded-full border transition-colors",
-                  reply === "Create Binder" ? "bg-primary text-primary-foreground border-primary hover:bg-primary/90" : "border-border text-muted-foreground hover:text-foreground hover:bg-secondary"
-                )}>{reply}</button>
-            ))}
-          </motion.div>
-        )}
-
-        {creating && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
-            <div className="bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-muted-foreground flex items-center gap-2">
-              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Creating binder…
-            </div>
-          </motion.div>
+            {creating && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
+                <div className="bg-secondary border border-border rounded-lg px-3 py-2 text-sm text-muted-foreground flex items-center gap-2">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Creating binder…
+                </div>
+              </motion.div>
+            )}
+          </>
         )}
       </div>
 
+      {/* Input */}
       <div className="border-t border-border px-4 py-3">
         {attachedFiles.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-2">
@@ -598,8 +682,8 @@ export default function QuinnPage() {
           <input ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)}
             placeholder="Tell Quinn what you need…"
             className="flex-1 min-w-0 text-sm bg-secondary border border-border rounded-md px-3 py-2 text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
-            disabled={creating || thinking} />
-          <Button type="submit" size="icon" variant="ghost" disabled={(!input.trim() && attachedFiles.length === 0) || creating || thinking}>
+            disabled={creating || thinking || selectedDay !== todayKey} />
+          <Button type="submit" size="icon" variant="ghost" disabled={(!input.trim() && attachedFiles.length === 0) || creating || thinking || selectedDay !== todayKey}>
             <Send className="w-4 h-4" />
           </Button>
         </form>
@@ -614,7 +698,6 @@ export default function QuinnPage() {
         <Button size="sm" className="flex-1 text-xs" onClick={handleCreate} disabled={creating || !draft.binderTitle}>
           {creating ? <><Loader2 className="w-3 h-3 animate-spin mr-1" /> Creating…</> : "Create Binder"}
         </Button>
-        <Button size="sm" variant="outline" className="text-xs" onClick={handleClearSession}>Clear</Button>
       </div>
     </div>
   );
@@ -633,7 +716,6 @@ export default function QuinnPage() {
               <QuinnPreviewPanel draft={draft} onEditField={handleEditField} />
               <div className="px-4 py-3 border-t border-border flex gap-2">
                 <Button size="sm" className="flex-1 text-xs" onClick={handleCreate} disabled={creating || !draft.binderTitle}>Create Binder</Button>
-                <Button size="sm" variant="outline" className="text-xs" onClick={handleClearSession}>Clear</Button>
               </div>
             </div>
           </TabsContent>
@@ -656,7 +738,7 @@ function fieldLabel(field: string): string {
     binderTitle: "title", homeTeam: "home team", awayTeam: "away team",
     gameDate: "date", gameTime: "time", timezone: "timezone",
     controlRoom: "control room", venue: "venue", broadcastFeed: "feed",
-    onsiteTechManager: "tech manager", notes: "notes",
+    onsiteTechManager: "tech manager", notes: "notes", isoCount: "ISO count",
   };
   return map[field] || field;
 }
@@ -673,6 +755,7 @@ function buildSummary(draft: BinderDraft): string {
   if (draft.venue) lines.push(`Venue: ${draft.venue}`);
   if (draft.controlRoom) lines.push(`Control Room: ${draft.controlRoom === "Remote" ? "Remote" : `CR-${draft.controlRoom}`}`);
   if (draft.broadcastFeed) lines.push(`Feed: ${draft.broadcastFeed}`);
+  if (draft.onsiteTechManager) lines.push(`Tech Manager: ${draft.onsiteTechManager}`);
   lines.push(`Status: ${(draft.status || "draft").charAt(0).toUpperCase() + (draft.status || "draft").slice(1)}`);
   return lines.join("\n");
 }
