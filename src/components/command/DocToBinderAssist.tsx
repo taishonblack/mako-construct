@@ -20,50 +20,9 @@ interface DetectedField {
   accepted: boolean;
 }
 
-// Mock extraction results per document type
-function mockExtract(docType: DocType, state: BinderState): DetectedField[] {
-  const now = Date.now();
-  if (docType === "Primer") {
-    return [
-      { id: `f-${now}-1`, label: "Project Title", section: "Event Identity", value: "NYR @ BOS — Alt German Feed", target: "eventHeader.projectTitle", accepted: true },
-      { id: `f-${now}-2`, label: "Show Date", section: "Event Identity", value: "2026-03-15", target: "eventHeader.showDate", accepted: true },
-      { id: `f-${now}-3`, label: "Show Time", section: "Event Identity", value: "19:30", target: "eventHeader.showTime", accepted: true },
-      { id: `f-${now}-4`, label: "Arena", section: "Game Context", value: "TD Garden", target: "eventHeader.arena", accepted: true },
-      { id: `f-${now}-5`, label: "NHL Game", section: "Game Context", value: "NYR", target: "eventHeader.nhlGame", accepted: true },
-      { id: `f-${now}-6`, label: "Broadcast Feed", section: "Game Context", value: "INTL Truck PGM", target: "eventHeader.broadcastFeed", accepted: true },
-      { id: `f-${now}-7`, label: "Control Room", section: "Facility", value: "23", target: "eventHeader.controlRoom", accepted: true },
-      { id: `f-${now}-8`, label: "ISO Count", section: "Signals", value: "18", target: "isoCount", accepted: true },
-      { id: `f-${now}-9`, label: "Output Mode", section: "Audio", value: "5.1", target: "audioPhilosophy.outputMode", accepted: true },
-      { id: `f-${now}-10`, label: "Nats Source", section: "Audio", value: "Arena Overhead Mics", target: "audioPhilosophy.natsSource", accepted: true },
-    ];
-  }
-  if (docType === "Call Sheet") {
-    const staffDetected: DetectedField[] = [
-      { id: `f-${now}-1`, label: "Producer", section: "Staff", value: "James Calloway", target: "staff.Producer", accepted: true },
-      { id: `f-${now}-2`, label: "Director", section: "Staff", value: "Sarah Nguyen", target: "staff.Director", accepted: true },
-      { id: `f-${now}-3`, label: "TD", section: "Staff", value: "Marcus Reid", target: "staff.TD", accepted: true },
-      { id: `f-${now}-4`, label: "Audio", section: "Staff", value: "Kevin O'Brien", target: "staff.Audio", accepted: true },
-      { id: `f-${now}-5`, label: "Graphics", section: "Staff", value: "Rachel Torres", target: "staff.Graphics", accepted: true },
-      { id: `f-${now}-6`, label: "Onsite Tech Manager", section: "Staff", value: "Andre Williams", target: "eventHeader.onsiteTechManager", accepted: true },
-    ];
-    return [
-      ...staffDetected,
-      { id: `f-${now}-7`, label: "Rehearsal Date", section: "Event Identity", value: "2026-03-14", target: "eventHeader.rehearsalDate", accepted: true },
-      { id: `f-${now}-8`, label: "Show Time", section: "Event Identity", value: "19:00", target: "eventHeader.showTime", accepted: true },
-    ];
-  }
-  // Camera List
-  return [
-    { id: `f-${now}-1`, label: "ISO 1 Alias", section: "Signals", value: "Center Ice High", target: "signal.1.alias", accepted: true },
-    { id: `f-${now}-2`, label: "ISO 2 Alias", section: "Signals", value: "Home Bench", target: "signal.2.alias", accepted: true },
-    { id: `f-${now}-3`, label: "ISO 3 Alias", section: "Signals", value: "Away Bench", target: "signal.3.alias", accepted: true },
-    { id: `f-${now}-4`, label: "ISO 4 Alias", section: "Signals", value: "Goal Cam Home", target: "signal.4.alias", accepted: true },
-    { id: `f-${now}-5`, label: "ISO 5 Alias", section: "Signals", value: "Goal Cam Away", target: "signal.5.alias", accepted: true },
-    { id: `f-${now}-6`, label: "ISO 6 Alias", section: "Signals", value: "Overhead", target: "signal.6.alias", accepted: true },
-    { id: `f-${now}-7`, label: "ISO 7 Alias", section: "Signals", value: "Beauty Shot", target: "signal.7.alias", accepted: true },
-    { id: `f-${now}-8`, label: "ISO 8 Alias", section: "Signals", value: "Penalty Box", target: "signal.8.alias", accepted: true },
-    { id: `f-${now}-9`, label: "ISO Count", section: "Signals", value: "8", target: "isoCount", accepted: true },
-  ];
+// Extraction stub — returns empty until real document parsing is implemented
+function extractFields(_docType: DocType, _state: BinderState): DetectedField[] {
+  return [];
 }
 
 const DOC_TYPES: { type: DocType; desc: string; icon: string }[] = [
@@ -88,7 +47,7 @@ export function DocToBinderAssist({ open, onClose, state, onApply }: Props) {
 
   const handleSelectType = useCallback((type: DocType) => {
     setSelectedType(type);
-    const detected = mockExtract(type, state);
+    const detected = extractFields(type, state);
     setFields(detected);
     setStep(2);
   }, [state]);

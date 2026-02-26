@@ -78,8 +78,6 @@ export interface BinderState {
 }
 
 const STORAGE_KEY = "mako-binder-";
-const SEED_VERSION_KEY = "mako-binder-seed-v";
-const CURRENT_SEED_VERSION = "2"; // Bump to force re-seed with new mock data
 
 function buildDefaultTopology(): TopologyConfig {
   const encCount = 6;
@@ -142,13 +140,6 @@ function buildInitialState(_id: string): BinderState {
 
 export function useBinderState(binderId: string) {
   const [state, setState] = useState<BinderState>(() => {
-    // Check seed version — if outdated, clear stale data to get new defaults
-    const seedVersion = localStorage.getItem(SEED_VERSION_KEY + binderId);
-    if (seedVersion !== CURRENT_SEED_VERSION) {
-      localStorage.removeItem(STORAGE_KEY + binderId);
-      localStorage.setItem(SEED_VERSION_KEY + binderId, CURRENT_SEED_VERSION);
-    }
-
     const stored = localStorage.getItem(STORAGE_KEY + binderId);
     if (stored) {
       try {
