@@ -187,6 +187,190 @@ export type Database = {
         }
         Relationships: []
       }
+      quinn_admin_queue: {
+        Row: {
+          answer: string | null
+          binder_id: string | null
+          created_at: string
+          id: string
+          question: string
+          resolved_at: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          answer?: string | null
+          binder_id?: string | null
+          created_at?: string
+          id?: string
+          question: string
+          resolved_at?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          answer?: string | null
+          binder_id?: string | null
+          created_at?: string
+          id?: string
+          question?: string
+          resolved_at?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      quinn_documents: {
+        Row: {
+          binder_id: string | null
+          created_at: string
+          filename: string
+          id: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          binder_id?: string | null
+          created_at?: string
+          filename: string
+          id?: string
+          url?: string
+          user_id: string
+        }
+        Update: {
+          binder_id?: string | null
+          created_at?: string
+          filename?: string
+          id?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      quinn_extractions: {
+        Row: {
+          binder_id: string | null
+          confidence_json: Json
+          confirmed_json: Json
+          created_at: string
+          document_id: string
+          extracted_json: Json
+          id: string
+        }
+        Insert: {
+          binder_id?: string | null
+          confidence_json?: Json
+          confirmed_json?: Json
+          created_at?: string
+          document_id: string
+          extracted_json?: Json
+          id?: string
+        }
+        Update: {
+          binder_id?: string | null
+          confidence_json?: Json
+          confirmed_json?: Json
+          created_at?: string
+          document_id?: string
+          extracted_json?: Json
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quinn_extractions_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "quinn_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quinn_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          quick_replies: string[] | null
+          role: string
+          thread_id: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          id?: string
+          quick_replies?: string[] | null
+          role?: string
+          thread_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          quick_replies?: string[] | null
+          role?: string
+          thread_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quinn_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "quinn_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quinn_profile: {
+        Row: {
+          last_binder_id: string | null
+          last_control_room: string | null
+          last_league: string | null
+          last_partner: string | null
+          last_route_view: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          last_binder_id?: string | null
+          last_control_room?: string | null
+          last_league?: string | null
+          last_partner?: string | null
+          last_route_view?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          last_binder_id?: string | null
+          last_control_room?: string | null
+          last_league?: string | null
+          last_partner?: string | null
+          last_route_view?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      quinn_threads: {
+        Row: {
+          created_at: string
+          date_key: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          date_key: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          date_key?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       routers: {
         Row: {
           brand: string

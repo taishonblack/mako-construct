@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 import { parseQuinnInput, getMissingFields } from "@/lib/quinn-parser";
-import { getNextQuestion, getSkipText, hasMinimumFields, getIntroMessage, type QuinnState, type AskCounts, type QuestionResult } from "@/lib/quinn-engine";
+import { getNextQuestion, getSkipText, hasMinimumFields, getIntroMessages, type QuinnState, type AskCounts, type QuestionResult } from "@/lib/quinn-engine";
 import { binderDraftStore, type BinderDraft, type QuinnMessage, EMPTY_DRAFT } from "@/stores/binder-draft-store";
 import { QuinnPreviewPanel } from "./QuinnPreviewPanel";
 import { supabase } from "@/integrations/supabase/client";
@@ -131,8 +131,9 @@ export default function QuinnBinderAssistant({ onSubmit, onClose }: Props) {
   // Init with greeting
   useEffect(() => {
     if (messages.length === 0) {
+      const intros = getIntroMessages();
       const intro: QuinnMessage = {
-        id: msgId(), role: "quinn", text: getIntroMessage(), timestamp: Date.now(),
+        id: msgId(), role: "quinn", text: intros[0].text, timestamp: Date.now(),
         quickReplies: ["NYR @ BOS tonight 7pm ET CR-23", "Create a studio show"],
       };
       setMessages([intro]);
