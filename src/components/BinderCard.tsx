@@ -1,6 +1,17 @@
 import { useState } from "react";
-import { Calendar, Radio, AlertCircle, ChevronDown } from "lucide-react";
+import { Calendar, Radio, AlertCircle, ChevronDown, Trash2 } from "lucide-react";
 import type { BinderRecord, BinderStatus } from "@/stores/binder-store";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const statusStyles: Record<BinderStatus, string> = {
   draft: "bg-muted text-muted-foreground",
@@ -26,11 +37,48 @@ function timeAgo(dateStr: string) {
   return `${Math.floor(days / 30)}mo ago`;
 }
 
-export function BinderCard({ binder }: { binder: BinderRecord }) {
+interface BinderCardProps {
+  binder: BinderRecord;
+  canDelete?: boolean;
+  onDelete?: (id: string) => void;
+}
+
+export function BinderCard({ binder, canDelete, onDelete }: BinderCardProps) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="steel-panel w-full max-w-full overflow-hidden hover:border-glow-red transition-all duration-300">
+    <div className="steel-panel w-full max-w-full overflow-hidden hover:border-glow-red transition-all duration-300 relative group/card">
+      {canDelete && onDelete && (
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <button
+              className="absolute top-3 right-3 z-10 p-1.5 rounded-md text-muted-foreground opacity-0 group-hover/card:opacity-100 hover:text-destructive hover:bg-destructive/10 transition-all"
+              title="Delete binder"
+              onClick={(e) => e.preventDefault()}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete this binder?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete "{binder.title}". This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => onDelete(binder.id)}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
       <a
         href={`/binders/${binder.id}`}
         className="group block p-4 sm:p-5"

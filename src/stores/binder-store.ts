@@ -81,6 +81,7 @@ export interface BinderRecord {
   lqPorts: LQPort[];
   route_mode?: string;
   route_profile_id?: string | null;
+  createdBy?: string | null;
 }
 
 const DEFAULT_CONFIG = {
@@ -147,6 +148,7 @@ function mapRow(row: any): BinderRecord {
     containerId: row.container_id || "",
     route_mode: row.route_mode || "use_default",
     route_profile_id: row.route_profile_id || null,
+    createdBy: row.created_by || null,
     ...DEFAULT_CONFIG,
     ...config,
   };
