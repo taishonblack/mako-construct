@@ -1,9 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { MessageSquare, Trash2, Loader2, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useOptionalAuth } from "@/contexts/AuthContext";
 import { format, parseISO } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
+
+const PAGE_SIZE = 20;
 
 interface ThreadSummary {
   id: string;
@@ -23,35 +26,54 @@ export default function QuinnHistory() {
   const auth = useOptionalAuth();
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(0);
   const [selectedThread, setSelectedThread] = useState<string | null>(null);
   const [messages, setMessages] = useState<ThreadMessage[]>([]);
   const [msgsLoading, setMsgsLoading] = useState(false);
 
-  useEffect(() => {
-    if (!auth?.user) { setLoading(false); return; }
-    loadThreads();
-  }, [auth?.user]);
+  const loadThreads = useCallback(async (pageNum: number, append = false) => {
+    if (pageNum === 0) setLoading(true); else setLoadingMore(true);
 
-  async function loadThreads() {
-    setLoading(true);
+    const from = pageNum * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+
     const { data } = await supabase
       .from("quinn_threads")
       .select("id, date_key, created_at")
-      .order("date_key", { ascending: false });
+      .order("date_key", { ascending: false })
+      .range(from, to);
 
-    if (!data) { setLoading(false); return; }
+    if (!data) { setLoading(false); setLoadingMore(false); return; }
 
-    // Get message counts
-    const summaries: ThreadSummary[] = [];
-    for (const t of data) {
-      const { count } = await supabase
-        .from("quinn_messages")
-        .select("id", { count: "exact", head: true })
-        .eq("thread_id", t.id);
-      summaries.push({ ...t, message_count: count || 0 });
-    }
-    setThreads(summaries);
+    if (data.length < PAGE_SIZE) setHasMore(false);
+
+    // Get message counts in parallel
+    const summaries = await Promise.all(
+      data.map(async (t) => {
+        const { count } = await supabase
+          .from("quinn_messages")
+          .select("id", { count: "exact", head: true })
+          .eq("thread_id", t.id);
+        return { ...t, message_count: count || 0 };
+      })
+    );
+
+    setThreads(prev => append ? [...prev, ...summaries] : summaries);
     setLoading(false);
+    setLoadingMore(false);
+  }, []);
+
+  useEffect(() => {
+    if (!auth?.user) { setLoading(false); return; }
+    loadThreads(0);
+  }, [auth?.user, loadThreads]);
+
+  function loadMore() {
+    const next = page + 1;
+    setPage(next);
+    loadThreads(next, true);
   }
 
   async function loadMessages(threadId: string) {
@@ -125,7 +147,24 @@ export default function QuinnHistory() {
                   <p className="text-[10px] text-muted-foreground">
                     {t.message_count} message{t.message_count !== 1 ? "s" : ""}
                   </p>
-                </div>
+          </div>
+          {hasMore && (
+            <div className="flex justify-center pt-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="text-xs"
+              >
+                {loadingMore ? (
+                  <><Loader2 className="w-3 h-3 animate-spin mr-1" /> Loading…</>
+                ) : (
+                  "Load more"
+                )}
+              </Button>
+            </div>
+          )}
                 <button
                   onClick={(e) => { e.stopPropagation(); deleteThread(t.id); }}
                   className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-all p-1"
