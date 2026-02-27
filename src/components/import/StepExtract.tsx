@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { FileText, Loader2, Sparkles, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { CallSheetExtraction, ImportFileInfo, ConfidenceLevel } from "@/lib/import-types";
@@ -29,11 +30,20 @@ export function StepExtract({ file, extraction, onExtracted, onChange, onFileCha
   const [running, setRunning] = useState(false);
   const pickerRef = useRef<HTMLInputElement>(null);
 
-  const hasFile = !!file.rawFile || file.sourceType === "paste";
+  const [pasteText, setPasteText] = useState("");
+  const isPaste = file.sourceType === "paste";
+  const hasFile = !!file.rawFile || (isPaste && pasteText.trim().length > 0);
 
   const handleRun = async () => {
     setRunning(true);
-    const result = await runCallSheetExtraction(file);
+    const fileInfo = isPaste
+      ? { ...file, name: pasteText.slice(0, 40), rawFile: undefined }
+      : file;
+    // For paste mode, store text in a synthetic File so extraction can read it
+    if (isPaste) {
+      (fileInfo as any).rawText = pasteText;
+    }
+    const result = await runCallSheetExtraction(fileInfo, isPaste ? pasteText : undefined);
     onExtracted(result);
     setRunning(false);
   };
@@ -66,29 +76,45 @@ export function StepExtract({ file, extraction, onExtracted, onChange, onFileCha
         onChange={handleFileSelected}
       />
 
-      {/* File source box */}
-      <button
-        type="button"
-        onClick={handlePickFile}
-        className="w-full steel-panel p-4 flex items-center gap-3 text-left hover:border-primary/40 transition-colors cursor-pointer"
-      >
-        <FileText className="w-5 h-5 text-primary shrink-0" />
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-foreground truncate">{file.rawFile ? file.name : "No file selected"}</p>
-          <p className="text-[10px] text-muted-foreground">
-            {file.rawFile
-              ? `${file.sourceType.toUpperCase()} · ${(file.size / 1024).toFixed(1)} KB`
-              : "Click to choose a file"}
-          </p>
+      {/* Paste text area or file source box */}
+      {isPaste ? (
+        <div className="space-y-1.5">
+          <label className="text-xs text-muted-foreground font-medium">Paste call sheet text below</label>
+          <Textarea
+            value={pasteText}
+            onChange={(e) => setPasteText(e.target.value)}
+            placeholder="Paste your call sheet, rundown, or schedule text here…"
+            className="min-h-[160px] text-xs font-mono"
+            autoFocus
+          />
+          {pasteText.length > 0 && (
+            <p className="text-[10px] text-muted-foreground">{pasteText.length} characters</p>
+          )}
         </div>
-        {extraction ? (
-          <Badge variant="outline" className="text-[10px] border-emerald-500/40 text-emerald-400 shrink-0">
-            Extracted
-          </Badge>
-        ) : !file.rawFile && file.sourceType !== "paste" ? (
-          <Upload className="w-4 h-4 text-muted-foreground shrink-0" />
-        ) : null}
-      </button>
+      ) : (
+        <button
+          type="button"
+          onClick={handlePickFile}
+          className="w-full steel-panel p-4 flex items-center gap-3 text-left hover:border-primary/40 transition-colors cursor-pointer"
+        >
+          <FileText className="w-5 h-5 text-primary shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-foreground truncate">{file.rawFile ? file.name : "No file selected"}</p>
+            <p className="text-[10px] text-muted-foreground">
+              {file.rawFile
+                ? `${file.sourceType.toUpperCase()} · ${(file.size / 1024).toFixed(1)} KB`
+                : "Click to choose a file"}
+            </p>
+          </div>
+          {extraction ? (
+            <Badge variant="outline" className="text-[10px] border-emerald-500/40 text-emerald-400 shrink-0">
+              Extracted
+            </Badge>
+          ) : !file.rawFile ? (
+            <Upload className="w-4 h-4 text-muted-foreground shrink-0" />
+          ) : null}
+        </button>
+      )}
 
       {!extraction && (
         <Button onClick={handleRun} disabled={running || !hasFile} className="w-full gap-2">

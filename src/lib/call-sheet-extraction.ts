@@ -32,16 +32,22 @@ function emptyExtraction(): CallSheetExtraction {
 }
 
 /** Extract structured data from a call sheet file using AI. */
-export async function runCallSheetExtraction(file: ImportFileInfo): Promise<CallSheetExtraction> {
-  // If no real file, return empty extraction for manual entry
-  if (!file.rawFile && file.sourceType !== "paste") {
+export async function runCallSheetExtraction(file: ImportFileInfo, pasteText?: string): Promise<CallSheetExtraction> {
+  // If no real file and no paste text, return empty extraction for manual entry
+  if (!file.rawFile && !pasteText) {
     return emptyExtraction();
   }
 
   try {
     let payload: Record<string, string>;
 
-    if (file.rawFile) {
+    if (pasteText) {
+      payload = {
+        rawText: pasteText,
+        fileName: "pasted-text.txt",
+        mimeType: "text/plain",
+      };
+    } else if (file.rawFile) {
       const base64 = await fileToBase64(file.rawFile);
       payload = {
         fileBase64: base64,
@@ -49,12 +55,7 @@ export async function runCallSheetExtraction(file: ImportFileInfo): Promise<Call
         mimeType: file.type,
       };
     } else {
-      // paste mode - rawFile would have text content in name for now
-      payload = {
-        rawText: file.name,
-        fileName: "pasted-text.txt",
-        mimeType: "text/plain",
-      };
+      return emptyExtraction();
     }
 
     const { data, error } = await supabase.functions.invoke("extract-callsheet", {
