@@ -34,6 +34,9 @@ export default function RoutesPage() {
   const [matchBinderId, setMatchBinderId] = useState<string | null>(null);
   const [matchProfileName, setMatchProfileName] = useState("");
   const [matchSetDefault, setMatchSetDefault] = useState(false);
+  const [viewBinderOpen, setViewBinderOpen] = useState(false);
+  const [viewBinderId, setViewBinderId] = useState<string | null>(null);
+  const [viewBinderRoutes, setViewBinderRoutes] = useState<import("@/stores/route-profile-types").ResolvedRoute[]>([]);
 
   const { binders } = useBinders();
 
@@ -91,6 +94,21 @@ export default function RoutesPage() {
     profileStore.updateRouteStatus(routeId, status);
   }, [profileStore]);
 
+  const handleViewBinder = useCallback(async (binderId: string) => {
+    const binder = binders.find(b => b.id === binderId);
+    const sourceProfileId = binder?.route_profile_id || activeProfileId;
+    const mode = binder?.route_mode || "use_default";
+    const { routes: resolved } = await profileStore.getBinderRoutes(binderId, mode, sourceProfileId || null);
+    setViewBinderId(binderId);
+    setViewBinderRoutes(resolved);
+    setViewBinderOpen(false);
+  }, [binders, activeProfileId, profileStore]);
+
+  const handleExitBinderView = useCallback(() => {
+    setViewBinderId(null);
+    setViewBinderRoutes([]);
+  }, []);
+
   return (
     <div className="max-w-6xl mx-auto space-y-4">
       {/* Header */}
@@ -111,14 +129,33 @@ export default function RoutesPage() {
       {/* Profile selector bar */}
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Routes Reference</span>
-        <Select value={activeProfileId || ""} onValueChange={handleSwitchProfile}>
-          <SelectTrigger className="h-8 text-xs w-52"><SelectValue placeholder="Select profile…" /></SelectTrigger>
+        <Select
+          value={viewBinderId ? `__binder__` : (activeProfileId || "")}
+          onValueChange={(v) => {
+            if (v === "__view_binder__") {
+              setViewBinderOpen(true);
+            } else {
+              handleExitBinderView();
+              handleSwitchProfile(v);
+            }
+          }}
+        >
+          <SelectTrigger className="h-8 text-xs w-56">
+            <SelectValue placeholder="Select profile…">
+              {viewBinderId
+                ? `🔍 ${binders.find(b => b.id === viewBinderId)?.title || "Binder"}`
+                : activeProfile?.name || "Select profile…"}
+            </SelectValue>
+          </SelectTrigger>
           <SelectContent>
             {profiles.map(p => (
               <SelectItem key={p.id} value={p.id}>
                 {p.name}{p.is_default ? " ★" : ""}
               </SelectItem>
             ))}
+            <SelectItem value="__view_binder__" className="text-primary">
+              <span className="flex items-center gap-1.5"><Eye className="w-3 h-3" /> View Binder…</span>
+            </SelectItem>
           </SelectContent>
         </Select>
         <Button variant="outline" size="sm" className="text-[10px] gap-1 h-8" onClick={handleSetAsDefault} disabled={activeProfile?.is_default}>
@@ -135,8 +172,49 @@ export default function RoutesPage() {
         </Button>
       </div>
 
+      {/* Binder view banner */}
+      {viewBinderId && (
+        <div className="flex items-center justify-between gap-2 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2">
+          <div className="flex items-center gap-2">
+            <Eye className="w-3.5 h-3.5 text-primary" />
+            <span className="text-xs text-foreground font-medium">
+              Viewing binder overlay: <span className="font-semibold">{binders.find(b => b.id === viewBinderId)?.title}</span>
+            </span>
+            <Badge variant="outline" className="text-[9px] px-1.5 py-0">Read-only</Badge>
+          </div>
+          <Button variant="outline" size="sm" className="text-[10px] gap-1 h-7" onClick={handleExitBinderView}>
+            <RotateCcw className="w-3 h-3" /> Return to Default Routes
+          </Button>
+        </div>
+      )}
+
       {/* Routes list */}
-      {routes.length === 0 && legacyState.canonicalRoutes.length === 0 ? (
+      {viewBinderId ? (
+        /* Binder overlay view */
+        <div className="space-y-1.5">
+          {viewBinderRoutes.length === 0 ? (
+            <div className="text-center py-12 text-xs text-muted-foreground">
+              This binder has no route overrides or is using default routes as-is.
+            </div>
+          ) : (
+            <>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2 font-semibold">
+                {binders.find(b => b.id === viewBinderId)?.title} — {viewBinderRoutes.length} ISOs
+              </p>
+              <div className="space-y-1">
+                {viewBinderRoutes.map(route => (
+                  <ProfileRouteRow
+                    key={route.id}
+                    route={route}
+                    readOnly
+                    isOverridden={route.isOverridden}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      ) : routes.length === 0 && legacyState.canonicalRoutes.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground text-sm">
           <p>No routes defined. Click "Generate Routes" to create your canonical ISO topology.</p>
         </div>
@@ -332,6 +410,37 @@ export default function RoutesPage() {
                 Create Profile
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Binder Picker Dialog */}
+      <Dialog open={viewBinderOpen} onOpenChange={setViewBinderOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm">View Binder Routes</DialogTitle>
+          </DialogHeader>
+          <p className="text-[10px] text-muted-foreground">
+            Preview a binder's route overlay (read-only). No changes will be made.
+          </p>
+          <div className="space-y-2 mt-2 max-h-64 overflow-y-auto">
+            {binders.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-4">No binders found.</p>
+            ) : (
+              binders.map(b => (
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={() => handleViewBinder(b.id)}
+                  className="w-full text-left p-3 rounded-lg border border-border hover:border-primary/40 transition-colors"
+                >
+                  <p className="text-xs font-medium text-foreground">{b.title}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {b.venue}{b.partner ? ` · ${b.partner}` : ""} · {b.route_mode || "use_default"}
+                  </p>
+                </button>
+              ))
+            )}
           </div>
         </DialogContent>
       </Dialog>
