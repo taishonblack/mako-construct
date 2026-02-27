@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Send, Loader2, Sparkles, Paperclip, Upload, LogIn } from "lucide-react";
+import { Send, Loader2, Sparkles, Paperclip, Upload, LogIn, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { useOptionalAuth } from "@/contexts/AuthContext";
@@ -8,6 +8,17 @@ import { useOptionalAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -95,6 +106,37 @@ export default function QuinnPage() {
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [aiStatus, setAiStatus] = useState<"checking" | "connected" | "disconnected">("checking");
+
+  // Clear current chat
+  const handleClearChat = useCallback(async () => {
+    // Delete messages from DB if we have a thread
+    if (threadId) {
+      await supabase.from("quinn_messages").delete().eq("thread_id", threadId);
+      await supabase.from("quinn_threads").delete().eq("id", threadId);
+      setThreadId(null);
+    }
+    // Clear local storage
+    localStorage.removeItem(LOCAL_CHAT_KEY + selectedDay);
+    // Reset state
+    setMessages([]);
+    setDraft({ ...EMPTY_DRAFT });
+    binderDraftStore.clearDraft();
+    setQuinnState("IDLE");
+    setAskCounts({});
+    setSkippedFields([]);
+    setCurrentQuestion(null);
+    // Re-init
+    if (isAuthenticated) {
+      const thread = await quinnThreadStore.getOrCreateThread(selectedDay);
+      if (thread) {
+        setThreadId(thread.id);
+        await postIntroMessages(thread.id);
+      }
+    } else {
+      initEmptyThread();
+    }
+    toast.success("Chat cleared");
+  }, [threadId, selectedDay, isAuthenticated]);
 
   // AI health check
   useEffect(() => {
@@ -706,14 +748,40 @@ export default function QuinnPage() {
           <span className="text-sm font-medium text-foreground">Quinn</span>
           <Badge variant="outline" className="text-[9px]">Ops Assistant</Badge>
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className={cn(
-            "inline-block w-1.5 h-1.5 rounded-full",
-            aiStatus === "connected" ? "bg-emerald-500" : aiStatus === "disconnected" ? "bg-red-500" : "bg-amber-400 animate-pulse"
-          )} />
-          <span className="text-[10px] text-muted-foreground">
-            {aiStatus === "connected" ? "AI Connected" : aiStatus === "disconnected" ? "AI Offline" : "Checking…"}
-          </span>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            <span className={cn(
+              "inline-block w-1.5 h-1.5 rounded-full",
+              aiStatus === "connected" ? "bg-emerald-500" : aiStatus === "disconnected" ? "bg-red-500" : "bg-amber-400 animate-pulse"
+            )} />
+            <span className="text-[10px] text-muted-foreground">
+              {aiStatus === "connected" ? "AI Connected" : aiStatus === "disconnected" ? "AI Offline" : "Checking…"}
+            </span>
+          </div>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button
+                className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                title="Clear chat"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Clear this chat?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete all messages in today's conversation. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleClearChat} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Clear Chat
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 
