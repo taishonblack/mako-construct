@@ -76,6 +76,86 @@ export type Database = {
           },
         ]
       }
+      binder_route_overrides: {
+        Row: {
+          after: Json
+          before: Json
+          binder_id: string
+          created_at: string
+          fields_changed: Json
+          id: string
+          route_profile_route_id: string
+        }
+        Insert: {
+          after?: Json
+          before?: Json
+          binder_id: string
+          created_at?: string
+          fields_changed?: Json
+          id?: string
+          route_profile_route_id: string
+        }
+        Update: {
+          after?: Json
+          before?: Json
+          binder_id?: string
+          created_at?: string
+          fields_changed?: Json
+          id?: string
+          route_profile_route_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "binder_route_overrides_binder_id_fkey"
+            columns: ["binder_id"]
+            isOneToOne: false
+            referencedRelation: "binders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "binder_route_overrides_route_profile_route_id_fkey"
+            columns: ["route_profile_route_id"]
+            isOneToOne: false
+            referencedRelation: "route_profile_routes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      binder_routes: {
+        Row: {
+          binder_id: string
+          chain: Json
+          created_at: string
+          id: string
+          iso_number: number
+          status: string
+        }
+        Insert: {
+          binder_id: string
+          chain?: Json
+          created_at?: string
+          id?: string
+          iso_number: number
+          status?: string
+        }
+        Update: {
+          binder_id?: string
+          chain?: Json
+          created_at?: string
+          id?: string
+          iso_number?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "binder_routes_binder_id_fkey"
+            columns: ["binder_id"]
+            isOneToOne: false
+            referencedRelation: "binders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       binder_templates: {
         Row: {
           config: Json
@@ -112,6 +192,8 @@ export type Database = {
           league: string
           open_issues: number
           partner: string
+          route_mode: string
+          route_profile_id: string | null
           status: string
           title: string
           transport: string
@@ -129,6 +211,8 @@ export type Database = {
           league?: string
           open_issues?: number
           partner?: string
+          route_mode?: string
+          route_profile_id?: string | null
           status?: string
           title: string
           transport?: string
@@ -146,13 +230,23 @@ export type Database = {
           league?: string
           open_issues?: number
           partner?: string
+          route_mode?: string
+          route_profile_id?: string | null
           status?: string
           title?: string
           transport?: string
           updated_at?: string
           venue?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "binders_route_profile_id_fkey"
+            columns: ["route_profile_id"]
+            isOneToOne: false
+            referencedRelation: "route_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -371,6 +465,38 @@ export type Database = {
         }
         Relationships: []
       }
+      route_aliases: {
+        Row: {
+          alias_type: string
+          alias_value: string
+          created_at: string
+          id: string
+          route_profile_route_id: string
+        }
+        Insert: {
+          alias_type: string
+          alias_value: string
+          created_at?: string
+          id?: string
+          route_profile_route_id: string
+        }
+        Update: {
+          alias_type?: string
+          alias_value?: string
+          created_at?: string
+          id?: string
+          route_profile_route_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "route_aliases_route_profile_route_id_fkey"
+            columns: ["route_profile_route_id"]
+            isOneToOne: false
+            referencedRelation: "route_profile_routes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       route_hops: {
         Row: {
           created_at: string
@@ -414,6 +540,107 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      route_profile_routes: {
+        Row: {
+          cloud_endpoint: string
+          created_at: string
+          encoder_brand: string
+          flypack_id: string
+          flypack_sdi_n: number
+          id: string
+          iso_number: number
+          lawo_vsm_name: string
+          magewell_unit: number | null
+          receiver_brand: string
+          route_profile_id: string
+          status: string
+          transport_protocol: string
+          truck_sdi_n: number
+          tx_label: string
+          updated_at: string
+          videon_input_label: string
+          videon_input_slot: number
+          videon_unit: number
+        }
+        Insert: {
+          cloud_endpoint?: string
+          created_at?: string
+          encoder_brand?: string
+          flypack_id?: string
+          flypack_sdi_n: number
+          id?: string
+          iso_number: number
+          lawo_vsm_name: string
+          magewell_unit?: number | null
+          receiver_brand?: string
+          route_profile_id: string
+          status?: string
+          transport_protocol?: string
+          truck_sdi_n: number
+          tx_label: string
+          updated_at?: string
+          videon_input_label: string
+          videon_input_slot: number
+          videon_unit: number
+        }
+        Update: {
+          cloud_endpoint?: string
+          created_at?: string
+          encoder_brand?: string
+          flypack_id?: string
+          flypack_sdi_n?: number
+          id?: string
+          iso_number?: number
+          lawo_vsm_name?: string
+          magewell_unit?: number | null
+          receiver_brand?: string
+          route_profile_id?: string
+          status?: string
+          transport_protocol?: string
+          truck_sdi_n?: number
+          tx_label?: string
+          updated_at?: string
+          videon_input_label?: string
+          videon_input_slot?: number
+          videon_unit?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "route_profile_routes_route_profile_id_fkey"
+            columns: ["route_profile_id"]
+            isOneToOne: false
+            referencedRelation: "route_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      route_profiles: {
+        Row: {
+          created_at: string
+          id: string
+          is_default: boolean
+          name: string
+          scope: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name: string
+          scope?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+          scope?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       routers: {
         Row: {

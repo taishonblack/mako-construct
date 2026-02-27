@@ -8,6 +8,8 @@ import { binderStore } from "@/stores/binder-store";
 import { computeReadiness } from "@/lib/readiness-engine";
 import { useBinderState } from "@/hooks/use-binder-state";
 import { useRoutesStore } from "@/stores/route-store";
+import { BinderRoutesSection } from "@/components/routes/BinderRoutesSection";
+import type { RouteMode } from "@/stores/route-profile-types";
 
 import { CommandHeader } from "@/components/command/CommandHeader";
 import { EventCommandHeader } from "@/components/command/EventCommandHeader";
@@ -407,6 +409,25 @@ export default function BinderDetail() {
           routes={routesState.routes}
         />
         <TransportProfile config={state.transport} returnRequired={state.returnRequired} />
+
+        {/* ═══ BINDER ROUTES OVERLAY ═══ */}
+        <motion.section
+          id="binder-routes"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.55 }}
+        >
+          <BinderRoutesSection
+            binderId={binderId}
+            routeMode={(storeRecord as any)?.route_mode || "use_default"}
+            routeProfileId={(storeRecord as any)?.route_profile_id || null}
+            onModeChange={(mode, profileId) => {
+              binderStore.update(binderId, { route_mode: mode, route_profile_id: profileId } as any);
+            }}
+            readOnly={isReadOnly}
+          />
+        </motion.section>
+
         <DocumentArchive docs={state.docs} onAddDoc={isReadOnly ? () => {} : addDoc} onRemoveDoc={isReadOnly ? () => {} : removeDoc} onUpdateDoc={isReadOnly ? () => {} : updateDoc} />
 
         {/* ═══ NOTES ═══ */}
