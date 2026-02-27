@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import type { ImportSourceType } from "@/lib/import-types";
 
 interface Props {
-  onSelect: (sourceType: ImportSourceType) => void;
+  onSelect: (sourceType: ImportSourceType, file?: File) => void;
 }
 
 const ITEMS: { label: string; icon: React.ElementType; source: ImportSourceType }[] = [
@@ -14,9 +14,18 @@ const ITEMS: { label: string; icon: React.ElementType; source: ImportSourceType 
   { label: "Paste Text", icon: ClipboardPaste, source: "paste" },
 ];
 
+function acceptFor(source: ImportSourceType) {
+  if (source === "pdf") return "application/pdf,.pdf";
+  if (source === "email") return ".eml,message/rfc822";
+  if (source === "callsheet") return ".pdf,.doc,.docx,.txt,.rtf";
+  return "";
+}
+
 export function ImportMenuButton({ onSelect }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const pendingSource = useRef<ImportSourceType | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -27,8 +36,29 @@ export function ImportMenuButton({ onSelect }: Props) {
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
+  const startFilePick = (source: ImportSourceType) => {
+    pendingSource.current = source;
+    if (fileRef.current) {
+      fileRef.current.setAttribute("accept", acceptFor(source));
+      fileRef.current.click();
+    }
+  };
+
   return (
     <div className="relative" ref={ref}>
+      <input
+        ref={fileRef}
+        type="file"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          const src = pendingSource.current;
+          e.currentTarget.value = "";
+          if (!file || !src) return;
+          onSelect(src, file);
+          pendingSource.current = null;
+        }}
+      />
       <Button
         variant="outline"
         size="sm"
@@ -45,7 +75,12 @@ export function ImportMenuButton({ onSelect }: Props) {
               key={item.source}
               type="button"
               onClick={() => {
-                onSelect(item.source);
+                if (item.source === "paste") {
+                  onSelect(item.source);
+                  setOpen(false);
+                  return;
+                }
+                startFilePick(item.source);
                 setOpen(false);
               }}
               className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-foreground hover:bg-secondary transition-colors text-left"

@@ -231,6 +231,7 @@ export function ImportCallSheetDrawer({ open, onOpenChange, initialFile }: Props
               extraction={extraction}
               onExtracted={setExtraction}
               onChange={setExtraction}
+              onFileChange={(f) => { setFile(f); setExtraction(null); }}
             />
           )}
           {step === 1 && extraction && (

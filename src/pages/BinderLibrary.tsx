@@ -9,7 +9,7 @@ import type { ImportSourceType } from "@/lib/import-types";
 
 export default function BinderLibrary() {
   const [search, setSearch] = useState("");
-  const context = useOutletContext<{ openImport?: (s: ImportSourceType) => void }>();
+  const context = useOutletContext<{ openImport?: (s: ImportSourceType, file?: File) => void }>();
   const { binders, loading } = useBinders();
 
   const filtered = useMemo(() => binders.filter((b) => {
