@@ -4,7 +4,7 @@
  */
 import type { QuinnField } from "@/lib/quinn-parser";
 
-export type QuinnState = "IDLE" | "INTAKE" | "CLARIFY" | "CONFIRM" | "CREATE" | "ROUTES_BUILD";
+export type QuinnState = "IDLE" | "INTAKE" | "CLARIFY" | "CONFIRM" | "CREATE" | "ROUTES_BUILD" | "ROUTES_CONFIRM";
 
 /** Extended field type for the full 13-question intake */
 export type QuinnIntakeField =
