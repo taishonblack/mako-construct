@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import {
   LayoutGrid,
   Settings,
@@ -11,11 +12,13 @@ import {
   LogOut,
   User,
   Sparkles,
+  ShieldCheck,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { MakoFinMark } from "@/components/MakoFinMark";
 import { Link } from "react-router-dom";
 import { useOptionalAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Sidebar,
   SidebarContent,
@@ -44,6 +47,18 @@ const authNavItems = [
 export function AppSidebar() {
   const auth = useOptionalAuth();
   const isLoggedIn = !!auth?.user;
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (!auth?.user) { setIsAdmin(false); return; }
+    supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", auth.user.id)
+      .eq("role", "admin")
+      .maybeSingle()
+      .then(({ data }) => setIsAdmin(!!data));
+  }, [auth?.user]);
 
   return (
     <Sidebar className="border-r border-border bg-card">
@@ -108,11 +123,22 @@ export function AppSidebar() {
             </NavLink>
             <div className="flex items-center gap-2 px-3 py-2">
               <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-                <User className="w-3 h-3 text-primary" />
+                {isAdmin ? (
+                  <ShieldCheck className="w-3 h-3 text-crimson" />
+                ) : (
+                  <User className="w-3 h-3 text-primary" />
+                )}
               </div>
-              <span className="text-xs text-foreground truncate flex-1">
-                {auth?.profile?.display_name || auth?.user?.email}
-              </span>
+              <div className="flex-1 min-w-0">
+                <span className="text-xs text-foreground truncate block">
+                  {auth?.profile?.display_name || auth?.user?.email}
+                </span>
+                {isAdmin && (
+                  <span className="text-[9px] tracking-[0.15em] uppercase text-crimson font-medium">
+                    Admin
+                  </span>
+                )}
+              </div>
               <button onClick={() => auth?.signOut()} title="Sign out"
                 className="p-1 text-muted-foreground hover:text-foreground transition-colors shrink-0">
                 <LogOut className="w-3.5 h-3.5" />
