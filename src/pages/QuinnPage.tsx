@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Send, Loader2, Sparkles, Paperclip, Upload } from "lucide-react";
+import { Send, Loader2, Sparkles, Paperclip, Upload, LogIn } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
+import { useOptionalAuth } from "@/contexts/AuthContext";
 
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -61,9 +62,13 @@ interface LocalMessage {
   timestamp: number;
 }
 
+const LOCAL_CHAT_KEY = "quinn-local-chat-";
+
 export default function QuinnPage() {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
+  const auth = useOptionalAuth();
+  const isAuthenticated = !!auth?.user;
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -104,6 +109,13 @@ export default function QuinnPage() {
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, thinking]);
+
+  // Persist messages to localStorage when not authenticated
+  useEffect(() => {
+    if (!isAuthenticated && messages.length > 0) {
+      localStorage.setItem(LOCAL_CHAT_KEY + selectedDay, JSON.stringify(messages));
+    }
+  }, [messages, isAuthenticated, selectedDay]);
 
   // Load thread when day changes
   useEffect(() => {
@@ -164,6 +176,18 @@ export default function QuinnPage() {
   }
 
   function initEmptyThread() {
+    // Try to restore from localStorage first
+    const stored = localStorage.getItem(LOCAL_CHAT_KEY + selectedDay);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored) as LocalMessage[];
+        if (parsed.length > 0) {
+          setMessages(parsed);
+          setQuinnState("INTAKE");
+          return;
+        }
+      } catch { /* ignore */ }
+    }
     const intros = getIntroMessages();
     setMessages(intros.map(i => ({
       id: msgId(), role: "quinn", text: i.text, quickReplies: i.quickReplies, timestamp: Date.now(),
@@ -329,6 +353,10 @@ export default function QuinnPage() {
 
   // ── Create binder ──
   const handleCreate = useCallback(async () => {
+    if (!isAuthenticated) {
+      addQuinnMessage("You need to sign in before I can create a binder. Head to the sign-in page and come back — your chat will still be here.", ["Sign In"]);
+      return;
+    }
     setCreating(true);
     setQuinnState("CREATE");
     try {
@@ -404,7 +432,7 @@ export default function QuinnPage() {
     } finally {
       setCreating(false);
     }
-  }, [draft, addQuinnMessage]);
+  }, [draft, addQuinnMessage, isAuthenticated, navigate]);
 
   // ── File handling ──
   const BINARY_TYPES = ["application/pdf", "application/msword",
@@ -556,6 +584,7 @@ export default function QuinnPage() {
   };
 
   const handleQuickReply = async (reply: string) => {
+    if (reply === "Sign In") { navigate("/login"); return; }
     if (reply === "Create Binder") { handleCreate(); return; }
     if (reply === "Edit Fields") { setQuinnState("CLARIFY"); addQuinnMessage("Which field would you like to change?"); return; }
     if (reply === "Keep Chatting") { setQuinnState("CLARIFY"); addQuinnMessage("Got it — what else do you need?"); return; }
