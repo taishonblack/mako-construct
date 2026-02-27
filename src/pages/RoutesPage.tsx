@@ -1,5 +1,5 @@
-import { useState, useMemo, useCallback } from "react";
-import { Plus, RefreshCw, Save, RotateCcw, ChevronDown, Eye } from "lucide-react";
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { Plus, RefreshCw, Save, RotateCcw, ChevronDown, Eye, GitMerge } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,8 @@ import { CanonicalRouteCard } from "@/components/routes/CanonicalRouteCard";
 import { CanonicalRouteDrawer } from "@/components/routes/CanonicalRouteDrawer";
 import { toast } from "sonner";
 import { activityService } from "@/lib/activity-service";
-import { useBinder } from "@/hooks/use-binders";
+import { useBinders } from "@/hooks/use-binders";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type ViewMode = "platform" | "binder";
 
@@ -29,8 +30,12 @@ export default function RoutesPage() {
   const [newProfileName, setNewProfileName] = useState("");
   const [isoDialogOpen, setIsoDialogOpen] = useState(false);
   const [isoInput, setIsoInput] = useState(12);
-  const [viewBinderId, setViewBinderId] = useState<string | null>(null);
   const [matchBinderOpen, setMatchBinderOpen] = useState(false);
+  const [matchBinderId, setMatchBinderId] = useState<string | null>(null);
+  const [matchProfileName, setMatchProfileName] = useState("");
+  const [matchSetDefault, setMatchSetDefault] = useState(false);
+
+  const { binders } = useBinders();
 
   const { profiles, activeProfileId, routes } = profileStore.state;
   const activeProfile = profiles.find(p => p.id === activeProfileId);
@@ -124,6 +129,9 @@ export default function RoutesPage() {
         </Button>
         <Button variant="outline" size="sm" className="text-[10px] gap-1 h-8" onClick={handleResetToDefault}>
           <RotateCcw className="w-3 h-3" /> Reset to default
+        </Button>
+        <Button variant="outline" size="sm" className="text-[10px] gap-1 h-8" onClick={() => setMatchBinderOpen(true)}>
+          <GitMerge className="w-3 h-3" /> Match a binder…
         </Button>
       </div>
 
@@ -250,6 +258,83 @@ export default function RoutesPage() {
         onRemoveHop={removeHop}
         onRemoveRoute={removeRoute}
       />
+
+      {/* Match a Binder Dialog */}
+      <Dialog open={matchBinderOpen} onOpenChange={setMatchBinderOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm">Match a Binder</DialogTitle>
+          </DialogHeader>
+          <p className="text-[10px] text-muted-foreground">
+            Create a new route profile from a binder's forked overrides, then optionally set it as default.
+          </p>
+          <div className="space-y-3 mt-2">
+            <div>
+              <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">Select Binder</span>
+              <Select value={matchBinderId || ""} onValueChange={setMatchBinderId}>
+                <SelectTrigger className="h-8 text-xs mt-1"><SelectValue placeholder="Choose binder…" /></SelectTrigger>
+                <SelectContent>
+                  {binders.map(b => (
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">New Profile Name</span>
+              <Input
+                value={matchProfileName}
+                onChange={(e) => setMatchProfileName(e.target.value)}
+                placeholder="e.g. Bruins @ Rangers Dec 12"
+                className="h-8 text-xs mt-1"
+              />
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <Checkbox checked={matchSetDefault} onCheckedChange={(v) => setMatchSetDefault(!!v)} />
+              <span className="text-xs text-muted-foreground">Set as default profile</span>
+            </label>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" className="text-xs" onClick={() => setMatchBinderOpen(false)}>Cancel</Button>
+              <Button
+                size="sm"
+                className="text-xs"
+                disabled={!matchBinderId || !matchProfileName.trim()}
+                onClick={async () => {
+                  if (!matchBinderId || !matchProfileName.trim()) return;
+                  const binder = binders.find(b => b.id === matchBinderId);
+                  const sourceProfileId = binder?.route_profile_id || activeProfileId;
+                  if (!sourceProfileId) {
+                    toast.error("No source profile found");
+                    return;
+                  }
+                  const newId = await profileStore.createProfileFromBinder(
+                    matchBinderId, matchProfileName.trim(), sourceProfileId
+                  );
+                  if (newId) {
+                    if (matchSetDefault) await profileStore.setAsDefault(newId);
+                    await profileStore.switchProfile(newId);
+                    toast.success(`Profile "${matchProfileName}" created from binder`);
+                    activityService.logRouteChange("route_create", newId,
+                      `Created profile "${matchProfileName}" from binder "${binder?.title}"`,
+                      { source_binder: matchBinderId, profile_name: matchProfileName }
+                    );
+                    setMatchBinderOpen(false);
+                    setMatchBinderId(null);
+                    setMatchProfileName("");
+                    setMatchSetDefault(false);
+                  } else {
+                    toast.error("Failed to create profile");
+                  }
+                }}
+              >
+                Create Profile
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
