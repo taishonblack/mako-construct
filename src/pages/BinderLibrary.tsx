@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import { Search, Plus, SlidersHorizontal, FileText, MessageSquare, Trash2, X, CheckSquare } from "lucide-react";
+import { Search, Plus, SlidersHorizontal, FileText, MessageSquare, Trash2, X, CheckSquare, Archive, CheckCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useOutletContext } from "react-router-dom";
 import { toast } from "sonner";
@@ -34,6 +34,8 @@ export default function BinderLibrary() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showBulkConfirm, setShowBulkConfirm] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [showStatusConfirm, setShowStatusConfirm] = useState<"archived" | "completed" | null>(null);
+  const [bulkUpdating, setBulkUpdating] = useState(false);
 
   // Check if user is admin
   const [isAdmin, setIsAdmin] = useState(false);
@@ -85,6 +87,21 @@ export default function BinderLibrary() {
     toast.success(`${deleted} binder${deleted !== 1 ? "s" : ""} deleted`);
     refresh();
   }, [selected, refresh, exitSelectMode]);
+
+  const handleBulkStatus = useCallback(async () => {
+    if (!showStatusConfirm) return;
+    setBulkUpdating(true);
+    let updated = 0;
+    for (const id of selected) {
+      const ok = await binderStore.update(id, { status: showStatusConfirm });
+      if (ok) updated++;
+    }
+    setBulkUpdating(false);
+    setShowStatusConfirm(null);
+    exitSelectMode();
+    toast.success(`${updated} binder${updated !== 1 ? "s" : ""} marked as ${showStatusConfirm}`);
+    refresh();
+  }, [selected, showStatusConfirm, refresh, exitSelectMode]);
 
   const filtered = useMemo(() => binders.filter((b) => {
     const q = search.toLowerCase();
@@ -178,6 +195,26 @@ export default function BinderLibrary() {
               {selected.size} of {filtered.length} selected
             </span>
             <Button
+              variant="outline"
+              size="sm"
+              className="text-xs gap-1.5"
+              disabled={selected.size === 0}
+              onClick={() => setShowStatusConfirm("completed")}
+            >
+              <CheckCircle className="w-3.5 h-3.5" />
+              Complete ({selected.size})
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs gap-1.5"
+              disabled={selected.size === 0}
+              onClick={() => setShowStatusConfirm("archived")}
+            >
+              <Archive className="w-3.5 h-3.5" />
+              Archive ({selected.size})
+            </Button>
+            <Button
               variant="destructive"
               size="sm"
               className="text-xs gap-1.5"
@@ -217,6 +254,28 @@ export default function BinderLibrary() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {bulkDeleting ? "Deleting…" : "Delete All"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk status change confirmation */}
+      <AlertDialog open={!!showStatusConfirm} onOpenChange={(open) => { if (!open) setShowStatusConfirm(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {showStatusConfirm === "archived" ? "Archive" : "Mark as Completed"} {selected.size} binder{selected.size !== 1 ? "s" : ""}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {showStatusConfirm === "archived"
+                ? "Archived binders will be moved out of your active view."
+                : "This will mark the selected binders as completed."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkUpdating}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBulkStatus} disabled={bulkUpdating}>
+              {bulkUpdating ? "Updating…" : "Confirm"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

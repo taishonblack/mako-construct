@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { UserPlus, Eye, EyeOff, Mail } from "lucide-react";
+import { UserPlus, Eye, EyeOff, Mail, ArrowLeft } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { MakoFinMark } from "@/components/MakoFinMark";
 
@@ -58,16 +58,22 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4">
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Top-left logo + back link */}
+      <div className="flex items-center gap-3 px-6 py-4">
+        <Link to="/binders" className="flex items-center gap-2 text-foreground hover:text-primary transition-colors">
+          <MakoFinMark className="h-6" />
+          <span className="text-sm font-medium tracking-tight">MAKO Live</span>
+        </Link>
+      </div>
+
+      <div className="flex-1 flex items-center justify-center px-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-sm"
       >
         <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <MakoFinMark className="h-8" />
-          </div>
           <h1 className="text-xl font-medium text-foreground">Create Account</h1>
           <p className="text-sm text-muted-foreground mt-1">Join your MAKO workspace</p>
         </div>
@@ -109,8 +115,13 @@ export default function SignupPage() {
           <p className="text-xs text-muted-foreground text-center">
             Already have an account? <Link to="/login" className="text-primary hover:underline">Sign in</Link>
           </p>
+
+          <Link to="/binders" className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mt-2">
+            <ArrowLeft className="w-3.5 h-3.5" /> Back to Binders
+          </Link>
         </form>
       </motion.div>
+      </div>
     </div>
   );
 }
