@@ -767,7 +767,20 @@ export default function QuinnPage() {
         )}
         <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="flex items-center gap-2">
           <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.json" className="sr-only"
-            onChange={(e) => { if (e.target.files) setAttachedFiles(prev => [...prev, ...Array.from(e.target.files!)]); e.target.value = ""; }} />
+            onChange={(e) => {
+              if (e.target.files && e.target.files.length > 0) {
+                const files = Array.from(e.target.files);
+                // Auto-send: show doc in chat and ask intent immediately
+                const fileNames = files.map(f => f.name).join(", ");
+                addUserMessage(`📎 ${fileNames}`);
+                pendingDocFiles.current = files;
+                addQuinnMessage(
+                  `received ${files.length === 1 ? files[0].name : `${files.length} documents`}. what would you like to extract from ${files.length === 1 ? "the document" : "these documents"}?`,
+                  DOC_INTENT_CHIPS
+                );
+              }
+              e.target.value = "";
+            }} />
           <Button type="button" size="icon" variant="ghost" className="shrink-0" onClick={() => fileInputRef.current?.click()} disabled={creating || thinking}>
             <Paperclip className="w-4 h-4" />
           </Button>
