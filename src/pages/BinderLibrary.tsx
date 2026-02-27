@@ -1,8 +1,12 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Search, Plus, SlidersHorizontal, FileText, MessageSquare } from "lucide-react";
 import { motion } from "framer-motion";
 import { useOutletContext } from "react-router-dom";
+import { toast } from "sonner";
 import { useBinders } from "@/hooks/use-binders";
+import { useOptionalAuth } from "@/contexts/AuthContext";
+import { binderStore } from "@/stores/binder-store";
+import { supabase } from "@/integrations/supabase/client";
 import { BinderCard } from "@/components/BinderCard";
 import { Button } from "@/components/ui/button";
 import type { ImportSourceType } from "@/lib/import-types";
@@ -10,7 +14,28 @@ import type { ImportSourceType } from "@/lib/import-types";
 export default function BinderLibrary() {
   const [search, setSearch] = useState("");
   const context = useOutletContext<{ openImport?: (s: ImportSourceType, file?: File) => void }>();
-  const { binders, loading } = useBinders();
+  const { binders, loading, refresh } = useBinders();
+  const auth = useOptionalAuth();
+  const userId = auth?.user?.id;
+
+  // Check if user is admin
+  const [isAdmin, setIsAdmin] = useState(false);
+  useMemo(() => {
+    if (!userId) return;
+    supabase.from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").then(({ data }) => {
+      setIsAdmin(!!(data && data.length > 0));
+    });
+  }, [userId]);
+
+  const handleDelete = useCallback(async (id: string) => {
+    const ok = await binderStore.delete(id);
+    if (ok) {
+      toast.success("Binder deleted");
+      refresh();
+    } else {
+      toast.error("Failed to delete binder");
+    }
+  }, [refresh]);
 
   const filtered = useMemo(() => binders.filter((b) => {
     const q = search.toLowerCase();
@@ -95,7 +120,11 @@ export default function BinderLibrary() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35, delay: 0.15 + i * 0.05 }}
           >
-            <BinderCard binder={binder} />
+            <BinderCard
+              binder={binder}
+              canDelete={isAdmin || (!!userId && binder.createdBy === userId)}
+              onDelete={handleDelete}
+            />
           </motion.div>
         ))}
         {filtered.length === 0 && (

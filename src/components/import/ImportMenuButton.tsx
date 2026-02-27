@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Plus, FileText, Mail, FileUp, ClipboardPaste } from "lucide-react";
+import { Plus, FileUp, ClipboardPaste } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ImportSourceType } from "@/lib/import-types";
 
@@ -8,16 +8,12 @@ interface Props {
 }
 
 const ITEMS: { label: string; icon: React.ElementType; source: ImportSourceType }[] = [
-  { label: "Import Call Sheet (AI)", icon: FileText, source: "callsheet" },
-  { label: "Import Email (AI)", icon: Mail, source: "email" },
-  { label: "Import PDF (AI)", icon: FileUp, source: "pdf" },
+  { label: "Import File (AI)", icon: FileUp, source: "callsheet" },
   { label: "Paste Text", icon: ClipboardPaste, source: "paste" },
 ];
 
 function acceptFor(source: ImportSourceType) {
-  if (source === "pdf") return "application/pdf,.pdf";
-  if (source === "email") return ".eml,message/rfc822";
-  if (source === "callsheet") return ".pdf,.doc,.docx,.txt,.rtf";
+  if (source === "callsheet") return ".pdf,.doc,.docx,.txt,.rtf,.eml,.png,.jpg,.jpeg,.heic,.webp";
   return "";
 }
 
