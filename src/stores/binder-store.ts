@@ -79,6 +79,8 @@ export interface BinderRecord {
   inboundPort: string;
   lqRequired: boolean;
   lqPorts: LQPort[];
+  route_mode?: string;
+  route_profile_id?: string | null;
 }
 
 const DEFAULT_CONFIG = {
@@ -143,13 +145,15 @@ function mapRow(row: any): BinderRecord {
     updatedAt: row.updated_at,
     league: row.league || "NHL",
     containerId: row.container_id || "",
+    route_mode: row.route_mode || "use_default",
+    route_profile_id: row.route_profile_id || null,
     ...DEFAULT_CONFIG,
     ...config,
   };
 }
 
 function toDbRow(record: Partial<BinderRecord>) {
-  const { id, title, partner, venue, eventDate, status, isoCount, openIssues, transport, league, containerId, updatedAt, ...config } = record as any;
+  const { id, title, partner, venue, eventDate, status, isoCount, openIssues, transport, league, containerId, updatedAt, route_mode, route_profile_id, ...config } = record as any;
   const row: any = {};
   if (title !== undefined) row.title = title;
   if (partner !== undefined) row.partner = partner;
@@ -161,6 +165,8 @@ function toDbRow(record: Partial<BinderRecord>) {
   if (transport !== undefined) row.transport = transport;
   if (league !== undefined) row.league = league;
   if (containerId !== undefined) row.container_id = containerId;
+  if (route_mode !== undefined) row.route_mode = route_mode;
+  if (route_profile_id !== undefined) row.route_profile_id = route_profile_id;
   if (Object.keys(config).length > 0) row.config = config;
   return row;
 }

@@ -1,94 +1,90 @@
 import { useState, useMemo, useCallback } from "react";
-import { Plus, RefreshCw, LayoutGrid, List, Eye } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, RefreshCw, Save, RotateCcw, ChevronDown, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useRoutesStore, buildDefaultLinks } from "@/stores/route-store";
-import type { SignalRoute, HopNode, CanonicalRoute } from "@/stores/route-store";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { RouteChain } from "@/components/routes/RouteChain";
-import { ShowDayCard } from "@/components/routes/ShowDayCard";
-import { TransportView } from "@/components/routes/TransportView";
-import { RouteDrawer } from "@/components/routes/RouteDrawer";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useRouteProfileStore } from "@/stores/route-profile-store";
+import { useRoutesStore } from "@/stores/route-store";
+import type { RouteStatus } from "@/stores/route-profile-types";
+import { ISO_PRESETS } from "@/stores/route-profile-types";
+import { ProfileRouteRow } from "@/components/routes/ProfileRouteRow";
 import { CanonicalRouteCard } from "@/components/routes/CanonicalRouteCard";
 import { CanonicalRouteDrawer } from "@/components/routes/CanonicalRouteDrawer";
-import type { NodeKind } from "@/components/routes/FlowNodeCard";
+import { toast } from "sonner";
+import { activityService } from "@/lib/activity-service";
+import { useBinder } from "@/hooks/use-binders";
 
-type ViewMode = "engineering" | "showday";
+type ViewMode = "platform" | "binder";
 
 export default function RoutesPage() {
+  const profileStore = useRouteProfileStore();
   const {
-    state, addRoute, updateRoute, removeRoute, syncRouterCrosspoints,
-    updateCanonicalRoute, updateHop, addCanonicalHop, removeHop,
+    state: legacyState, updateCanonicalRoute, updateHop, addCanonicalHop, removeHop, removeRoute,
   } = useRoutesStore();
-  const isMobile = useIsMobile();
-  const [tab, setTab] = useState("topology");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
-  const [selectedCanonicalId, setSelectedCanonicalId] = useState<string | null>(null);
-  const [drawerSection, setDrawerSection] = useState<string | null>(null);
-  const [hiddenRoutes, setHiddenRoutes] = useState<Set<string>>(new Set());
-  const [mode, setMode] = useState<ViewMode>("engineering");
 
-  const selectedRoute = useMemo(
-    () => state.routes.find((r) => r.id === selectedRouteId) ?? null,
-    [state.routes, selectedRouteId]
-  );
+  const [selectedCanonicalId, setSelectedCanonicalId] = useState<string | null>(null);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [newProfileName, setNewProfileName] = useState("");
+  const [isoDialogOpen, setIsoDialogOpen] = useState(false);
+  const [isoInput, setIsoInput] = useState(12);
+  const [viewBinderId, setViewBinderId] = useState<string | null>(null);
+  const [matchBinderOpen, setMatchBinderOpen] = useState(false);
+
+  const { profiles, activeProfileId, routes } = profileStore.state;
+  const activeProfile = profiles.find(p => p.id === activeProfileId);
 
   const selectedCanonical = useMemo(
-    () => state.canonicalRoutes.find((r) => r.id === selectedCanonicalId) ?? null,
-    [state.canonicalRoutes, selectedCanonicalId]
+    () => legacyState.canonicalRoutes.find(r => r.id === selectedCanonicalId) ?? null,
+    [legacyState.canonicalRoutes, selectedCanonicalId]
   );
 
-  const visibleRoutes = useMemo(
-    () => state.routes.filter((r) => !hiddenRoutes.has(r.id)),
-    [state.routes, hiddenRoutes]
-  );
+  // Handlers
+  const handleSwitchProfile = useCallback((profileId: string) => {
+    profileStore.switchProfile(profileId);
+  }, [profileStore]);
 
-  const toggleVisibility = useCallback((id: string) => {
-    setHiddenRoutes((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
+  const handleSetAsDefault = useCallback(async () => {
+    if (!activeProfileId) return;
+    await profileStore.setAsDefault(activeProfileId);
+    toast.success("Set as default profile");
+  }, [activeProfileId, profileStore]);
 
-  const handleDuplicate = useCallback((route: SignalRoute) => {
-    addRoute();
-  }, [addRoute]);
+  const handleResetToDefault = useCallback(() => {
+    const def = profiles.find(p => p.is_default);
+    if (def) profileStore.switchProfile(def.id);
+  }, [profiles, profileStore]);
 
-  const handleAddHop = useCallback((routeId: string, linkFrom: string, linkTo: string) => {
-    const route = state.routes.find(r => r.id === routeId);
-    if (!route) return;
-    const links = (route.links ?? buildDefaultLinks()).map(l => {
-      if (l.from === linkFrom && l.to === linkTo) {
-        return {
-          ...l,
-          hops: [...l.hops, {
-            id: `hop-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-            subtype: "Other" as const,
-            label: "",
-            vendor: "",
-            model: "",
-            notes: "",
-            status: "ok" as const,
-            enabled: true,
-          }],
-        };
-      }
-      return l;
-    });
-    updateRoute(routeId, { links });
-    setSelectedRouteId(routeId);
-    setDrawerSection("hops");
-  }, [state.routes, updateRoute]);
+  const handleSaveAsNew = useCallback(async () => {
+    if (!newProfileName.trim()) return;
+    const id = await profileStore.saveAsNewProfile(newProfileName.trim());
+    if (id) {
+      toast.success(`Profile "${newProfileName}" created`);
+      setNewProfileName("");
+      setSaveDialogOpen(false);
+    }
+  }, [newProfileName, profileStore]);
 
-  const hasCanonical = state.canonicalRoutes.length > 0;
-  const hasLegacy = state.routes.length > 0;
+  const handleGenerateRoutes = useCallback(async () => {
+    await profileStore.ensureDefaultProfile(isoInput);
+    toast.success(`Generated ${isoInput} canonical routes`);
+    setIsoDialogOpen(false);
+  }, [isoInput, profileStore]);
+
+  const handleFieldChange = useCallback((routeId: string, field: string, value: any) => {
+    profileStore.updateRouteField(routeId, field as any, value);
+    activityService.logRouteChange("route_update", routeId,
+      `Platform route: ${field} updated`, { field, value });
+  }, [profileStore]);
+
+  const handleAliasChange = useCallback((routeId: string, aliasType: string, value: string) => {
+    profileStore.upsertAlias(routeId, aliasType as any, value);
+  }, [profileStore]);
+
+  const handleStatusChange = useCallback((routeId: string, status: RouteStatus) => {
+    profileStore.updateRouteStatus(routeId, status);
+  }, [profileStore]);
 
   return (
     <div className="max-w-6xl mx-auto space-y-4">
@@ -97,210 +93,153 @@ export default function RoutesPage() {
         <div>
           <h1 className="text-xl font-bold tracking-tight">Routes</h1>
           <p className="text-xs text-muted-foreground mt-1">
-            Live contribution topology — See → Select → Modify
+            Platform baseline — canonical signal topology reference
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex border border-border rounded-md">
-            <Button
-              variant={mode === "engineering" ? "secondary" : "ghost"}
-              size="sm"
-              className="text-xs rounded-r-none h-8 gap-1"
-              onClick={() => setMode("engineering")}
-            >
-              Engineering
-            </Button>
-            <Button
-              variant={mode === "showday" ? "secondary" : "ghost"}
-              size="sm"
-              className="text-xs rounded-l-none h-8 gap-1"
-              onClick={() => setMode("showday")}
-            >
-              <Eye className="w-3 h-3" /> Show Day
-            </Button>
-          </div>
-          {mode === "engineering" && (
-            <>
-              <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={syncRouterCrosspoints}>
-                <RefreshCw className="w-3 h-3" /> Sync
-              </Button>
-              <Button size="sm" className="text-xs gap-1.5" onClick={addRoute}>
-                <Plus className="w-3 h-3" /> Add Route
-              </Button>
-            </>
-          )}
+          <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => setIsoDialogOpen(true)}>
+            <Plus className="w-3 h-3" /> Generate Routes
+          </Button>
         </div>
       </div>
 
-      {/* Show Day mode */}
-      {mode === "showday" ? (
-        <div className="space-y-2">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3">
-            Production Status — {visibleRoutes.length + state.canonicalRoutes.length} routes
-          </p>
-          {/* Canonical routes first */}
-          {hasCanonical && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-              {state.canonicalRoutes.map((route) => (
-                <CanonicalRouteCard key={route.id} route={route} onSelect={setSelectedCanonicalId} />
-              ))}
+      {/* Profile selector bar */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Routes Reference</span>
+        <Select value={activeProfileId || ""} onValueChange={handleSwitchProfile}>
+          <SelectTrigger className="h-8 text-xs w-52"><SelectValue placeholder="Select profile…" /></SelectTrigger>
+          <SelectContent>
+            {profiles.map(p => (
+              <SelectItem key={p.id} value={p.id}>
+                {p.name}{p.is_default ? " ★" : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button variant="outline" size="sm" className="text-[10px] gap-1 h-8" onClick={handleSetAsDefault} disabled={activeProfile?.is_default}>
+          Set as default
+        </Button>
+        <Button variant="outline" size="sm" className="text-[10px] gap-1 h-8" onClick={() => setSaveDialogOpen(true)}>
+          <Save className="w-3 h-3" /> Save as new profile
+        </Button>
+        <Button variant="outline" size="sm" className="text-[10px] gap-1 h-8" onClick={handleResetToDefault}>
+          <RotateCcw className="w-3 h-3" /> Reset to default
+        </Button>
+      </div>
+
+      {/* Routes list */}
+      {routes.length === 0 && legacyState.canonicalRoutes.length === 0 ? (
+        <div className="text-center py-16 text-muted-foreground text-sm">
+          <p>No routes defined. Click "Generate Routes" to create your canonical ISO topology.</p>
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          {/* Profile routes (new system) */}
+          {routes.length > 0 && (
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2 font-semibold">
+                {activeProfile?.name || "Routes"} ({routes.length} ISOs)
+              </p>
+              <div className="space-y-1">
+                {routes.map(route => (
+                  <ProfileRouteRow
+                    key={route.id}
+                    route={route}
+                    onFieldChange={handleFieldChange}
+                    onAliasChange={handleAliasChange}
+                    onStatusChange={handleStatusChange}
+                  />
+                ))}
+              </div>
             </div>
           )}
-          {hasLegacy && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-              {visibleRoutes.map((route) => (
-                <ShowDayCard key={route.id} route={route} onClick={() => setSelectedRouteId(route.id)} />
-              ))}
+
+          {/* Legacy canonical routes (from old hop system) */}
+          {legacyState.canonicalRoutes.length > 0 && (
+            <div className="mt-4">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2 font-semibold">
+                Legacy Hop Routes ({legacyState.canonicalRoutes.length})
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                {legacyState.canonicalRoutes.map(route => (
+                  <CanonicalRouteCard
+                    key={route.id}
+                    route={route}
+                    isSelected={selectedCanonicalId === route.id}
+                    onSelect={setSelectedCanonicalId}
+                  />
+                ))}
+              </div>
             </div>
           )}
         </div>
-      ) : (
-        <Tabs value={tab} onValueChange={setTab}>
-          <div className="flex items-center justify-between gap-2">
-            <TabsList className="bg-muted/50">
-              <TabsTrigger value="topology" className="text-xs">Topology</TabsTrigger>
-              <TabsTrigger value="transport" className="text-xs">Transport</TabsTrigger>
-            </TabsList>
-
-            {tab === "topology" && (
-              <div className="flex items-center gap-2">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm" className="text-xs gap-1.5">
-                      Visible
-                      {hiddenRoutes.size > 0 && (
-                        <Badge variant="secondary" className="text-[10px] px-1 py-0 ml-1">
-                          {state.routes.length - hiddenRoutes.size}/{state.routes.length}
-                        </Badge>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent align="end" className="w-56 p-2">
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2 px-1">Route Visibility</p>
-                    {state.routes.map((r) => (
-                      <label key={r.id} className="flex items-center gap-2 px-1 py-1.5 rounded hover:bg-secondary/50 cursor-pointer">
-                        <Checkbox checked={!hiddenRoutes.has(r.id)} onCheckedChange={() => toggleVisibility(r.id)} />
-                        <span className="text-xs font-mono">{r.routeName}</span>
-                        <span className="text-[10px] text-muted-foreground ml-auto">{r.alias.productionName}</span>
-                      </label>
-                    ))}
-                  </PopoverContent>
-                </Popover>
-                {!isMobile && (
-                  <div className="flex border border-border rounded-md">
-                    <Button variant={viewMode === "grid" ? "secondary" : "ghost"} size="icon" className="h-8 w-8 rounded-r-none" onClick={() => setViewMode("grid")}>
-                      <LayoutGrid className="w-3.5 h-3.5" />
-                    </Button>
-                    <Button variant={viewMode === "list" ? "secondary" : "ghost"} size="icon" className="h-8 w-8 rounded-l-none" onClick={() => setViewMode("list")}>
-                      <List className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          <TabsContent value="topology" className="mt-4 space-y-4">
-            {/* Canonical routes section */}
-            {hasCanonical && (
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2 font-semibold">
-                  Canonical Routes ({state.canonicalRoutes.length})
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                  {state.canonicalRoutes.map((route) => (
-                    <CanonicalRouteCard
-                      key={route.id}
-                      route={route}
-                      isSelected={selectedCanonicalId === route.id}
-                      onSelect={setSelectedCanonicalId}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Legacy routes section */}
-            {hasLegacy && (
-              <div>
-                {hasCanonical && (
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2 font-semibold">
-                    Legacy Routes ({visibleRoutes.length})
-                  </p>
-                )}
-                {visibleRoutes.length === 0 ? (
-                  <div className="text-center py-16 text-muted-foreground text-sm">
-                    {state.routes.length === 0
-                      ? 'No routes defined. Click "Add Route" to create your first signal path.'
-                      : "All routes are hidden. Adjust visibility filter."}
-                  </div>
-                ) : viewMode === "grid" || isMobile ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                    {visibleRoutes.map((route) => (
-                      <RouteChain key={route.id} route={route} isSelected={selectedRouteId === route.id} onSelect={setSelectedRouteId} />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="rounded-lg border border-border overflow-hidden">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-muted/30">
-                          <TableHead className="text-[10px] uppercase tracking-wider">TX</TableHead>
-                          <TableHead className="text-[10px] uppercase tracking-wider">Encoder</TableHead>
-                          <TableHead className="text-[10px] uppercase tracking-wider">Transport</TableHead>
-                          <TableHead className="text-[10px] uppercase tracking-wider">Decoder</TableHead>
-                          <TableHead className="text-[10px] uppercase tracking-wider">ISO</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {visibleRoutes.map((r) => (
-                          <TableRow key={r.id} className="cursor-pointer hover:bg-secondary/50" onClick={() => setSelectedRouteId(r.id)}>
-                            <TableCell className="text-xs font-mono font-semibold">{r.routeName}</TableCell>
-                            <TableCell className="text-xs font-mono">{r.encoder.brand} {r.encoder.deviceName}</TableCell>
-                            <TableCell><Badge variant="outline" className="text-[10px] font-mono">{r.transport.type || "—"}</Badge></TableCell>
-                            <TableCell className="text-xs font-mono">{r.decoder.brand} {r.decoder.deviceName}</TableCell>
-                            <TableCell className="text-xs font-semibold">{r.alias.productionName || "—"}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {!hasCanonical && !hasLegacy && (
-              <div className="text-center py-16 text-muted-foreground text-sm">
-                No routes defined. Click "Add Route" or ask Quinn to build canonical routes.
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="transport" className="mt-4">
-            <TransportView
-              routes={state.routes}
-              onNodeClick={(routeId, section) => {
-                setSelectedRouteId(routeId);
-                setDrawerSection(section);
-              }}
-              onAddHop={handleAddHop}
-            />
-          </TabsContent>
-        </Tabs>
       )}
 
-      {/* Legacy Route Drawer */}
-      <RouteDrawer
-        route={selectedRoute}
-        open={!!selectedRouteId}
-        onOpenChange={(open) => { if (!open) { setSelectedRouteId(null); setDrawerSection(null); } }}
-        onSave={updateRoute}
-        onRemove={removeRoute}
-        onDuplicate={handleDuplicate}
-        initialSection={drawerSection}
-      />
+      {/* Generate Routes Dialog */}
+      <Dialog open={isoDialogOpen} onOpenChange={setIsoDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm">Generate Canonical Routes</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            <div>
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">ISO Count</span>
+              <div className="flex items-center gap-2 mt-1">
+                {ISO_PRESETS.map(n => (
+                  <Button
+                    key={n}
+                    variant={isoInput === n ? "secondary" : "outline"}
+                    size="sm"
+                    className="text-xs"
+                    onClick={() => setIsoInput(n)}
+                  >
+                    {n}
+                  </Button>
+                ))}
+                <Input
+                  type="number"
+                  value={isoInput}
+                  onChange={(e) => setIsoInput(parseInt(e.target.value) || 8)}
+                  className="h-8 text-xs w-16"
+                  min={1}
+                  max={48}
+                />
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              This will generate {isoInput} routes using the NHL canonical model:
+              Truck SDI N → Flypack SDI N → Videon (2 encodes/unit, {Math.ceil(isoInput / 2)} units) → SRT → Magewell → LAWO Arena N
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" className="text-xs" onClick={() => setIsoDialogOpen(false)}>Cancel</Button>
+              <Button size="sm" className="text-xs" onClick={handleGenerateRoutes}>Generate</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
-      {/* Canonical Route Drawer */}
+      {/* Save As New Profile Dialog */}
+      <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm">Save as New Profile</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 mt-2">
+            <Input
+              value={newProfileName}
+              onChange={(e) => setNewProfileName(e.target.value)}
+              placeholder="e.g. Stadium Series 2026"
+              className="h-8 text-xs"
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" className="text-xs" onClick={() => setSaveDialogOpen(false)}>Cancel</Button>
+              <Button size="sm" className="text-xs" onClick={handleSaveAsNew} disabled={!newProfileName.trim()}>Save</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Legacy Canonical Route Drawer */}
       <CanonicalRouteDrawer
         route={selectedCanonical}
         open={!!selectedCanonicalId}
