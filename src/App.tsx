@@ -10,7 +10,6 @@ import { AppLayout } from "./components/AppLayout";
 import ContainersPage from "./pages/ContainersPage";
 import ContainerDetailPage from "./pages/ContainerDetailPage";
 import CalendarPage from "./pages/CalendarPage";
-// DashboardPage removed for V1
 import WikiPage from "./pages/WikiPage";
 import BinderDetail from "./pages/BinderDetail";
 import CreateBinderPage from "./pages/CreateBinderPage";
@@ -24,6 +23,7 @@ import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
+import { RequireAuth } from "./components/RequireAuth";
 
 const queryClient = new QueryClient();
 
@@ -51,9 +51,9 @@ const App = () => (
               <Route path="/checklist" element={<ChecklistPage />} />
               <Route path="/quinn" element={<QuinnPage />} />
               <Route path="/routes" element={<RoutesPage />} />
-              <Route path="/staff" element={<StaffPage />} />
+              <Route path="/staff" element={<RequireAuth><StaffPage /></RequireAuth>} />
               <Route path="/wiki" element={<WikiPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/settings" element={<RequireAuth><SettingsPage /></RequireAuth>} />
               <Route path="/more" element={<MorePage />} />
             </Route>
             <Route path="*" element={<NotFound />} />
