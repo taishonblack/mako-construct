@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Calendar, Radio, AlertCircle, ChevronDown, Trash2 } from "lucide-react";
+import { Calendar, Radio, AlertCircle, ChevronDown, Trash2, Check } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import type { BinderRecord, BinderStatus } from "@/stores/binder-store";
 import {
   AlertDialog,
@@ -41,13 +42,31 @@ interface BinderCardProps {
   binder: BinderRecord;
   canDelete?: boolean;
   onDelete?: (id: string) => void;
+  selectMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }
 
-export function BinderCard({ binder, canDelete, onDelete }: BinderCardProps) {
+export function BinderCard({ binder, canDelete, onDelete, selectMode, selected, onToggleSelect }: BinderCardProps) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="steel-panel w-full max-w-full overflow-hidden hover:border-glow-red transition-all duration-300 relative group/card">
+    <div
+      className={`steel-panel w-full max-w-full overflow-hidden transition-all duration-300 relative group/card ${
+        selectMode && selected ? "border-primary ring-1 ring-primary/30" : "hover:border-glow-red"
+      }`}
+      onClick={selectMode && onToggleSelect ? (e) => { e.preventDefault(); onToggleSelect(binder.id); } : undefined}
+    >
+      {/* Select mode checkbox */}
+      {selectMode && (
+        <div className="absolute top-3 left-3 z-10">
+          <Checkbox
+            checked={selected}
+            onCheckedChange={() => onToggleSelect?.(binder.id)}
+            className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+          />
+        </div>
+      )}
       {canDelete && onDelete && (
         <AlertDialog>
           <AlertDialogTrigger asChild>
@@ -80,8 +99,9 @@ export function BinderCard({ binder, canDelete, onDelete }: BinderCardProps) {
       )}
 
       <a
-        href={`/binders/${binder.id}`}
-        className="group block p-4 sm:p-5"
+        href={selectMode ? undefined : `/binders/${binder.id}`}
+        className={`group block p-4 sm:p-5 ${selectMode ? "pl-10 sm:pl-12 cursor-pointer" : ""}`}
+        onClick={selectMode ? (e) => e.preventDefault() : undefined}
       >
         {/* Title + status — always visible */}
         <div className="flex items-start gap-2 min-w-0 mb-2 sm:mb-3">
