@@ -71,7 +71,7 @@ export function StepExtract({ file, extraction, onExtracted, onChange, onFileCha
       <input
         ref={pickerRef}
         type="file"
-        className="hidden"
+        className="sr-only"
         accept={file.sourceType === "pdf" ? ".pdf" : file.sourceType === "email" ? ".eml" : ".pdf,.doc,.docx,.txt,.rtf"}
         onChange={handleFileSelected}
       />

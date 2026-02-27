@@ -49,7 +49,7 @@ export function ImportMenuButton({ onSelect }: Props) {
       <input
         ref={fileRef}
         type="file"
-        className="hidden"
+        className="sr-only"
         onChange={(e) => {
           const file = e.target.files?.[0];
           const src = pendingSource.current;
