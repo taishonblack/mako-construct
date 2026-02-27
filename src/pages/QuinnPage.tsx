@@ -67,6 +67,7 @@ export default function QuinnPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pendingDocFiles = useRef<File[]>([]);
 
   // Day selector
   const weekKeys = getWeekDateKeys();
@@ -88,7 +89,14 @@ export default function QuinnPage() {
   const [mobileTab, setMobileTab] = useState<string>("chat");
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [dragOver, setDragOver] = useState(false);
+  const [aiStatus, setAiStatus] = useState<"checking" | "connected" | "disconnected">("checking");
 
+  // AI health check
+  useEffect(() => {
+    supabase.functions.invoke("quinn-health").then(({ data }) => {
+      setAiStatus(data?.ok ? "connected" : "disconnected");
+    }).catch(() => setAiStatus("disconnected"));
+  }, []);
   // Persist draft
   useEffect(() => { binderDraftStore.saveDraft(draft); }, [draft]);
 
@@ -437,13 +445,26 @@ export default function QuinnPage() {
     }
   }, [readFileAsBase64, readFileAsText]);
 
-  // ── Send handler ──
+  // ── Document intent chips ──
+  const DOC_INTENT_CHIPS = ["Binder details", "Schedule / times", "Staff", "Routes", "Checklist", "Something else"];
+
+  // When files are attached without text, Quinn should guide intent first
   const handleSend = async () => {
     const text = input.trim();
     const files = [...attachedFiles];
     if (!text && files.length === 0) return;
     setInput("");
     setAttachedFiles([]);
+
+    // If files attached with no text, show document preview and ask intent
+    if (files.length > 0 && !text) {
+      const fileNames = files.map(f => f.name).join(", ");
+      await addUserMessage(`📎 ${fileNames}`);
+      // Store files temporarily for later extraction
+      pendingDocFiles.current = files;
+      addQuinnMessage(`received ${files.length === 1 ? files[0].name : `${files.length} documents`}. what would you like to extract from ${files.length === 1 ? "the document" : "these documents"}?`, DOC_INTENT_CHIPS);
+      return;
+    }
 
     const displayText = files.length > 0
       ? `${text ? text + "\n" : ""}📎 ${files.map(f => f.name).join(", ")}`
@@ -460,9 +481,7 @@ export default function QuinnPage() {
       }
       setThinking(false);
       const fileBlock = fileContents.join("\n\n");
-      fullMessage = text
-        ? `${text}\n\n[Attached documents]\n${fileBlock}`
-        : `Please extract binder information from these documents:\n\n${fileBlock}`;
+      fullMessage = `${text}\n\n[Attached documents]\n${fileBlock}`;
     }
 
     // Route build transition
@@ -536,7 +555,7 @@ export default function QuinnPage() {
     processUserMessage(fullMessage, displayText);
   };
 
-  const handleQuickReply = (reply: string) => {
+  const handleQuickReply = async (reply: string) => {
     if (reply === "Create Binder") { handleCreate(); return; }
     if (reply === "Edit Fields") { setQuinnState("CLARIFY"); addQuinnMessage("Which field would you like to change?"); return; }
     if (reply === "Keep Chatting") { setQuinnState("CLARIFY"); addQuinnMessage("Got it — what else do you need?"); return; }
@@ -562,6 +581,24 @@ export default function QuinnPage() {
     if (reply === "View Routes") {
       addUserMessage("View Routes");
       navigate("/routes");
+      return;
+    }
+    // Document intent chips — process pending files with the selected intent
+    if (DOC_INTENT_CHIPS.includes(reply) && pendingDocFiles.current.length > 0) {
+      const files = pendingDocFiles.current;
+      pendingDocFiles.current = [];
+      addUserMessage(reply);
+      setThinking(true);
+      const fileContents: string[] = [];
+      for (const file of files) {
+        const isBinary = BINARY_TYPES.includes(file.type) || file.name.endsWith(".pdf");
+        const content = isBinary ? await parseDocumentViaAI(file) : await readFileAsText(file);
+        fileContents.push(`--- File: ${file.name} ---\n${content.slice(0, 15000)}\n--- End of ${file.name} ---`);
+      }
+      setThinking(false);
+      const fileBlock = fileContents.join("\n\n");
+      const fullMessage = `Please extract ${reply.toLowerCase()} from these documents:\n\n${fileBlock}`;
+      processUserMessage(fullMessage, reply);
       return;
     }
     // Help chips
@@ -639,6 +676,15 @@ export default function QuinnPage() {
           <Sparkles className="w-4 h-4 text-primary" />
           <span className="text-sm font-medium text-foreground">Quinn</span>
           <Badge variant="outline" className="text-[9px]">Ops Assistant</Badge>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className={cn(
+            "inline-block w-1.5 h-1.5 rounded-full",
+            aiStatus === "connected" ? "bg-emerald-500" : aiStatus === "disconnected" ? "bg-red-500" : "bg-amber-400 animate-pulse"
+          )} />
+          <span className="text-[10px] text-muted-foreground">
+            {aiStatus === "connected" ? "AI Connected" : aiStatus === "disconnected" ? "AI Offline" : "Checking…"}
+          </span>
         </div>
       </div>
 
@@ -720,7 +766,7 @@ export default function QuinnPage() {
           </div>
         )}
         <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="flex items-center gap-2">
-          <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.json" className="hidden"
+          <input ref={fileInputRef} type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.json" className="sr-only"
             onChange={(e) => { if (e.target.files) setAttachedFiles(prev => [...prev, ...Array.from(e.target.files!)]); e.target.value = ""; }} />
           <Button type="button" size="icon" variant="ghost" className="shrink-0" onClick={() => fileInputRef.current?.click()} disabled={creating || thinking}>
             <Paperclip className="w-4 h-4" />
