@@ -1,12 +1,11 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { UserPlus, Eye, EyeOff } from "lucide-react";
+import { UserPlus, Eye, EyeOff, Mail } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { MakoFinMark } from "@/components/MakoFinMark";
 
 export default function SignupPage() {
-  const navigate = useNavigate();
   const { signUp } = useAuth();
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
@@ -14,6 +13,7 @@ export default function SignupPage() {
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -23,7 +23,38 @@ export default function SignupPage() {
     const { error: err } = await signUp(email, password, displayName);
     setLoading(false);
     if (err) setError(err);
-    else navigate("/dashboard");
+    else setSuccess(true);
+  }
+
+  if (success) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-sm text-center"
+        >
+          <div className="flex justify-center mb-4">
+            <MakoFinMark className="h-8" />
+          </div>
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.15, type: "spring", stiffness: 200 }}
+            className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6"
+          >
+            <Mail className="w-7 h-7 text-primary" />
+          </motion.div>
+          <h1 className="text-xl font-medium text-foreground mb-2">Check Your Email</h1>
+          <p className="text-sm text-muted-foreground mb-6">
+            We sent a verification link to <span className="text-foreground font-medium">{email}</span>. Click the link to activate your MAKO Live account.
+          </p>
+          <Link to="/login" className="text-xs text-primary hover:underline">
+            Back to Sign In
+          </Link>
+        </motion.div>
+      </div>
+    );
   }
 
   return (

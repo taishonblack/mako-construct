@@ -1,4 +1,4 @@
-import { Calendar, BookOpen, Settings, Users, Sparkles, Route, CheckSquare, LogIn } from "lucide-react";
+import { Calendar, BookOpen, Users, Sparkles, Route, CheckSquare, LogIn } from "lucide-react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useOptionalAuth } from "@/contexts/AuthContext";
@@ -10,7 +10,6 @@ const links = [
   { label: "Routes", icon: Route, to: "/routes" },
   { label: "Staff", icon: Users, to: "/staff", authRequired: true },
   { label: "Wiki", icon: BookOpen, to: "/wiki" },
-  { label: "Settings", icon: Settings, to: "/settings", authRequired: true },
 ];
 
 export default function MorePage() {

@@ -23,6 +23,7 @@ import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
+import VerifiedPage from "./pages/VerifiedPage";
 import { RequireAuth } from "./components/RequireAuth";
 
 const queryClient = new QueryClient();
@@ -40,6 +41,7 @@ const App = () => (
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/verified" element={<VerifiedPage />} />
             <Route element={<AppLayout />}>
               <Route path="/dashboard" element={<Navigate to="/binders" replace />} />
               <Route path="/binders" element={<ContainersPage />} />

@@ -113,14 +113,6 @@ export function AppSidebar() {
       <SidebarFooter className="border-t border-border p-3 space-y-1">
         {isLoggedIn ? (
           <>
-            <NavLink
-              to="/settings"
-              className="flex items-center gap-3 px-3 py-2 text-sm text-muted-foreground rounded-md hover:bg-secondary hover:text-foreground transition-colors"
-              activeClassName="bg-secondary text-foreground"
-            >
-              <Settings className="w-4 h-4" />
-              <span>Settings</span>
-            </NavLink>
             <div className="flex items-center gap-2 px-3 py-2">
               <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
                 {isAdmin ? (
@@ -139,6 +131,10 @@ export function AppSidebar() {
                   </span>
                 )}
               </div>
+              <Link to="/settings" title="Settings"
+                className="p-1 text-muted-foreground hover:text-foreground transition-colors shrink-0">
+                <Settings className="w-3.5 h-3.5" />
+              </Link>
               <button onClick={() => auth?.signOut()} title="Sign out"
                 className="p-1 text-muted-foreground hover:text-foreground transition-colors shrink-0">
                 <LogOut className="w-3.5 h-3.5" />
