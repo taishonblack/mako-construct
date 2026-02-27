@@ -75,6 +75,7 @@ export interface ImportFileInfo {
   size: number;
   type: string;
   sourceType: ImportSourceType;
+  rawFile?: File;
 }
 
 export interface ImportCreateItem {

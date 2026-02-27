@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { FileText, Loader2, Sparkles } from "lucide-react";
+import { useState, useRef } from "react";
+import { FileText, Loader2, Sparkles, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -22,10 +22,14 @@ interface Props {
   extraction: CallSheetExtraction | null;
   onExtracted: (e: CallSheetExtraction) => void;
   onChange: (e: CallSheetExtraction) => void;
+  onFileChange?: (file: ImportFileInfo) => void;
 }
 
-export function StepExtract({ file, extraction, onExtracted, onChange }: Props) {
+export function StepExtract({ file, extraction, onExtracted, onChange, onFileChange }: Props) {
   const [running, setRunning] = useState(false);
+  const pickerRef = useRef<HTMLInputElement>(null);
+
+  const hasFile = !!file.rawFile || file.sourceType === "paste";
 
   const handleRun = async () => {
     setRunning(true);
@@ -34,31 +38,60 @@ export function StepExtract({ file, extraction, onExtracted, onChange }: Props) 
     setRunning(false);
   };
 
-  const updateField = <K extends keyof CallSheetExtraction>(key: K, value: CallSheetExtraction[K]["value"]) => {
-    if (!extraction) return;
-    onChange({ ...extraction, [key]: { ...extraction[key], value } });
+  const handlePickFile = () => {
+    pickerRef.current?.click();
+  };
+
+  const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = e.target.files?.[0];
+    e.currentTarget.value = "";
+    if (!picked || !onFileChange) return;
+    onFileChange({
+      name: picked.name,
+      size: picked.size,
+      type: picked.type,
+      sourceType: file.sourceType,
+      rawFile: picked,
+    });
   };
 
   return (
     <div className="space-y-4">
+      {/* Hidden file input for re-picking */}
+      <input
+        ref={pickerRef}
+        type="file"
+        className="hidden"
+        accept={file.sourceType === "pdf" ? ".pdf" : file.sourceType === "email" ? ".eml" : ".pdf,.doc,.docx,.txt,.rtf"}
+        onChange={handleFileSelected}
+      />
+
       {/* File source box */}
-      <div className="steel-panel p-4 flex items-center gap-3">
+      <button
+        type="button"
+        onClick={handlePickFile}
+        className="w-full steel-panel p-4 flex items-center gap-3 text-left hover:border-primary/40 transition-colors cursor-pointer"
+      >
         <FileText className="w-5 h-5 text-primary shrink-0" />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-foreground truncate">{file.name}</p>
+          <p className="text-sm font-medium text-foreground truncate">{file.rawFile ? file.name : "No file selected"}</p>
           <p className="text-[10px] text-muted-foreground">
-            {file.sourceType.toUpperCase()} · {(file.size / 1024).toFixed(1)} KB
+            {file.rawFile
+              ? `${file.sourceType.toUpperCase()} · ${(file.size / 1024).toFixed(1)} KB`
+              : "Click to choose a file"}
           </p>
         </div>
-        {extraction && (
+        {extraction ? (
           <Badge variant="outline" className="text-[10px] border-emerald-500/40 text-emerald-400 shrink-0">
             Extracted
           </Badge>
-        )}
-      </div>
+        ) : !file.rawFile && file.sourceType !== "paste" ? (
+          <Upload className="w-4 h-4 text-muted-foreground shrink-0" />
+        ) : null}
+      </button>
 
       {!extraction && (
-        <Button onClick={handleRun} disabled={running} className="w-full gap-2">
+        <Button onClick={handleRun} disabled={running || !hasFile} className="w-full gap-2">
           {running ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -73,7 +106,11 @@ export function StepExtract({ file, extraction, onExtracted, onChange }: Props) 
         </Button>
       )}
 
-      {extraction && (
+      {extraction && (() => {
+        const updateField = <K extends keyof CallSheetExtraction>(key: K, value: CallSheetExtraction[K]["value"]) => {
+          onChange({ ...extraction, [key]: { ...extraction[key], value } });
+        };
+        return (
         <div className="space-y-3">
           {/* Show Title */}
           <FieldRow label="Show Title" confidence={extraction.showTitle.confidence}>
@@ -232,7 +269,8 @@ export function StepExtract({ file, extraction, onExtracted, onChange }: Props) 
             </div>
           )}
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

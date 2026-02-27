@@ -27,12 +27,13 @@ export function AppLayout() {
     return () => document.removeEventListener("keydown", handler);
   }, []);
 
-  const handleImportSelect = useCallback((sourceType: ImportSourceType) => {
+  const handleImportSelect = useCallback((sourceType: ImportSourceType, file?: File) => {
     setImportFile({
-      name: sourceType === "email" ? "call-sheet.eml" : sourceType === "paste" ? "pasted-text.txt" : "call-sheet.pdf",
-      size: 245760,
-      type: sourceType === "email" ? "message/rfc822" : "application/pdf",
+      name: file?.name ?? (sourceType === "email" ? "call-sheet.eml" : sourceType === "paste" ? "pasted-text.txt" : "call-sheet.pdf"),
+      size: file?.size ?? 0,
+      type: file?.type ?? (sourceType === "email" ? "message/rfc822" : "application/pdf"),
       sourceType,
+      rawFile: file ?? undefined,
     });
     setImportOpen(true);
   }, []);
@@ -54,6 +55,7 @@ export function AppLayout() {
         size: f.size,
         type: f.type,
         sourceType,
+        rawFile: f,
       });
       setImportOpen(true);
     }
