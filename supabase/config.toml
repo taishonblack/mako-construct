@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.quinn-parse-doc]
 verify_jwt = false
+
+[functions.extract-callsheet]
+verify_jwt = false
