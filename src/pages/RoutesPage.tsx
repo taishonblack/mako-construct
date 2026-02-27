@@ -7,22 +7,28 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useRoutesStore, buildDefaultLinks } from "@/stores/route-store";
-import type { SignalRoute, HopNode } from "@/stores/route-store";
+import type { SignalRoute, HopNode, CanonicalRoute } from "@/stores/route-store";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { RouteChain } from "@/components/routes/RouteChain";
 import { ShowDayCard } from "@/components/routes/ShowDayCard";
 import { TransportView } from "@/components/routes/TransportView";
 import { RouteDrawer } from "@/components/routes/RouteDrawer";
+import { CanonicalRouteCard } from "@/components/routes/CanonicalRouteCard";
+import { CanonicalRouteDrawer } from "@/components/routes/CanonicalRouteDrawer";
 import type { NodeKind } from "@/components/routes/FlowNodeCard";
 
 type ViewMode = "engineering" | "showday";
 
 export default function RoutesPage() {
-  const { state, addRoute, updateRoute, removeRoute, syncRouterCrosspoints } = useRoutesStore();
+  const {
+    state, addRoute, updateRoute, removeRoute, syncRouterCrosspoints,
+    updateCanonicalRoute, updateHop, addCanonicalHop, removeHop,
+  } = useRoutesStore();
   const isMobile = useIsMobile();
   const [tab, setTab] = useState("topology");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+  const [selectedCanonicalId, setSelectedCanonicalId] = useState<string | null>(null);
   const [drawerSection, setDrawerSection] = useState<string | null>(null);
   const [hiddenRoutes, setHiddenRoutes] = useState<Set<string>>(new Set());
   const [mode, setMode] = useState<ViewMode>("engineering");
@@ -30,6 +36,11 @@ export default function RoutesPage() {
   const selectedRoute = useMemo(
     () => state.routes.find((r) => r.id === selectedRouteId) ?? null,
     [state.routes, selectedRouteId]
+  );
+
+  const selectedCanonical = useMemo(
+    () => state.canonicalRoutes.find((r) => r.id === selectedCanonicalId) ?? null,
+    [state.canonicalRoutes, selectedCanonicalId]
   );
 
   const visibleRoutes = useMemo(
@@ -75,6 +86,9 @@ export default function RoutesPage() {
     setSelectedRouteId(routeId);
     setDrawerSection("hops");
   }, [state.routes, updateRoute]);
+
+  const hasCanonical = state.canonicalRoutes.length > 0;
+  const hasLegacy = state.routes.length > 0;
 
   return (
     <div className="max-w-6xl mx-auto space-y-4">
@@ -122,13 +136,23 @@ export default function RoutesPage() {
       {mode === "showday" ? (
         <div className="space-y-2">
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-3">
-            Production Status — {visibleRoutes.length} routes
+            Production Status — {visibleRoutes.length + state.canonicalRoutes.length} routes
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {visibleRoutes.map((route) => (
-              <ShowDayCard key={route.id} route={route} onClick={() => setSelectedRouteId(route.id)} />
-            ))}
-          </div>
+          {/* Canonical routes first */}
+          {hasCanonical && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              {state.canonicalRoutes.map((route) => (
+                <CanonicalRouteCard key={route.id} route={route} onSelect={setSelectedCanonicalId} />
+              ))}
+            </div>
+          )}
+          {hasLegacy && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              {visibleRoutes.map((route) => (
+                <ShowDayCard key={route.id} route={route} onClick={() => setSelectedRouteId(route.id)} />
+              ))}
+            </div>
+          )}
         </div>
       ) : (
         <Tabs value={tab} onValueChange={setTab}>
@@ -176,43 +200,78 @@ export default function RoutesPage() {
             )}
           </div>
 
-          <TabsContent value="topology" className="mt-4">
-            {visibleRoutes.length === 0 ? (
-              <div className="text-center py-16 text-muted-foreground text-sm">
-                {state.routes.length === 0
-                  ? 'No routes defined. Click "Add Route" to create your first signal path.'
-                  : "All routes are hidden. Adjust visibility filter."}
+          <TabsContent value="topology" className="mt-4 space-y-4">
+            {/* Canonical routes section */}
+            {hasCanonical && (
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2 font-semibold">
+                  Canonical Routes ({state.canonicalRoutes.length})
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                  {state.canonicalRoutes.map((route) => (
+                    <CanonicalRouteCard
+                      key={route.id}
+                      route={route}
+                      isSelected={selectedCanonicalId === route.id}
+                      onSelect={setSelectedCanonicalId}
+                    />
+                  ))}
+                </div>
               </div>
-            ) : viewMode === "grid" || isMobile ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                {visibleRoutes.map((route) => (
-                  <RouteChain key={route.id} route={route} isSelected={selectedRouteId === route.id} onSelect={setSelectedRouteId} />
-                ))}
-              </div>
-            ) : (
-              <div className="rounded-lg border border-border overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/30">
-                      <TableHead className="text-[10px] uppercase tracking-wider">TX</TableHead>
-                      <TableHead className="text-[10px] uppercase tracking-wider">Encoder</TableHead>
-                      <TableHead className="text-[10px] uppercase tracking-wider">Transport</TableHead>
-                      <TableHead className="text-[10px] uppercase tracking-wider">Decoder</TableHead>
-                      <TableHead className="text-[10px] uppercase tracking-wider">ISO</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {visibleRoutes.map((r) => (
-                      <TableRow key={r.id} className="cursor-pointer hover:bg-secondary/50" onClick={() => setSelectedRouteId(r.id)}>
-                        <TableCell className="text-xs font-mono font-semibold">{r.routeName}</TableCell>
-                        <TableCell className="text-xs font-mono">{r.encoder.brand} {r.encoder.deviceName}</TableCell>
-                        <TableCell><Badge variant="outline" className="text-[10px] font-mono">{r.transport.type || "—"}</Badge></TableCell>
-                        <TableCell className="text-xs font-mono">{r.decoder.brand} {r.decoder.deviceName}</TableCell>
-                        <TableCell className="text-xs font-semibold">{r.alias.productionName || "—"}</TableCell>
-                      </TableRow>
+            )}
+
+            {/* Legacy routes section */}
+            {hasLegacy && (
+              <div>
+                {hasCanonical && (
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2 font-semibold">
+                    Legacy Routes ({visibleRoutes.length})
+                  </p>
+                )}
+                {visibleRoutes.length === 0 ? (
+                  <div className="text-center py-16 text-muted-foreground text-sm">
+                    {state.routes.length === 0
+                      ? 'No routes defined. Click "Add Route" to create your first signal path.'
+                      : "All routes are hidden. Adjust visibility filter."}
+                  </div>
+                ) : viewMode === "grid" || isMobile ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                    {visibleRoutes.map((route) => (
+                      <RouteChain key={route.id} route={route} isSelected={selectedRouteId === route.id} onSelect={setSelectedRouteId} />
                     ))}
-                  </TableBody>
-                </Table>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/30">
+                          <TableHead className="text-[10px] uppercase tracking-wider">TX</TableHead>
+                          <TableHead className="text-[10px] uppercase tracking-wider">Encoder</TableHead>
+                          <TableHead className="text-[10px] uppercase tracking-wider">Transport</TableHead>
+                          <TableHead className="text-[10px] uppercase tracking-wider">Decoder</TableHead>
+                          <TableHead className="text-[10px] uppercase tracking-wider">ISO</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {visibleRoutes.map((r) => (
+                          <TableRow key={r.id} className="cursor-pointer hover:bg-secondary/50" onClick={() => setSelectedRouteId(r.id)}>
+                            <TableCell className="text-xs font-mono font-semibold">{r.routeName}</TableCell>
+                            <TableCell className="text-xs font-mono">{r.encoder.brand} {r.encoder.deviceName}</TableCell>
+                            <TableCell><Badge variant="outline" className="text-[10px] font-mono">{r.transport.type || "—"}</Badge></TableCell>
+                            <TableCell className="text-xs font-mono">{r.decoder.brand} {r.decoder.deviceName}</TableCell>
+                            <TableCell className="text-xs font-semibold">{r.alias.productionName || "—"}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {!hasCanonical && !hasLegacy && (
+              <div className="text-center py-16 text-muted-foreground text-sm">
+                No routes defined. Click "Add Route" or ask Quinn to build canonical routes.
               </div>
             )}
           </TabsContent>
@@ -230,6 +289,7 @@ export default function RoutesPage() {
         </Tabs>
       )}
 
+      {/* Legacy Route Drawer */}
       <RouteDrawer
         route={selectedRoute}
         open={!!selectedRouteId}
@@ -238,6 +298,18 @@ export default function RoutesPage() {
         onRemove={removeRoute}
         onDuplicate={handleDuplicate}
         initialSection={drawerSection}
+      />
+
+      {/* Canonical Route Drawer */}
+      <CanonicalRouteDrawer
+        route={selectedCanonical}
+        open={!!selectedCanonicalId}
+        onOpenChange={(open) => { if (!open) setSelectedCanonicalId(null); }}
+        onUpdateRoute={updateCanonicalRoute}
+        onUpdateHop={updateHop}
+        onAddHop={addCanonicalHop}
+        onRemoveHop={removeHop}
+        onRemoveRoute={removeRoute}
       />
     </div>
   );

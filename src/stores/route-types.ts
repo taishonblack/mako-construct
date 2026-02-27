@@ -1,4 +1,72 @@
-// ─── Route Types ───────────────────────────────────────────────
+// ─── Route Types (Canonical NHL Model) ─────────────────────────
+
+// ─── Hop-based relational model ────────────────────────────────
+
+export type HopType = "truck_sdi" | "flypack_patch" | "encoder" | "cloud_transport" | "receiver" | "custom";
+
+export type RouteStatus = "healthy" | "warn" | "down" | "unknown";
+
+export interface RouteHop {
+  id: string;
+  route_id: string;
+  position: number;
+  hop_type: HopType;
+  label: string;
+  meta: Record<string, any>;
+  status: RouteStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CanonicalRoute {
+  id: string;
+  binder_id: string | null;
+  iso_number: number;
+  route_name: string;
+  status: RouteStatus;
+  notes: string;
+  hops: RouteHop[];
+  created_at: string;
+  updated_at: string;
+}
+
+// ─── Hop meta shapes (typed) ───────────────────────────────────
+
+export interface TruckSdiMeta {
+  sdi_number: number;
+  alias: string;
+  arena_input: number;
+}
+
+export interface FlypackPatchMeta {
+  flypack_id: string;
+  sdi_port: number;
+  label: string;
+}
+
+export interface EncoderMeta {
+  brand: string;
+  unit: number;
+  slot: number;
+  input_label: string;
+  encodes_per_unit: number;
+  ip_mode: string;
+}
+
+export interface CloudTransportMeta {
+  protocol: string;
+  mode: string;
+  endpoint: string;
+  tx_label: string;
+}
+
+export interface ReceiverMeta {
+  brand: string;
+  unit: number | null;
+  rx_label: string;
+}
+
+// ─── Legacy types (kept for backward compat with existing routes) ───
 
 export interface AudioMapping {
   channel: number;
@@ -74,9 +142,8 @@ export interface RouteHealth {
   lastUpdated: string;
 }
 
-/** Represents hops between two canonical stages */
 export interface RouteLink {
-  from: string; // stage id: "source" | "encoder" | "transport" | "cloud" | "decoder" | "router"
+  from: string;
   to: string;
   hops: HopNode[];
 }
@@ -97,6 +164,10 @@ export interface SignalRoute {
   alias: ProductionAlias;
   health: RouteHealth;
   links: RouteLink[];
+  // New canonical fields
+  binder_id?: string | null;
+  iso_number?: number;
+  notes?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -122,6 +193,7 @@ export interface RouterConfig {
 export interface RoutesState {
   routes: SignalRoute[];
   routers: RouterConfig[];
+  canonicalRoutes: CanonicalRoute[];
 }
 
 export const HOP_SUBTYPES: HopSubtype[] = [
@@ -130,7 +202,8 @@ export const HOP_SUBTYPES: HopSubtype[] = [
 
 export const CANONICAL_STAGES = ["source", "encoder", "transport", "cloud", "decoder", "router", "output"] as const;
 
-/** Build default empty links between canonical stages */
+export const HOP_TYPES: HopType[] = ["truck_sdi", "flypack_patch", "encoder", "cloud_transport", "receiver", "custom"];
+
 export function buildDefaultLinks(): RouteLink[] {
   return [
     { from: "source", to: "encoder", hops: [] },

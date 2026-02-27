@@ -21,6 +21,8 @@ export interface BinderDraft {
   notes: string;
   partner: string;
   isoCount: number;
+  encoderBrand: string;
+  decoderBrand: string;
   // Confidence tracking
   fieldConfidence: Record<string, "high" | "medium" | "low">;
   // Locked fields (user manually edited)
@@ -42,6 +44,8 @@ export const EMPTY_DRAFT: BinderDraft = {
   notes: "",
   partner: "ESPN",
   isoCount: 12,
+  encoderBrand: "",
+  decoderBrand: "",
   fieldConfidence: {},
   lockedFields: [],
 };

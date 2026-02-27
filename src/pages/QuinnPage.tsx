@@ -22,6 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { binderStore } from "@/stores/binder-store";
 import { generateSignals, generatePatchpoints } from "@/lib/signal-utils";
 import { DEFAULT_TRANSPORT } from "@/lib/binder-types";
+import { buildCanonicalRoutes, buildRouteSummary } from "@/lib/canonical-route-builder";
 import { activityStore } from "@/stores/activity-store";
 import { quinnThreadStore, getWeekDateKeys, DAY_LABELS, type QuinnThreadMessage } from "@/stores/quinn-thread-store";
 
@@ -469,7 +470,18 @@ export default function QuinnPage() {
       const lower = text.toLowerCase();
       if (lower === "yes" || lower === "y") {
         await addUserMessage(displayText);
-        addQuinnMessage("Topology or Transport", ["Topology", "Transport"]);
+        // Build canonical routes automatically
+        const binderId = draft.binderTitle; // stored binder id
+        const isoCount = draft.isoCount || 12;
+        const summary = buildRouteSummary({
+          binderId: binderId || "",
+          isoCount,
+          encodesPerUnit: 2,
+          encoderBrand: draft.encoderBrand || "Videon",
+          receiverBrand: draft.decoderBrand || "Magewell",
+        });
+        addQuinnMessage(`I will create ${isoCount} routes using the canonical model:\n${summary}\n\nProceed?`, ["Proceed", "Adjust"]);
+        setQuinnState("ROUTES_CONFIRM");
         return;
       }
       if (lower === "no" || lower === "n") {
@@ -478,9 +490,35 @@ export default function QuinnPage() {
         setQuinnState("INTAKE");
         return;
       }
-      if (lower === "topology" || lower === "transport") {
+    }
+
+    // Route build confirmation
+    if ((quinnState as string) === "ROUTES_CONFIRM") {
+      const lower = text.toLowerCase();
+      if (lower === "proceed" || lower === "yes") {
         await addUserMessage(displayText);
-        navigate("/routes");
+        setThinking(true);
+        try {
+          const binderId = draft.binderTitle;
+          const routes = await buildCanonicalRoutes({
+            binderId: binderId || "",
+            isoCount: draft.isoCount || 12,
+            encodesPerUnit: 2,
+            encoderBrand: draft.encoderBrand || "Videon",
+            receiverBrand: draft.decoderBrand || "Magewell",
+          });
+          addQuinnMessage(`Created ${routes.length} canonical routes. You can view them in the Routes page.`, ["View Routes"]);
+          setQuinnState("IDLE");
+        } catch {
+          addQuinnMessage("Failed to create routes. Please try again.");
+        } finally {
+          setThinking(false);
+        }
+        return;
+      }
+      if (lower === "adjust") {
+        await addUserMessage(displayText);
+        addQuinnMessage("What would you like to change? ISO count, encoder brand, or encodes per unit?");
         return;
       }
     }
@@ -503,8 +541,7 @@ export default function QuinnPage() {
     if (reply === "Edit Fields") { setQuinnState("CLARIFY"); addQuinnMessage("Which field would you like to change?"); return; }
     if (reply === "Keep Chatting") { setQuinnState("CLARIFY"); addQuinnMessage("Got it — what else do you need?"); return; }
     if (reply === "Yes" && quinnState === "ROUTES_BUILD") {
-      addUserMessage("Yes");
-      addQuinnMessage("Topology or Transport", ["Topology", "Transport"]);
+      processUserMessage("yes", "Yes");
       return;
     }
     if (reply === "No" && quinnState === "ROUTES_BUILD") {
@@ -513,8 +550,17 @@ export default function QuinnPage() {
       setQuinnState("INTAKE");
       return;
     }
-    if (reply === "Topology" || reply === "Transport") {
-      addUserMessage(reply);
+    if (reply === "Proceed" && (quinnState as string) === "ROUTES_CONFIRM") {
+      processUserMessage("proceed", "Proceed");
+      return;
+    }
+    if (reply === "Adjust" && (quinnState as string) === "ROUTES_CONFIRM") {
+      addUserMessage("Adjust");
+      addQuinnMessage("What would you like to change? ISO count, encoder brand, or encodes per unit?");
+      return;
+    }
+    if (reply === "View Routes") {
+      addUserMessage("View Routes");
       navigate("/routes");
       return;
     }

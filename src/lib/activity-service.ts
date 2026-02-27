@@ -90,6 +90,30 @@ export const activityService = {
     });
   },
 
+  /** Log a receiver reassignment */
+  async logRxReassignment(
+    routeId: string,
+    isoNumber: number,
+    oldRx: string,
+    newRx: string,
+    actor: ActorInfo = DEFAULT_ACTOR
+  ): Promise<void> {
+    await activityStore.log({
+      binder_id: null,
+      actor_type: actor.actorType,
+      actor_name: actor.actorName,
+      action_type: "route_update",
+      target: "route",
+      target_id: routeId,
+      summary: `ISO ${isoNumber} RX: ${oldRx} → ${newRx}`,
+      details: { iso_number: isoNumber, before: { receiver: oldRx }, after: { receiver: newRx } },
+      confidence: null,
+      source: actor.source,
+      undo_token: null,
+      is_confirmed: true,
+    });
+  },
+
   /** Log a hop change */
   async logHopChange(
     action: "hop_add" | "hop_remove" | "hop_rename" | "hop_reorder",

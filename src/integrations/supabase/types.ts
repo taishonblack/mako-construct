@@ -371,6 +371,50 @@ export type Database = {
         }
         Relationships: []
       }
+      route_hops: {
+        Row: {
+          created_at: string
+          hop_type: string
+          id: string
+          label: string
+          meta: Json
+          position: number
+          route_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          hop_type?: string
+          id?: string
+          label?: string
+          meta?: Json
+          position?: number
+          route_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          hop_type?: string
+          id?: string
+          label?: string
+          meta?: Json
+          position?: number
+          route_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "route_hops_route_id_fkey"
+            columns: ["route_id"]
+            isOneToOne: false
+            referencedRelation: "routes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       routers: {
         Row: {
           brand: string
@@ -406,30 +450,50 @@ export type Database = {
       }
       routes: {
         Row: {
+          binder_id: string | null
           created_at: string
           created_by: string | null
           id: string
+          iso_number: number
+          notes: string
           route_data: Json
           route_name: string
+          status: string
           updated_at: string
         }
         Insert: {
+          binder_id?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
+          iso_number?: number
+          notes?: string
           route_data?: Json
           route_name?: string
+          status?: string
           updated_at?: string
         }
         Update: {
+          binder_id?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
+          iso_number?: number
+          notes?: string
           route_data?: Json
           route_name?: string
+          status?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "routes_binder_id_fkey"
+            columns: ["binder_id"]
+            isOneToOne: false
+            referencedRelation: "binders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       staff_contacts: {
         Row: {
