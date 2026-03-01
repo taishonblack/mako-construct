@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, Eye, Pencil, Lock } from "lucide-react";
 import { motion } from "framer-motion";
@@ -11,7 +11,7 @@ import { useRoutesStore } from "@/stores/route-store";
 import { BinderRoutesSection } from "@/components/routes/BinderRoutesSection";
 
 import { BinderHeader, type BinderHeaderData } from "@/components/binder/BinderHeader";
-import { SignalMatrix } from "@/components/command/SignalMatrix";
+import { IsoRoutingTable } from "@/components/binder/IsoRoutingTable";
 import { DocumentArchive } from "@/components/command/DocumentArchive";
 import { ChecklistTable } from "@/components/checklist/ChecklistTable";
 import { SaveBar } from "@/components/checklist/SaveBar";
@@ -294,13 +294,12 @@ export default function BinderDetail() {
         {/* AUDIO PHILOSOPHY */}
         <AudioPhilosophy data={state.audioPhilosophy} onChange={isReadOnly ? () => {} : updateAudioPhilosophy} readOnly={isReadOnly} />
 
-        {/* SIGNAL MATRIX */}
-        <SignalMatrix
-          signals={state.signals} report={report}
-          onUpdateSignal={lockedUpdateSignal}
-          onUpdateSignals={lockedUpdateSignals}
-          topology={state.topology}
-          routes={routesState.routes}
+        {/* ISO ROUTING TABLE */}
+        <IsoRoutingTable
+          rows={state.isoRoutingRows || []}
+          onRowsChange={(rows) => !isReadOnly && update("isoRoutingRows", rows)}
+          partner={state.partner || binder.partner}
+          readOnly={isReadOnly}
         />
 
         {/* BINDER ROUTES */}
