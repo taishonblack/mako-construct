@@ -7,6 +7,8 @@ import type { EventCommandHeaderData, StaffEntry, InternalLQEntry } from "@/comp
 import { DEFAULT_EVENT_HEADER } from "@/components/command/EventCommandHeader";
 import type { AudioPhilosophyData } from "@/components/command/AudioPhilosophy";
 import { DEFAULT_AUDIO_PHILOSOPHY } from "@/components/command/AudioPhilosophy";
+import type { IsoRoutingRow } from "@/lib/iso-routing-types";
+import { createDefaultIsoRow } from "@/lib/iso-routing-types";
 
 export type ChecklistStatus = "open" | "in-progress" | "done";
 
@@ -75,6 +77,7 @@ export interface BinderState {
   eventHeader: EventCommandHeaderData;
   audioPhilosophy: AudioPhilosophyData;
   notes: string;
+  isoRoutingRows: IsoRoutingRow[];
 }
 
 const STORAGE_KEY = "mako-binder-";
@@ -135,6 +138,7 @@ function buildInitialState(_id: string): BinderState {
     eventHeader: { ...DEFAULT_EVENT_HEADER },
     audioPhilosophy: { ...DEFAULT_AUDIO_PHILOSOPHY },
     notes: "",
+    isoRoutingRows: Array.from({ length: 12 }, (_, i) => createDefaultIsoRow(i + 1)),
   };
 }
 
@@ -155,6 +159,24 @@ export function useBinderState(binderId: string) {
         if (!parsed.eventHeader) parsed.eventHeader = { ...DEFAULT_EVENT_HEADER };
         if (!parsed.audioPhilosophy) parsed.audioPhilosophy = { ...DEFAULT_AUDIO_PHILOSOPHY };
         if (parsed.notes === undefined) parsed.notes = "";
+        if (!parsed.isoRoutingRows) {
+          // Migrate from signals to isoRoutingRows
+          if (parsed.signals && parsed.signals.length > 0) {
+            parsed.isoRoutingRows = parsed.signals.map((s: Signal, i: number) => ({
+              ...createDefaultIsoRow(s.iso || i + 1),
+              productionAlias: s.productionAlias || `ISO ${String(i + 1).padStart(2, "0")}`,
+              encoderInput: s.encoderInput || "",
+              decoderOutput: s.decoderOutput || "",
+              txName: s.txName || "",
+              rxName: s.rxName || "",
+              transport: s.transport || "SRT",
+              destinationType: s.destination || "Program",
+              linkedRouteId: (s as any).linkedRouteId || "",
+            }));
+          } else {
+            parsed.isoRoutingRows = Array.from({ length: parsed.isoCount || 12 }, (_, i) => createDefaultIsoRow(i + 1));
+          }
+        }
         if (parsed.checklist) {
           parsed.checklist = migrateChecklist(parsed.checklist);
         }
