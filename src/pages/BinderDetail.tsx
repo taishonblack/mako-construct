@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, Wand2, Eye, Pencil, GitCompare, FileDown } from "lucide-react";
+import { ArrowLeft, Eye, Pencil, Lock } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useBinder } from "@/hooks/use-binders";
@@ -9,26 +9,29 @@ import { computeReadiness } from "@/lib/readiness-engine";
 import { useBinderState } from "@/hooks/use-binder-state";
 import { useRoutesStore } from "@/stores/route-store";
 import { BinderRoutesSection } from "@/components/routes/BinderRoutesSection";
-import type { RouteMode } from "@/stores/route-profile-types";
 
-import { CommandHeader } from "@/components/command/CommandHeader";
-import { EventCommandHeader } from "@/components/command/EventCommandHeader";
-import { CommandBrief } from "@/components/command/CommandBrief";
-import { ProductionDefinition } from "@/components/command/ProductionDefinition";
+import { BinderHeader, type BinderHeaderData } from "@/components/binder/BinderHeader";
 import { SignalMatrix } from "@/components/command/SignalMatrix";
-import { TransportProfile } from "@/components/command/TransportProfile";
 import { DocumentArchive } from "@/components/command/DocumentArchive";
 import { ChecklistTable } from "@/components/checklist/ChecklistTable";
 import { SaveBar } from "@/components/checklist/SaveBar";
 import { useDisplayName } from "@/hooks/use-display-name";
-
-import { DiffView } from "@/components/command/DiffView";
-import { BinderFormModal, type BinderFormData } from "@/components/command/BinderFormModal";
-import { BinderCopilot } from "@/components/command/BinderCopilot";
-import { DocToBinderAssist, type DetectedField } from "@/components/command/DocToBinderAssist";
 import { AudioPhilosophy } from "@/components/command/AudioPhilosophy";
-import { PdfExport } from "@/components/command/PdfExport";
-import { ActivityPanel } from "@/components/binder/ActivityPanel";
+import { BinderCopilot } from "@/components/command/BinderCopilot";
+import type { ReadinessLevel } from "@/lib/readiness-engine";
+
+const statusStyles: Record<string, string> = {
+  draft: "bg-muted text-muted-foreground",
+  active: "bg-secondary text-foreground",
+  completed: "bg-emerald-900/30 text-emerald-400",
+  archived: "bg-muted text-muted-foreground",
+};
+
+const readinessConfig: Record<ReadinessLevel, { label: string; dot: string; text: string }> = {
+  ready: { label: "Ready", dot: "bg-emerald-400", text: "text-emerald-400" },
+  risk: { label: "Risk", dot: "bg-amber-400", text: "text-amber-400" },
+  blocked: { label: "Blocked", dot: "bg-primary", text: "text-primary" },
+};
 
 export default function BinderDetail() {
   const { id } = useParams();
@@ -99,11 +102,7 @@ export default function BinderDetail() {
     }
   }, []);
 
-  const [editOpen, setEditOpen] = useState(false);
-  const [docAssistOpen, setDocAssistOpen] = useState(false);
   const [previewMode, setPreviewMode] = useState(true);
-  const [selectedVersion, setSelectedVersion] = useState<string>("current");
-  const diffRef = useRef<HTMLDivElement>(null);
   const { displayName, setDisplayName } = useDisplayName();
   const [namePrompt, setNamePrompt] = useState(false);
   const [nameInput, setNameInput] = useState("");
@@ -151,94 +150,53 @@ export default function BinderDetail() {
     [state.signals, binder.encodersAssigned, state.transport, state.issues, state.returnRequired, state.checklist, state.comms, state.eventHeader, state.audioPhilosophy, routesState.routes]
   );
 
-  const eventStatus = isLocked ? "validated" as const : binder.status === "active" ? "configured" as const : "planning" as const;
+  const r = readinessConfig[report.level];
 
-  const handleEditSubmit = useCallback((data: BinderFormData) => {
-    const changes: string[] = [];
-    if (storeRecord) {
-      if (data.partner !== storeRecord.partner) changes.push(`Partner updated: ${storeRecord.partner} → ${data.partner}`);
-      if (data.isoCount !== storeRecord.isoCount) changes.push(`ISO Count updated: ${storeRecord.isoCount} → ${data.isoCount}`);
-      if (data.venue !== storeRecord.venue) changes.push(`Arena updated: ${storeRecord.venue} → ${data.venue}`);
-      if (data.status !== storeRecord.status) changes.push(`Status updated: ${storeRecord.status} → ${data.status}`);
-      if (data.controlRoom !== storeRecord.controlRoom) changes.push(`Control Room updated: CR-${storeRecord.controlRoom} → CR-${data.controlRoom}`);
-    }
+  // Build BinderHeaderData from store + state
+  const headerData: BinderHeaderData = useMemo(() => ({
+    title: binder.title,
+    status: binder.status as any,
+    eventDate: state.eventDate || binder.eventDate,
+    eventTime: state.eventTime || storeRecord?.eventTime || "19:00",
+    timezone: state.timezone || storeRecord?.timezone || "America/New_York",
+    awayTeam: state.awayTeam || storeRecord?.awayTeam || "",
+    homeTeam: state.homeTeam || storeRecord?.homeTeam || "",
+    venue: state.venue || binder.venue,
+    broadcastFeed: storeRecord?.broadcastFeed || state.eventHeader?.broadcastFeed || "",
+    rehearsalDate: storeRecord?.rehearsalDate || state.eventHeader?.rehearsalDate || "",
+    partner: state.partner || binder.partner,
+    partners: (storeRecord as any)?.partners || [],
+    techManagers: (storeRecord as any)?.techManagers || [],
+  }), [binder, state, storeRecord]);
 
+  const handleHeaderChange = useCallback((data: BinderHeaderData) => {
+    // Persist to store
     binderStore.update(binderId, {
-      title: data.title, league: "NHL", venue: data.venue,
-      showType: data.showType || "Standard",
-      partner: data.partner, status: data.status, isoCount: data.isoCount,
-      returnRequired: data.returnRequired, commercials: data.commercials || "local-insert",
-      primaryTransport: data.primaryTransport,
-      backupTransport: data.backupTransport,
-      transport: data.primaryTransport,
-      notes: data.notes, eventTime: data.eventTime, timezone: data.timezone,
-      homeTeam: data.homeTeam, awayTeam: data.awayTeam,
-      siteType: data.siteType || "Arena", studioLocation: data.studioLocation || "",
-      customShowType: data.customShowType || "",
-      customPrimaryTransport: data.customPrimaryTransport || "",
-      customBackupTransport: data.customBackupTransport || "",
-      customCommercials: data.customCommercials || "",
-      signalNamingMode: data.signalNamingMode,
-      canonicalSignals: data.canonicalSignals, customSignalNames: data.customSignalNames,
-      encoderInputsPerUnit: data.encoderInputsPerUnit, encoderCount: data.encoderCount,
-      decoderOutputsPerUnit: data.decoderOutputsPerUnit, decoderCount: data.decoderCount,
-      autoAllocate: data.autoAllocate,
-      controlRoom: data.controlRoom,
+      title: data.title,
+      venue: data.venue,
+      partner: data.partner,
+      status: data.status,
+      eventTime: data.eventTime,
+      timezone: data.timezone,
+      homeTeam: data.homeTeam,
+      awayTeam: data.awayTeam,
       rehearsalDate: data.rehearsalDate,
       broadcastFeed: data.broadcastFeed,
-      onsiteTechManager: data.onsiteTechManager,
-      returnFeedEndpoints: data.returnFeedEndpoints,
-      encoders: data.encoders,
-      decoders: data.decoders,
-      outboundHost: data.outboundHost,
-      outboundPort: data.outboundPort,
-      inboundHost: data.inboundHost,
-      inboundPort: data.inboundPort,
-      lqRequired: data.lqRequired,
-      lqPorts: data.lqPorts,
-    });
-
-    update("league", "NHL");
+      partners: data.partners as any,
+      techManagers: data.techManagers as any,
+    } as any);
+    if (data.eventDate !== state.eventDate) {
+      binderStore.update(binderId, { eventDate: data.eventDate } as any);
+    }
+    // Update local state
     update("partner", data.partner);
     update("venue", data.venue);
-    update("showType", data.showType || "Standard");
     update("eventDate", data.eventDate);
     update("eventTime", data.eventTime);
     update("timezone", data.timezone);
     update("homeTeam", data.homeTeam);
     update("awayTeam", data.awayTeam);
-    update("siteType", data.siteType || "Arena");
-    update("returnRequired", data.returnRequired);
-    update("commercials", data.commercials || "local-insert");
-
-    if (data.isoCount !== state.isoCount) {
-      setIsoCount(data.isoCount);
-    }
-
-    if (changes.length > 0) {
-      const newChanges = changes.map((label, i) => ({
-        id: `ch-${Date.now()}-${i}`, label, timestamp: new Date().toISOString(),
-        status: "confirmed" as const, author: "System",
-      }));
-      update("changes", [...newChanges, ...state.changes]);
-    }
-  }, [binderId, storeRecord, state, update, setIsoCount]);
-
-  const handleDelete = useCallback(() => {
-    binderStore.delete(binderId);
-    localStorage.removeItem(`mako-binder-${binderId}`);
-    navigate("/binders");
-  }, [binderId, navigate]);
-
-  const handleTransportChange = useCallback((field: "primaryTransport" | "backupTransport", value: string) => {
-    if (isReadOnly) return;
-    binderStore.update(binderId, { [field]: value, ...(field === "primaryTransport" ? { transport: value } : {}) });
-    if (field === "primaryTransport") {
-      update("transport", { ...state.transport, primary: { ...state.transport.primary, protocol: value } });
-    } else {
-      update("transport", { ...state.transport, backup: { ...state.transport.backup, protocol: value } });
-    }
-  }, [binderId, state.transport, update, isReadOnly]);
+  }, [binderId, state, update]);
 
   const lockedSetIsoCount = useCallback((count: number) => { if (!isReadOnly) setIsoCount(count); }, [isReadOnly, setIsoCount]);
   const lockedUpdateSignal = useCallback((iso: number, field: keyof import("@/lib/signal-utils").Signal, value: string) => {
@@ -247,37 +205,6 @@ export default function BinderDetail() {
   const lockedUpdateSignals = useCallback((updater: (signals: import("@/lib/signal-utils").Signal[]) => import("@/lib/signal-utils").Signal[]) => {
     if (!isReadOnly) updateSignals(updater);
   }, [isReadOnly, updateSignals]);
-  const lockedToggleChecklist = useCallback((id: string) => { if (!isReadOnly) toggleChecklist(id); }, [isReadOnly, toggleChecklist]);
-
-  const handleDocAssistApply = useCallback((fields: DetectedField[]) => {
-    const changes: string[] = [];
-    for (const f of fields) {
-      if (f.target === "isoCount") {
-        const newCount = parseInt(f.value);
-        if (!isNaN(newCount) && newCount !== state.isoCount) { setIsoCount(newCount); changes.push(`ISO Count → ${newCount}`); }
-      } else if (f.target.startsWith("eventHeader.")) {
-        const key = f.target.replace("eventHeader.", "") as keyof typeof state.eventHeader;
-        if (state.eventHeader[key] !== undefined) { updateEventHeader({ ...state.eventHeader, [key]: f.value }); changes.push(`${f.label} → ${f.value}`); }
-      } else if (f.target.startsWith("staff.")) {
-        const role = f.target.replace("staff.", "");
-        const newStaff = state.eventHeader.staff.map(s => s.role === role ? { ...s, name: f.value } : s);
-        updateEventHeader({ ...state.eventHeader, staff: newStaff }); changes.push(`Staff ${role} → ${f.value}`);
-      } else if (f.target.startsWith("signal.")) {
-        const iso = parseInt(f.target.split(".")[1]);
-        if (!isNaN(iso)) { updateSignal(iso, "productionAlias", f.value); changes.push(`ISO ${iso} alias → ${f.value}`); }
-      } else if (f.target.startsWith("audioPhilosophy.")) {
-        const key = f.target.replace("audioPhilosophy.", "") as keyof typeof state.audioPhilosophy;
-        updateAudioPhilosophy({ ...state.audioPhilosophy, [key]: f.value }); changes.push(`${f.label} → ${f.value}`);
-      }
-    }
-    if (changes.length > 0) {
-      const newChanges = changes.map((label, i) => ({
-        id: `ch-doc-${Date.now()}-${i}`, label: `Doc Assist: ${label}`,
-        timestamp: new Date().toISOString(), status: "confirmed" as const, author: "Doc Assist",
-      }));
-      update("changes", [...newChanges, ...state.changes]);
-    }
-  }, [state, setIsoCount, updateEventHeader, updateSignal, updateAudioPhilosophy, update]);
 
   if (binderLoading) {
     return (
@@ -290,117 +217,84 @@ export default function BinderDetail() {
   return (
     <div className="relative">
       <BinderCopilot state={state} report={report} />
-      <CommandHeader
-        eventName={binder.title}
-        status={eventStatus}
-        readiness={report.level}
-        reasons={report.reasons}
-        onEdit={isLocked ? undefined : () => setEditOpen(true)}
-        locked={isLocked}
-        lockVersion={state.currentLock?.version}
-      />
 
-      <div className="max-w-6xl mx-auto px-6 pt-4 flex items-center justify-between">
+      {/* ═══ STICKY TOP BAR ═══ */}
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b border-border px-6 py-3"
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <span className="text-[10px] font-medium tracking-[0.2em] uppercase text-primary">
+              MAKO LIVE
+            </span>
+            <div className="w-px h-4 bg-border" />
+            <h1 className="text-sm font-medium text-foreground tracking-tight">{binder.title || "Untitled"}</h1>
+            <span className={`text-[9px] font-medium tracking-[0.15em] uppercase px-2 py-0.5 rounded ${statusStyles[binder.status] || statusStyles.draft}`}>
+              {binder.status}
+            </span>
+            {isLocked && (
+              <span className="flex items-center gap-1 text-[9px] font-medium tracking-[0.15em] uppercase px-2 py-0.5 rounded bg-emerald-900/30 text-emerald-400">
+                <Lock className="w-2.5 h-2.5" />
+                Locked
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            {previewMode && !isLocked && (
+              <Button variant="outline" size="sm" onClick={() => setPreviewMode(false)}
+                className="text-[10px] tracking-wider uppercase gap-1.5">
+                <Pencil className="w-3 h-3" /> Edit Binder
+              </Button>
+            )}
+            {!previewMode && !isLocked && (
+              <Button variant="ghost" size="sm" onClick={() => setPreviewMode(true)}
+                className="text-[10px] tracking-wider uppercase gap-1.5 text-muted-foreground">
+                <Eye className="w-3 h-3" /> Exit Edit Mode
+              </Button>
+            )}
+            {previewMode && (
+              <span className="flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-medium tracking-[0.15em] uppercase rounded bg-secondary text-muted-foreground border border-border">
+                <Eye className="w-2.5 h-2.5" /> Preview
+              </span>
+            )}
+            {!previewMode && !isLocked && (
+              <span className="flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-medium tracking-[0.15em] uppercase rounded bg-primary/10 text-primary border border-primary/30">
+                <Pencil className="w-2.5 h-2.5" /> Editing
+              </span>
+            )}
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${r.dot} ${report.level === "blocked" ? "animate-pulse" : ""}`} />
+              <span className={`text-xs font-medium tracking-wider uppercase ${r.text}`}>{r.label}</span>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* ═══ BREADCRUMB ═══ */}
+      <div className="px-6 pt-4">
         <Link to="/binders"
           className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="w-3 h-3" /> Binders
         </Link>
-        <div className="flex items-center gap-2">
-          {previewMode && !isLocked && (
-            <Button variant="outline" size="sm" onClick={() => setPreviewMode(false)}
-              className="text-[10px] tracking-wider uppercase gap-1.5">
-              <Pencil className="w-3 h-3" /> Edit Binder
-            </Button>
-          )}
-          {!previewMode && !isLocked && (
-            <Button variant="ghost" size="sm" onClick={() => setPreviewMode(true)}
-              className="text-[10px] tracking-wider uppercase gap-1.5 text-muted-foreground">
-              <Eye className="w-3 h-3" /> Exit Edit Mode
-            </Button>
-          )}
-          {previewMode && (
-            <span className="flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-medium tracking-[0.15em] uppercase rounded bg-secondary text-muted-foreground border border-border">
-              <Eye className="w-2.5 h-2.5" /> Preview
-            </span>
-          )}
-          {!previewMode && !isLocked && (
-            <span className="flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-medium tracking-[0.15em] uppercase rounded bg-primary/10 text-primary border border-primary/30">
-              <Pencil className="w-2.5 h-2.5" /> Editing
-            </span>
-          )}
-        </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-6 py-6 space-y-8">
-        {(state.lockHistory?.length > 0) && (
-          <div className="flex items-center gap-3">
-            <span className="text-[9px] tracking-[0.2em] uppercase text-muted-foreground">Version</span>
-            <select
-              className="text-xs bg-secondary border border-border rounded-sm px-2 py-1 text-foreground focus:outline-none focus:border-primary transition-colors"
-              value={selectedVersion}
-              onChange={(e) => setSelectedVersion(e.target.value)}
-            >
-              <option value="current">Current (Working)</option>
-              {state.lockHistory.map((snap) => (
-                <option key={snap.id} value={snap.id}>
-                  Lock v{snap.id.replace("lock-v", "")} — {new Date(snap.lockedAt).toLocaleString()}
-                </option>
-              ))}
-            </select>
-            {selectedVersion !== "current" && (
-              <>
-                <Button variant="outline" size="sm"
-                  onClick={() => { diffRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }}
-                  className="text-[10px] tracking-wider uppercase gap-1.5">
-                  <GitCompare className="w-3 h-3" /> Compare
-                </Button>
-                {(() => {
-                  const snap = state.lockHistory.find(s => s.id === selectedVersion);
-                  return snap ? <PdfExport snapshot={snap} binderTitle={binder.title} /> : null;
-                })()}
-              </>
-            )}
-          </div>
-        )}
+      {/* ═══ MAIN CONTENT — FULL WIDTH ═══ */}
+      <div className="px-6 py-6 space-y-8">
 
-        <EventCommandHeader
-          data={state.eventHeader}
-          onChange={isReadOnly ? () => {} : updateEventHeader}
+        {/* BINDER HEADER (inline, full-width) */}
+        <BinderHeader
+          data={headerData}
+          onChange={isReadOnly ? () => {} : handleHeaderChange}
           readOnly={isReadOnly}
-          onGenerateTxRx={isReadOnly ? undefined : generateTxRx}
         />
 
-        {!isReadOnly && (
-          <div className="flex justify-end">
-            <Button variant="outline" size="sm" onClick={() => setDocAssistOpen(true)}
-              className="text-[10px] tracking-wider uppercase">
-              <Wand2 className="w-3 h-3 mr-1" /> Doc-to-Binder Assist
-            </Button>
-          </div>
-        )}
-
+        {/* AUDIO PHILOSOPHY */}
         <AudioPhilosophy data={state.audioPhilosophy} onChange={isReadOnly ? () => {} : updateAudioPhilosophy} readOnly={isReadOnly} />
 
-        <CommandBrief
-          venue={state.venue} partner={state.partner} isoCount={state.isoCount}
-          report={report} issues={state.issues} changes={state.changes} checklist={state.checklist}
-        />
-
-
-        <ProductionDefinition
-          league={state.league} venue={state.venue} partner={state.partner}
-          showType={state.showType} eventDate={state.eventDate} isoCount={state.isoCount}
-          onIsoCountChange={lockedSetIsoCount}
-          returnRequired={state.returnRequired}
-          onReturnRequiredChange={(v) => !isReadOnly && update("returnRequired", v)}
-          commercials={state.commercials}
-          onCommercialsChange={(v) => !isReadOnly && update("commercials", v)}
-          onFieldChange={(field, value) => !isReadOnly && update(field as keyof typeof state, value)}
-          primaryTransport={storeRecord?.primaryTransport || binder.transport}
-          backupTransport={storeRecord?.backupTransport || binder.backupTransport}
-          onTransportChange={isReadOnly ? undefined : handleTransportChange}
-        />
-
+        {/* SIGNAL MATRIX */}
         <SignalMatrix
           signals={state.signals} report={report}
           onUpdateSignal={lockedUpdateSignal}
@@ -408,9 +302,8 @@ export default function BinderDetail() {
           topology={state.topology}
           routes={routesState.routes}
         />
-        <TransportProfile config={state.transport} returnRequired={state.returnRequired} />
 
-        {/* ═══ BINDER ROUTES OVERLAY ═══ */}
+        {/* BINDER ROUTES */}
         <motion.section
           id="binder-routes"
           initial={{ opacity: 0, y: 12 }}
@@ -428,9 +321,10 @@ export default function BinderDetail() {
           />
         </motion.section>
 
+        {/* DOCUMENTS */}
         <DocumentArchive docs={state.docs} onAddDoc={isReadOnly ? () => {} : addDoc} onRemoveDoc={isReadOnly ? () => {} : removeDoc} onUpdateDoc={isReadOnly ? () => {} : updateDoc} />
 
-        {/* ═══ NOTES ═══ */}
+        {/* NOTES */}
         <motion.section
           id="notes"
           initial={{ opacity: 0, y: 12 }}
@@ -455,6 +349,7 @@ export default function BinderDetail() {
           </div>
         </motion.section>
 
+        {/* CHECKLIST */}
         <motion.section
           id="checklist"
           initial={{ opacity: 0, y: 12 }}
@@ -500,92 +395,8 @@ export default function BinderDetail() {
           </div>
         </motion.section>
 
-        <ActivityPanel binderId={binderId} />
-
         <SaveBar isDirty={checklistDirty && !isReadOnly} onSave={saveChecklist} onDiscard={discardChecklist} />
-
-        <div ref={diffRef}>
-          <DiffView
-            currentState={state}
-            lockHistory={state.lockHistory || []}
-            preSelectedVersion={selectedVersion !== "current" ? selectedVersion : undefined}
-          />
-        </div>
       </div>
-
-      <BinderFormModal
-        open={editOpen}
-        onClose={() => setEditOpen(false)}
-        onSubmit={handleEditSubmit}
-        onDelete={handleDelete}
-        mode="edit"
-        oldIsoCount={state.isoCount}
-        initial={{
-          title: binder.title, league: "NHL",
-          containerId: storeRecord?.containerId || "",
-          gameType: storeRecord?.gameType || "Regular Season",
-          season: storeRecord?.season || "2025–26",
-          eventDate: state.eventDate, eventTime: state.eventTime || "19:00",
-          timezone: state.timezone || "America/New_York",
-          venue: state.venue,
-          homeTeam: state.homeTeam || storeRecord?.homeTeam || "",
-          awayTeam: state.awayTeam || storeRecord?.awayTeam || "",
-          siteType: state.siteType || storeRecord?.siteType || "Arena",
-          studioLocation: storeRecord?.studioLocation || "",
-          showType: state.showType,
-          customShowType: storeRecord?.customShowType || "",
-          partner: state.partner, status: binder.status, isoCount: state.isoCount,
-          returnRequired: state.returnRequired, commercials: state.commercials,
-          customCommercials: storeRecord?.customCommercials || "",
-          primaryTransport: storeRecord?.primaryTransport || binder.transport,
-          customPrimaryTransport: storeRecord?.customPrimaryTransport || "",
-          backupTransport: storeRecord?.backupTransport || binder.backupTransport,
-          customBackupTransport: storeRecord?.customBackupTransport || "",
-          notes: storeRecord?.notes || "",
-          signalNamingMode: storeRecord?.signalNamingMode || "iso",
-          canonicalSignals: storeRecord?.canonicalSignals || [],
-          customSignalNames: storeRecord?.customSignalNames || "",
-          encoderInputsPerUnit: state.topology?.encoderInputsPerUnit || storeRecord?.encoderInputsPerUnit || 2,
-          encoderCount: state.topology?.encoderCount || storeRecord?.encoderCount || 6,
-          decoderOutputsPerUnit: state.topology?.decoderOutputsPerUnit || storeRecord?.decoderOutputsPerUnit || 4,
-          decoderCount: state.topology?.decoderCount || storeRecord?.decoderCount || 6,
-          autoAllocate: storeRecord?.autoAllocate ?? true,
-          srtPrimaryHost: "", srtPrimaryPort: "", srtPrimaryMode: "caller", srtPrimaryPassphrase: "",
-          mpegPrimaryMulticast: "", mpegPrimaryPort: "",
-          srtBackupHost: "", srtBackupPort: "", srtBackupMode: "caller", srtBackupPassphrase: "",
-          mpegBackupMulticast: "", mpegBackupPort: "",
-          saveAsTemplate: false, templateName: "",
-          controlRoom: storeRecord?.controlRoom || "23",
-          rehearsalDate: storeRecord?.rehearsalDate || "",
-          broadcastFeed: storeRecord?.broadcastFeed || "",
-          onsiteTechManager: storeRecord?.onsiteTechManager || "",
-          returnFeedEndpoints: storeRecord?.returnFeedEndpoints || [],
-          encoders: storeRecord?.encoders || [{ id: "enc-1", brand: "Videon", model: "", outputsPerUnit: 4, unitCount: 2, notes: "" }],
-          decoders: storeRecord?.decoders || [{ id: "dec-1", brand: "Haivision", model: "", outputsPerUnit: 2, unitCount: 6, notes: "" }],
-          outboundHost: storeRecord?.outboundHost || "",
-          outboundPort: storeRecord?.outboundPort || "",
-          inboundHost: storeRecord?.inboundHost || "",
-          inboundPort: storeRecord?.inboundPort || "",
-          backupOutboundHost: "",
-          backupOutboundPort: "",
-          backupInboundHost: "",
-          backupInboundPort: "",
-          lqRequired: storeRecord?.lqRequired ?? false,
-          lqPorts: storeRecord?.lqPorts || [
-            { letter: "E", label: "Truck AD", notes: "" },
-            { letter: "F", label: "Truck Production", notes: "" },
-            { letter: "G", label: "Cam Ops", notes: "" },
-            { letter: "H", label: "TBD", notes: "" },
-          ],
-        }}
-      />
-
-      <DocToBinderAssist
-        open={docAssistOpen}
-        onClose={() => setDocAssistOpen(false)}
-        state={state}
-        onApply={handleDocAssistApply}
-      />
     </div>
   );
 }
