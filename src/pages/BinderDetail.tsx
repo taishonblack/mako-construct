@@ -12,6 +12,9 @@ import { BinderRoutesSection } from "@/components/routes/BinderRoutesSection";
 
 import { BinderHeader, type BinderHeaderData } from "@/components/binder/BinderHeader";
 import { IsoRoutingTable } from "@/components/binder/IsoRoutingTable";
+import { LqUnitSection } from "@/components/binder/LqUnitSection";
+import { BitfireSection } from "@/components/binder/BitfireSection";
+import { HardwarePoolSection } from "@/components/binder/HardwarePoolSection";
 import { DocumentArchive } from "@/components/command/DocumentArchive";
 import { ChecklistTable } from "@/components/checklist/ChecklistTable";
 import { SaveBar } from "@/components/checklist/SaveBar";
@@ -301,6 +304,32 @@ export default function BinderDetail() {
           partner={state.partner || binder.partner}
           readOnly={isReadOnly}
         />
+
+        {/* ONSITE CONFIGURATION */}
+        <div className="space-y-6">
+          <h2 className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground border-b border-border pb-2">
+            Onsite Configuration
+          </h2>
+
+          <LqUnitSection
+            config={state.lqConfig}
+            onChange={(c) => !isReadOnly && update("lqConfig", c)}
+            readOnly={isReadOnly}
+          />
+
+          <BitfireSection
+            config={state.bitfireConfig}
+            onChange={(c) => !isReadOnly && update("bitfireConfig", c)}
+            readOnly={isReadOnly}
+          />
+
+          <HardwarePoolSection
+            config={state.hardwarePool}
+            onChange={(c) => !isReadOnly && update("hardwarePool", c)}
+            readOnly={isReadOnly}
+            isoRoutedToDecoders={(state.isoRoutingRows || []).filter(r => r.destinationType === "ISO Record" || r.destinationType === "Program").length}
+          />
+        </div>
 
         {/* BINDER ROUTES */}
         <motion.section

@@ -9,6 +9,12 @@ import type { AudioPhilosophyData } from "@/components/command/AudioPhilosophy";
 import { DEFAULT_AUDIO_PHILOSOPHY } from "@/components/command/AudioPhilosophy";
 import type { IsoRoutingRow } from "@/lib/iso-routing-types";
 import { createDefaultIsoRow } from "@/lib/iso-routing-types";
+import type { LqConfig } from "@/components/binder/LqUnitSection";
+import { DEFAULT_LQ_CONFIG } from "@/components/binder/LqUnitSection";
+import type { BitfireConfig } from "@/components/binder/BitfireSection";
+import { DEFAULT_BITFIRE_CONFIG } from "@/components/binder/BitfireSection";
+import type { HardwarePoolConfig } from "@/components/binder/HardwarePoolSection";
+import { DEFAULT_HARDWARE_POOL } from "@/components/binder/HardwarePoolSection";
 
 export type ChecklistStatus = "open" | "in-progress" | "done";
 
@@ -78,6 +84,9 @@ export interface BinderState {
   audioPhilosophy: AudioPhilosophyData;
   notes: string;
   isoRoutingRows: IsoRoutingRow[];
+  lqConfig: LqConfig;
+  bitfireConfig: BitfireConfig;
+  hardwarePool: HardwarePoolConfig;
 }
 
 const STORAGE_KEY = "mako-binder-";
@@ -139,6 +148,9 @@ function buildInitialState(_id: string): BinderState {
     audioPhilosophy: { ...DEFAULT_AUDIO_PHILOSOPHY },
     notes: "",
     isoRoutingRows: Array.from({ length: 12 }, (_, i) => createDefaultIsoRow(i + 1)),
+    lqConfig: { ...DEFAULT_LQ_CONFIG },
+    bitfireConfig: { ...DEFAULT_BITFIRE_CONFIG },
+    hardwarePool: { ...DEFAULT_HARDWARE_POOL },
   };
 }
 
@@ -159,6 +171,9 @@ export function useBinderState(binderId: string) {
         if (!parsed.eventHeader) parsed.eventHeader = { ...DEFAULT_EVENT_HEADER };
         if (!parsed.audioPhilosophy) parsed.audioPhilosophy = { ...DEFAULT_AUDIO_PHILOSOPHY };
         if (parsed.notes === undefined) parsed.notes = "";
+        if (!parsed.lqConfig) parsed.lqConfig = { ...DEFAULT_LQ_CONFIG };
+        if (!parsed.bitfireConfig) parsed.bitfireConfig = { ...DEFAULT_BITFIRE_CONFIG };
+        if (!parsed.hardwarePool) parsed.hardwarePool = { ...DEFAULT_HARDWARE_POOL };
         if (!parsed.isoRoutingRows) {
           // Migrate from signals to isoRoutingRows
           if (parsed.signals && parsed.signals.length > 0) {
