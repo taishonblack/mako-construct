@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, Eye, Pencil, Lock } from "lucide-react";
+import { ArrowLeft, Eye, Pencil, Lock, Save, FolderOpen, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useBinder } from "@/hooks/use-binders";
@@ -17,6 +17,7 @@ import { BitfireSection } from "@/components/binder/BitfireSection";
 import { HardwarePoolSection } from "@/components/binder/HardwarePoolSection";
 import { DocumentArchive } from "@/components/command/DocumentArchive";
 import { ChecklistTable } from "@/components/checklist/ChecklistTable";
+import { ChecklistTemplateBar } from "@/components/checklist/ChecklistTemplateBar";
 import { SaveBar } from "@/components/checklist/SaveBar";
 import { useDisplayName } from "@/hooks/use-display-name";
 import { AudioPhilosophy } from "@/components/command/AudioPhilosophy";
@@ -384,6 +385,27 @@ export default function BinderDetail() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.7 }}
         >
+          <ChecklistTemplateBar
+            items={draftChecklist}
+            onLoadItems={(items) => {
+              if (!isReadOnly) {
+                setDraftChecklist((prev) => [
+                  ...prev,
+                  ...items.map((t, i) => ({
+                    id: `ck-${Date.now()}-${i}`,
+                    label: t.label,
+                    checked: false,
+                    assignedTo: t.assignedTo,
+                    dueAt: "",
+                    createdAt: new Date().toISOString(),
+                    status: "open" as const,
+                    notes: t.notes,
+                  })),
+                ]);
+              }
+            }}
+            readOnly={isReadOnly}
+          />
           <div className="flex items-center gap-3 mb-3">
             <h2 className="text-[10px] tracking-[0.2em] uppercase text-muted-foreground">Checklist</h2>
             <span className={`text-[10px] font-mono ${draftChecklist.filter(c => c.status === "done" || c.checked).length === draftChecklist.length ? "text-emerald-500" : "text-muted-foreground"}`}>
